@@ -31,6 +31,23 @@ export default function ProfilePage() {
     setMounted(true);
   }, []);
 
+  // Registra a visualização do perfil — é o denominador da taxa de clique.
+  //
+  // `keepalive` porque a pessoa pode tocar num link imediatamente: sem ele o
+  // navegador cancela a requisição ao sair da página e a view some, inflando a
+  // taxa de clique justamente nos perfis que convertem mais rápido.
+  useEffect(() => {
+    if (!isValidSlug || !slug) return;
+    fetch("/api/tracking/view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+      keepalive: true,
+    }).catch(() => {
+      // Falha de rastreamento nunca afeta a página do visitante.
+    });
+  }, [isValidSlug, slug]);
+
   // Aplicar tema
   useEffect(() => {
     if (!mounted || !user) return;

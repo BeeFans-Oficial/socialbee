@@ -37,3 +37,6 @@ yarn-error.log*
 
 # typescript
 *.tsbuildinfo
+
+# tracking local store (dados de clique gravados em arquivo)
+/.data/
