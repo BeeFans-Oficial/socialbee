@@ -236,9 +236,3 @@ export const THEMES: Theme[] = [
     preview: ["#080808", "#ffffff", "#888888"],
   },
 ];
-
-// Legacy exports for compatibility
-export const mockUser = MOCK_USER;
-export const mockLinks = MOCK_LINKS;
-export const mockAnalytics = MOCK_ANALYTICS;
-export const mockThemes = THEMES;
