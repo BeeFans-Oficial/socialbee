@@ -110,38 +110,3 @@ export function handleLinkClick(
     window.location.href = redirectUrl;
   }
 }
-
-// Função auxiliar para detectar crawlers (server-side)
-export function detectCrawler(userAgent: string): boolean {
-  const crawlerPatterns = [
-    /bot/i,
-    /crawl/i,
-    /spider/i,
-    /slurp/i,
-    /mediapartners/i,
-    /facebookexternalhit/i,
-    /whatsapp/i,
-    /telegram/i,
-    /discordbot/i,
-    /twitterbot/i,
-    /linkedinbot/i,
-    /pinterest/i,
-    /slackbot/i,
-    /telegrambot/i,
-    /bingbot/i,
-    /googlebot/i,
-    /yandex/i,
-    /baiduspider/i,
-  ];
-
-  return crawlerPatterns.some((pattern) => pattern.test(userAgent));
-}
-
-// Função para obter conteúdo "limpo" para crawlers (server-side)
-export function getCloakedContent(user: any, links: any[]) {
-  return {
-    title: `${user.displayName} - BeeSocial`,
-    description: user.bio.slice(0, 160),
-    links: links.filter((link) => link.isActive).map((link) => link.url),
-  };
-}

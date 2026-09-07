@@ -102,7 +102,7 @@ export default function LandingPage() {
                 <ArrowRight className="w-5 h-5" />
               </Link>
               <Link
-                href="/demo"
+                href="/bella"
                 className="text-bee-muted hover:text-bee-pink transition-colors inline-flex items-center gap-2"
               >
                 Ver exemplo
