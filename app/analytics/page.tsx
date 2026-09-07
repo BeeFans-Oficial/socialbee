@@ -1,12 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Eye,
-  MousePointer2,
-  Smartphone,
-  TrendingUp,
-} from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -17,218 +12,219 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { MOCK_ANALYTICS, MOCK_LINKS } from "@/lib/mock-data";
-import { formatNumber } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { MOCK_LINKS } from "@/lib/mock-data";
+import type { LinkCounters, TrackingReport } from "@/lib/tracking/types";
+import { cn, formatNumber, getPlatformColor, getPlatformIcon } from "@/lib/utils";
+
+/**
+ * Analytics.
+ *
+ * Lê `/api/tracking/report` — o que foi de fato registrado pelo
+ * redirecionador. Os números inventados que estavam aqui antes
+ * (`+18% vs mês anterior`, `instagramClicks`, origens fixas em código) foram
+ * removidos: comparar com o período anterior exige buscar o período anterior, e
+ * enquanto isso não existir é mais honesto mostrar um dado real no lugar do
+ * delta do que estampar um número que ninguém mediu.
+ */
+
+type Period = "7d" | "30d" | "90d";
+
+const PERIOD_DAYS: Record<Period, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+interface ReportResponse {
+  days: number;
+  report: TrackingReport;
+  counters: Record<string, LinkCounters>;
+}
+
+/** Paleta de reserva para chaves de origem que não são plataforma conhecida
+ *  (um domínio de referrer qualquer, uma utm_source nova). Índice por hash do
+ *  nome: a mesma origem recebe sempre a mesma cor entre recarregamentos. */
+const FALLBACK_COLORS = ["#9b6dff", "#00d4aa", "#ff9f43", "#4ade80", "#5b8def", "#888888"];
+
+function colorForKey(key: string): string {
+  if (key === "(direto)") return "#888888";
+  const known = getPlatformColor(key);
+  if (known !== "#FF3C6E" || key === "custom") return known;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return FALLBACK_COLORS[hash % FALLBACK_COLORS.length];
+}
+
+/** `2026-09-07` → `07/09`, o formato que o eixo do gráfico já usava. */
+function shortDate(iso: string): string {
+  const [, month, day] = iso.split("-");
+  return `${day}/${month}`;
+}
+
+const linkTitles = new Map(MOCK_LINKS.map((link) => [link.id, link.title]));
 
 export default function AnalyticsPage() {
+  const [period, setPeriod] = useState<Period>("30d");
+  const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<"7d" | "30d" | "90d">("30d");
+  const [error, setError] = useState<string | null>(null);
 
-  // Simular loading
-  useEffect(() => {
-    setTimeout(() => {
+  const load = useCallback(async (days: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/tracking/report?days=${days}`, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setData((await res.json()) as ReportResponse);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "falha desconhecida");
+    } finally {
       setLoading(false);
-    }, 800);
+    }
   }, []);
 
-  // Filtrar dados por período
-  const getFilteredData = () => {
-    const days = period === "7d" ? 7 : period === "30d" ? 30 : 90;
-    return MOCK_ANALYTICS.dailyData.slice(-days);
-  };
+  useEffect(() => {
+    void load(PERIOD_DAYS[period]);
+  }, [period, load]);
 
-  const filteredData = getFilteredData();
-
-  // Ordenar links por clicks
-  const topLinks = [...MOCK_LINKS]
-    .filter((link) => link.isActive)
-    .sort((a, b) => b.clicks - a.clicks);
-
-  // Origens dos cliques
-  const clickSources = [
-    {
-      name: "Instagram",
-      value: 2104,
-      percentage: 52,
-      color: "#E1306C",
-      emoji: "📸",
-    },
-    {
-      name: "WhatsApp",
-      value: 620,
-      percentage: 15,
-      color: "#25D366",
-      emoji: "💬",
-    },
-    {
-      name: "Telegram",
-      value: 480,
-      percentage: 12,
-      color: "#229ED9",
-      emoji: "✈️",
-    },
-    {
-      name: "Direto",
-      value: 416,
-      percentage: 10,
-      color: "#888888",
-      emoji: "🌐",
-    },
-    {
-      name: "Outros",
-      value: 400,
-      percentage: 10,
-      color: "#555555",
-      emoji: "📊",
-    },
-  ];
-
-  // Custom Tooltip
   const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div
-          className="rounded-lg p-3 shadow-xl"
-          style={{
-            backgroundColor: "#1e1e1e",
-            border: "1px solid rgba(255, 60, 110, 0.3)",
-          }}
-        >
-          <p className="text-xs text-white font-medium mb-1">
-            {payload[0].payload.date}
-          </p>
-          <p className="text-xs text-bee-muted">
-            Visualizações: <span className="text-white">{payload[0].value}</span>
-          </p>
-          <p className="text-xs text-bee-muted">
-            Cliques: <span className="text-bee-pink">{payload[1].value}</span>
-          </p>
-        </div>
-      );
-    }
-    return null;
+    if (!active || !payload?.length) return null;
+    return (
+      <div
+        className="rounded-lg p-3 shadow-xl"
+        style={{ backgroundColor: "#1e1e1e", border: "1px solid rgba(255, 60, 110, 0.3)" }}
+      >
+        <p className="text-xs text-white font-medium mb-1">{payload[0].payload.label}</p>
+        <p className="text-xs text-bee-muted">
+          Visualizações: <span className="text-white">{payload[0].value}</span>
+        </p>
+        <p className="text-xs text-bee-muted">
+          Cliques: <span className="text-bee-pink">{payload[1].value}</span>
+        </p>
+      </div>
+    );
   };
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="min-h-screen p-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Stats Cards Skeleton */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-32 bg-bee-surface rounded-xl animate-pulse"
-              />
+              <div key={i} className="h-32 bg-bee-surface rounded-xl animate-pulse" />
             ))}
           </div>
-
-          {/* Chart Skeleton */}
           <div className="h-96 bg-bee-surface rounded-xl animate-pulse" />
-
-          {/* Table Skeleton */}
           <div className="h-64 bg-bee-surface rounded-xl animate-pulse" />
         </div>
       </div>
     );
   }
 
+  if (error || !data) {
+    return (
+      <div className="min-h-screen p-8">
+        <div className="max-w-md mx-auto text-center py-20">
+          <h1 className="font-bebas text-3xl uppercase text-white mb-2">Analytics indisponível</h1>
+          <p className="text-sm text-bee-muted mb-6">
+            Não foi possível carregar o relatório{error ? `: ${error}` : "."}
+          </p>
+          <button
+            onClick={() => void load(PERIOD_DAYS[period])}
+            className="px-5 py-2.5 rounded-full bg-bee-pink text-white text-sm font-bold uppercase tracking-wider glow-pink-sm"
+          >
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const { report, counters } = data;
+  const chartData = report.daily.map((day) => ({ ...day, label: shortDate(day.date) }));
+  const inAppShare = report.clicks ? Math.round((report.inAppClicks / report.clicks) * 100) : 0;
+  const hasTraffic = report.clicks > 0 || report.views > 0;
+
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Stats Cards */}
+        {/* Métricas */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
             icon={Eye}
             iconBg="rgba(255, 60, 110, 0.15)"
             label="Visualizações"
-            value={formatNumber(MOCK_ANALYTICS.totalViews)}
-            change="+18%"
-            changePeriod="vs mês anterior"
-            changeType="positive"
+            value={formatNumber(report.views)}
+            change={`últimos ${data.days} dias`}
+            changeType="neutral"
           />
           <StatsCard
             icon={MousePointer2}
             iconBg="rgba(255, 160, 60, 0.15)"
             label="Cliques"
-            value={formatNumber(MOCK_ANALYTICS.totalClicks)}
-            change="+24%"
-            changePeriod="vs mês anterior"
-            changeType="positive"
+            value={formatNumber(report.clicks)}
+            change={`últimos ${data.days} dias`}
+            changeType="neutral"
           />
+          {/* Agnóstico de propósito: mede tráfego preso em QUALQUER navegador
+              embutido, não só Instagram. É o número que justifica o escape. */}
           <StatsCard
             icon={Smartphone}
             iconBg="rgba(225, 48, 108, 0.15)"
-            label="Do Instagram"
-            value={formatNumber(MOCK_ANALYTICS.instagramClicks)}
-            change="52% do total"
+            label="Dentro de app"
+            value={formatNumber(report.inAppClicks)}
+            change={`${inAppShare}% dos cliques`}
             changeType="neutral"
           />
           <StatsCard
             icon={TrendingUp}
             iconBg="rgba(100, 220, 100, 0.15)"
-            label="Conversão"
-            value={`${MOCK_ANALYTICS.conversionRate}%`}
-            change="+3.1pp"
-            changeType="positive"
+            label="Cliques por visita"
+            value={report.views ? report.clickRate.toFixed(2) : "—"}
+            change={report.views ? `${report.clicks} / ${report.views}` : "sem visitas"}
+            changeType="neutral"
           />
         </div>
 
-        {/* Chart */}
+        {/* Robôs filtrados — fica visível para o número baixo não parecer perda
+            de tráfego. */}
+        {report.botHits > 0 && (
+          <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-bee-surface px-5 py-4">
+            <ShieldCheck className="w-5 h-5 text-bee-muted flex-shrink-0" />
+            <p className="text-xs text-bee-muted">
+              <span className="text-white font-medium">{formatNumber(report.botHits)}</span>{" "}
+              requisições de robô foram redirecionadas mas não contadas — prévias de link do
+              WhatsApp, Telegram, Discord e crawlers de busca. Total histórico, não só da janela.
+            </p>
+          </div>
+        )}
+
+        {/* Gráfico */}
         <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
-          {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="font-bebas text-2xl uppercase text-white">
-              PERFORMANCE 30 DIAS
+              Performance {data.days} dias
             </h2>
-
-            {/* Period Filter */}
             <div className="flex gap-2">
-              {[
-                { id: "7d", label: "7d" },
-                { id: "30d", label: "30d" },
-                { id: "90d", label: "90d" },
-              ].map((p) => (
+              {(Object.keys(PERIOD_DAYS) as Period[]).map((p) => (
                 <button
-                  key={p.id}
-                  onClick={() => setPeriod(p.id as any)}
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  disabled={loading}
                   className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-all",
-                    period === p.id
-                      ? "bg-bee-pink text-white"
-                      : "bg-bee-bg text-bee-muted hover:text-white"
+                    "px-3 py-1 rounded-full text-xs font-medium transition-all disabled:opacity-50",
+                    period === p ? "bg-bee-pink text-white" : "bg-bee-bg text-bee-muted hover:text-white",
                   )}
                 >
-                  {p.label}
+                  {p}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Chart */}
           <ResponsiveContainer width="100%" height={280}>
-            <LineChart data={filteredData}>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="rgba(255, 255, 255, 0.05)"
-              />
-              <XAxis
-                dataKey="date"
-                stroke="#555"
-                tick={{ fontSize: 11 }}
-                tickLine={false}
-              />
-              <YAxis stroke="#555" tick={{ fontSize: 11 }} tickLine={false} />
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
+              <XAxis dataKey="label" stroke="#555" tick={{ fontSize: 11 }} tickLine={false} />
+              <YAxis stroke="#555" tick={{ fontSize: 11 }} tickLine={false} allowDecimals={false} />
               <Tooltip content={<CustomTooltip />} />
-              <Line
-                type="monotone"
-                dataKey="views"
-                stroke="#555"
-                strokeWidth={2}
-                dot={false}
-                name="Visualizações"
-              />
+              <Line type="monotone" dataKey="views" stroke="#555" strokeWidth={2} dot={false} name="Visualizações" />
               <Line
                 type="monotone"
                 dataKey="clicks"
@@ -241,7 +237,6 @@ export default function AnalyticsPage() {
             </LineChart>
           </ResponsiveContainer>
 
-          {/* Legend */}
           <div className="flex items-center justify-center gap-6 mt-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-[#555]" />
@@ -254,137 +249,138 @@ export default function AnalyticsPage() {
           </div>
         </section>
 
-        {/* Top Links Table */}
-        <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
-          <h2 className="font-bebas text-2xl uppercase text-white mb-6">
-            TOP LINKS
-          </h2>
+        {!hasTraffic && (
+          <div className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
+            <h3 className="font-bebas text-2xl uppercase text-white mb-2">Nenhum clique ainda</h3>
+            <p className="text-sm text-bee-muted max-w-md mx-auto">
+              O rastreamento está ativo. Abra{" "}
+              <span className="text-bee-pink">/bella</span> e toque em um link — o clique aparece
+              aqui na hora.
+            </p>
+          </div>
+        )}
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/5">
-                  <th className="text-left text-xs font-medium text-bee-muted pb-3">
-                    Link
-                  </th>
-                  <th className="text-right text-xs font-medium text-bee-muted pb-3">
-                    Cliques
-                  </th>
-                  <th className="text-right text-xs font-medium text-bee-muted pb-3">
-                    % Total
-                  </th>
-                  <th className="text-right text-xs font-medium text-bee-muted pb-3">
-                    Instagram
-                  </th>
-                  <th className="w-32 text-xs font-medium text-bee-muted pb-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {topLinks.map((link, index) => {
-                  const percentage = (
-                    (link.clicks / MOCK_ANALYTICS.totalClicks) *
-                    100
-                  ).toFixed(1);
-                  const instagramClicks = Math.floor(link.clicks * 0.5);
-
-                  return (
-                    <tr
-                      key={link.id}
-                      className={cn(
-                        "border-b border-white/5",
-                        index % 2 === 1 && "bg-white/[0.02]"
-                      )}
-                    >
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm">{link.platform}</span>
-                          <span className="text-sm text-white truncate max-w-[200px]">
-                            {link.title}
+        {/* Top links */}
+        {report.byLink.length > 0 && (
+          <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
+            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Top links</h2>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="text-left text-xs font-medium text-bee-muted pb-3">Link</th>
+                    <th className="text-right text-xs font-medium text-bee-muted pb-3">Cliques</th>
+                    <th className="text-right text-xs font-medium text-bee-muted pb-3">% Total</th>
+                    <th className="text-right text-xs font-medium text-bee-muted pb-3">Histórico</th>
+                    <th className="w-32 pb-3" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.byLink.map((row, index) => {
+                    const share = (row.share * 100).toFixed(1);
+                    return (
+                      <tr
+                        key={row.linkId}
+                        className={cn("border-b border-white/5", index % 2 === 1 && "bg-white/[0.02]")}
+                      >
+                        <td className="py-3 pr-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{getPlatformIcon(row.channel ?? "")}</span>
+                            <span className="text-sm text-white truncate max-w-[220px]">
+                              {linkTitles.get(row.linkId) ?? row.linkId}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right text-sm text-white">
+                          {formatNumber(row.clicks)}
+                        </td>
+                        <td className="py-3 text-right">
+                          <span
+                            className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
+                            style={{ backgroundColor: "rgba(255, 60, 110, 0.1)", color: "#FF3C6E" }}
+                          >
+                            {share}%
                           </span>
-                        </div>
-                      </td>
-                      <td className="py-3 text-right text-sm text-white">
-                        {formatNumber(link.clicks)}
-                      </td>
-                      <td className="py-3 text-right">
-                        <span
-                          className="inline-block px-2 py-0.5 rounded-full text-xs font-medium"
-                          style={{
-                            backgroundColor: "rgba(255, 60, 110, 0.1)",
-                            color: "#FF3C6E",
-                          }}
-                        >
-                          {percentage}%
-                        </span>
-                      </td>
-                      <td className="py-3 text-right text-sm text-bee-muted">
-                        {formatNumber(instagramClicks)} 📱
-                      </td>
-                      <td className="py-3 pl-4">
-                        <div className="w-full h-2 bg-bee-bg rounded-full overflow-hidden">
-                          <div
-                            className="h-full rounded-full"
-                            style={{
-                              width: `${percentage}%`,
-                              background:
-                                "linear-gradient(90deg, #FF3C6E, #FF1F57)",
-                            }}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </section>
+                        </td>
+                        {/* Contador desnormalizado: sobrevive à expiração do
+                            evento cru, então é o total de sempre. */}
+                        <td className="py-3 text-right text-sm text-bee-muted">
+                          {formatNumber(counters[row.linkId]?.clicks ?? 0)}
+                        </td>
+                        <td className="py-3 pl-4">
+                          <div className="w-full h-2 bg-bee-bg rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{
+                                width: `${share}%`,
+                                background: "linear-gradient(90deg, #FF3C6E, #FF1F57)",
+                              }}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
-        {/* Click Sources */}
-        <section>
-          <h2 className="font-bebas text-2xl uppercase text-white mb-6">
-            ORIGEM DOS CLIQUES
-          </h2>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {clickSources.map((source) => (
-              <div
-                key={source.name}
-                className="bg-bee-surface rounded-xl p-4 border border-white/5"
-              >
-                {/* Emoji */}
-                <div className="text-2xl mb-3">{source.emoji}</div>
-
-                {/* Value */}
-                <div className="font-bebas text-2xl text-white mb-1">
-                  {formatNumber(source.value)}
-                </div>
-
-                {/* Name */}
-                <div className="text-xs text-bee-muted mb-3">{source.name}</div>
-
-                {/* Progress Bar */}
-                <div className="w-full h-1.5 bg-bee-bg rounded-full overflow-hidden mb-2">
+        {/* Origem dos cliques — quebras montadas a partir do que foi medido, não
+            de uma lista fixa de plataformas. */}
+        {report.bySource.length > 0 && (
+          <section>
+            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Origem dos cliques</h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+              {report.bySource.slice(0, 10).map((source) => {
+                const color = colorForKey(source.key);
+                const percentage = Math.round(source.share * 100);
+                return (
                   <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${source.percentage}%`,
-                      backgroundColor: source.color,
-                    }}
-                  />
-                </div>
+                    key={source.key}
+                    className="bg-bee-surface rounded-xl p-4 border border-white/5"
+                  >
+                    <div className="text-2xl mb-3">{getPlatformIcon(source.key)}</div>
+                    <div className="font-bebas text-2xl text-white mb-1">
+                      {formatNumber(source.clicks)}
+                    </div>
+                    <div className="text-xs text-bee-muted mb-3 truncate" title={source.key}>
+                      {source.key}
+                    </div>
+                    <div className="w-full h-1.5 bg-bee-bg rounded-full overflow-hidden mb-2">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${percentage}%`, backgroundColor: color }}
+                      />
+                    </div>
+                    <div className="text-xs font-medium" style={{ color }}>
+                      {percentage}%
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
-                {/* Percentage */}
-                <div
-                  className="text-xs font-medium"
-                  style={{ color: source.color }}
-                >
-                  {source.percentage}%
+        {/* Campanhas — só aparece quando existe UTM medido. */}
+        {report.byCampaign.length > 0 && (
+          <section>
+            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Campanhas</h2>
+            <div className="bg-bee-surface rounded-xl border border-white/5 divide-y divide-white/5">
+              {report.byCampaign.slice(0, 10).map((campaign) => (
+                <div key={campaign.key} className="flex items-center justify-between px-5 py-3">
+                  <span className="text-sm text-white truncate">{campaign.key}</span>
+                  <span className="text-sm text-bee-muted">
+                    {formatNumber(campaign.clicks)}{" "}
+                    <span className="text-bee-dim">({Math.round(campaign.share * 100)}%)</span>
+                  </span>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -5,9 +5,9 @@ Link na bio para criadoras de conteúdo adulto. O diferencial pretendido é o
 limpa aos robôs da rede, para que links de OnlyFans/Privacy/Telegram não sejam
 bloqueados.
 
-> **Estado: protótipo de frontend.** Não há backend, banco, autenticação nem
-> persistência. Todo estado vive em `useState` sobre `lib/mock-data.ts` e se
-> perde no refresh.
+> **Estado: protótipo.** O rastreamento de links é real e persiste em disco
+> (ver abaixo). O resto — perfil, links, aparência — vive em `useState` sobre
+> `lib/mock-data.ts` e se perde no refresh. Não há autenticação nem banco.
 
 ## Rodar
 
@@ -33,20 +33,61 @@ Tailwind 3.4 · framer-motion · @dnd-kit · recharts · sonner · Radix
 | `/login` · `/cadastro` | UI completa, autenticação falsa |
 | `/links` | Dashboard principal: drag & drop, CRUD, modal com abas Link/Aparência/Perfil |
 | `/aparencia` | Perfil, temas, estilos de botão, preview em celular |
-| `/analytics` | Métricas e gráficos sobre dados mockados |
+| `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento |
 | `/configuracoes` | Placeholder |
 | `/dashboard` | Existe, mas a Sidebar não aponta para lá |
-| `/[slug]` | Perfil público. Só `bella` e `demo` resolvem |
-| `/r/[code]` | Redirect **mockado** — não leva ao destino real |
+| `/[slug]` | Perfil público (só `bella` e `demo` resolvem). Registra visualização |
+| `/r/[code]` | Redirecionador real: registra o clique e faz 302 para o destino |
+
+## Rastreamento de links
+
+Registra clique e visualização de verdade, escopado por perfil e agnóstico de
+canal. Vive em `lib/tracking/`.
+
+| Arquivo | Papel |
+| --- | --- |
+| `types.ts` | Domínio e as interfaces trocáveis (`TrackingStore`, `LinkResolver`) |
+| `bots.ts` | Filtro de robô: user agent, faixas de datacenter, heurística de cabeçalho |
+| `attribution.ts` | UTM, click ids, referrer, dispositivo, navegador embutido, prefixo de IP |
+| `store-file.ts` | Persistência em `.data/tracking/` (evento append-only + contador) |
+| `resolver.ts` | Código curto → link. Hoje lê `mock-data.ts`; é o ponto de troca para o banco |
+| `service.ts` | Casos de uso: `recordClick`, `recordView`, `report` |
+
+Endpoints: `GET /r/[code]` (redireciona e conta), `POST /api/tracking/view`,
+`GET /api/tracking/report?days=7|30|90`.
+
+Três decisões que valem saber:
+
+- **Robô não vira clique.** Cada link colado em WhatsApp, Telegram ou Discord
+  gera requisição de prévia. Sem o filtro, um link compartilhado em grupo grande
+  nasce com dezenas de cliques que ninguém deu. Requisições de robô são
+  redirecionadas normalmente e contadas em separado (`botHits`).
+- **`HEAD` não conta.** Sondagem não é visita.
+- **Contador desnormalizado por link.** O evento cru tem TTL de 90 dias e é
+  volume; o contador não expira e é o histórico. Essa separação vem do
+  `bee-api-2` e é o que a troca por banco deve reproduzir.
+
+Nada aqui conhece "onlyfans" ou "telegram": `channel` é string opaca, o destino
+é qualquer URL http(s), e o funil termina no redirecionamento — o destino é de
+terceiro e ninguém nos avisa quando a venda acontece lá.
+
+**Limites da implementação atual:** o store em arquivo serve um processo só (o
+contador faz ler-modificar-gravar sob mutex em memória); em produção isso vira
+`UPDATE ... SET clicks = clicks + 1`. E `/api/tracking/report` fixa o perfil em
+`MOCK_USER.id` porque não há autenticação — quando houver sessão, o `profileId`
+sai dela e nunca da query string.
 
 ## O que ainda não existe
 
-- **Backend, persistência, autenticação real.** Nenhum `fetch`, nenhuma
-  `app/api/`, nenhum banco.
+- **Autenticação.** Não há sessão, e por isso o relatório é escopado num perfil
+  fixo.
+- **Banco.** O rastreamento grava em arquivo (ver acima); o resto do app segue
+  em `useState` sobre `lib/mock-data.ts`.
 - **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
   cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona.
-  Mas não há `middleware.ts` e nenhuma rota serve conteúdo diferente a crawler.
-  A `SafePage` é montada no `LinkModal` e descartada.
+  Mas nenhuma rota serve conteúdo diferente a crawler — a `SafePage` é montada
+  no `LinkModal` e descartada. Decisão de produto em aberto: servir conteúdo
+  diferente ao robô da Meta viola o ToS deles.
 - **Age gate ligado.** `components/profile/AgeGate.tsx` está pronto e
   **não é importado por ninguém** — `/bella` abre conteúdo +18 direto.
 - **Tipografia da marca.** `font-bebas` e `font-barlow` são usados em 56 lugares
@@ -65,5 +106,6 @@ Tailwind 3.4 · framer-motion · @dnd-kit · recharts · sonner · Radix
 - `lib/utils.ts` — `RESERVED_SLUGS` não inclui as rotas reais (`links`,
   `aparencia`, `analytics`, `configuracoes`, `cadastro`, `r`), então um slug
   pode ser sombreado pelo dashboard.
-- `lib/mock-data.ts:172` — `Math.random()` no escopo do módulo, risco de
-  hydration mismatch se `/analytics` deixar de ser client component.
+- `lib/mock-data.ts:172` — `Math.random()` no escopo do módulo. Já não afeta
+  `/analytics` (que agora lê dados reais), mas ainda é risco de hydration
+  mismatch para quem consumir `MOCK_ANALYTICS` no servidor.
