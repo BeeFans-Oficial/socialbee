@@ -59,13 +59,24 @@ export default function LinksPage() {
   };
 
   const handleSaveLink = (linkData: Partial<Link>) => {
-    if (linkData.id) {
-      setLinks((prev) => {
-        const exists = prev.find((l) => l.id === linkData.id);
-        if (exists) return prev.map((l) => (l.id === linkData.id ? { ...l, ...linkData } : l));
-        return [{ ...(linkData as Link), position: 0 }, ...prev.map((l) => ({ ...l, position: l.position + 1 }))];
-      });
-    }
+    // O `id` pode não vir: o modal só o emite quando está EDITANDO. Ao criar a
+    // partir do estado vazio — o primeiro gesto de todo usuário novo — o payload
+    // chega sem id, e a versão anterior desta função simplesmente o descartava
+    // enquanto o modal anunciava "Link salvo! ✓". O primeiro link que alguém
+    // criava desaparecia com uma confirmação de sucesso na tela.
+    const id = linkData.id ?? `l${Date.now()}`;
+
+    setLinks((prev) => {
+      const exists = prev.some((l) => l.id === id);
+      if (exists) {
+        return prev.map((l) => (l.id === id ? { ...l, ...linkData, id } : l));
+      }
+      // Novo link entra no topo; os demais descem uma posição.
+      return [
+        { ...(linkData as Link), id, position: 0 },
+        ...prev.map((l) => ({ ...l, position: l.position + 1 })),
+      ];
+    });
   };
 
   const handleDeleteLink = (id: string) => {

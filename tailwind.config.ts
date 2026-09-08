@@ -23,6 +23,38 @@ const config: Config = {
           muted: "#888888",
           dim: "#555555",
         },
+
+        // Tokens que os componentes do shadcn/ui esperam.
+        //
+        // Os arquivos em `components/ui/` foram copiados do shadcn e usam
+        // `bg-primary`, `bg-input`, `ring-ring`, `ring-offset-background` e
+        // `text-muted-foreground` — nenhum deles existia aqui, porque o config
+        // só declarava `colors.bee.*`. Classe sem cor no tema não gera CSS
+        // nenhum, então o efeito era silencioso: foco de teclado invisível nos
+        // inputs e botões, e o `Switch` **inteiramente** invisível (track e
+        // thumb dependiam de `input`/`primary`/`background`).
+        //
+        // Mapeados para a paleta bee para que qualquer componente shadcn
+        // adicionado daqui pra frente já nasça com a cara do projeto.
+        background: "#0d0d0d",
+        foreground: "#FFFFFF",
+        primary: {
+          DEFAULT: "#FF3C6E",
+          foreground: "#FFFFFF",
+        },
+        input: "rgba(255, 255, 255, 0.10)",
+        ring: "#FF3C6E",
+        "muted-foreground": "#888888",
+      },
+
+      // As fontes eram carregadas em `app/layout.tsx` via `next/font` e
+      // expostas como variáveis CSS, mas nunca registradas aqui — então
+      // `font-bebas` (43 usos) e `font-barlow` (13 usos) eram classes
+      // inexistentes e todo o texto caía no Inter do `body`.
+      fontFamily: {
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        barlow: ["var(--font-barlow)", "system-ui", "sans-serif"],
+        bebas: ["var(--font-bebas)", "Impact", "Haettenschweiler", "sans-serif"],
       },
     },
   },

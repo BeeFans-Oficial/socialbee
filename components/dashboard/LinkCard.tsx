@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Link } from "@/lib/mock-data";
 import { getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { shortLinkUrl, siteHost } from "@/lib/site";
 
 // ── Mini Toggle ───────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ export function LinkCard({ link, onOpenModal, onEditAppearance, onDelete, onTogg
 
   const platformColor = getPlatformColor(link.platform);
   const platformIcon = getPlatformIcon(link.platform);
-  const maskedLink = `beesocial.app/r/${link.shortCode}`;
+  const maskedLink = `${siteHost()}/r/${link.shortCode}`;
 
   const destinationDomain = (() => {
     if (!link.destinationUrl) return null;
@@ -155,7 +156,7 @@ export function LinkCard({ link, onOpenModal, onEditAppearance, onDelete, onTogg
             <Palette className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`https://${maskedLink}`); toast.success("Link copiado!"); }}
+            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(shortLinkUrl(link.shortCode)); toast.success("Link copiado!"); }}
             className="p-2 text-white/25 hover:text-bee-pink rounded-lg hover:bg-bee-pink/[0.08] transition-all focus:outline-none">
             <Copy className="w-3.5 h-3.5" />
           </button>

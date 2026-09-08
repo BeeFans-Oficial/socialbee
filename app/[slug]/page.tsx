@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { HexBackground } from "@/components/shared/HexBackground";
+import { AgeGate } from "@/components/profile/AgeGate";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { LinkButton } from "@/components/profile/LinkButton";
 import { MOCK_USER, MOCK_LINKS, THEMES } from "@/lib/mock-data";
@@ -18,6 +19,7 @@ export default function ProfilePage() {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
   const [fallbackUrl, setFallbackUrl] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [ageVerified, setAgeVerified] = useState(false);
 
   // Mock: aceitar apenas "bella" ou "demo"
   const isValidSlug = slug === "bella" || slug === "demo";
@@ -27,17 +29,28 @@ export default function ProfilePage() {
   const links = isValidSlug ? MOCK_LINKS.filter((l) => l.isActive) : [];
   const theme = THEMES.find((t) => t.id === user?.themeId) || THEMES[0];
 
+  // Perfil adulto exige confirmação de idade antes de mostrar qualquer link.
+  const needsAgeGate = Boolean(user?.isAdult) && !ageVerified;
+
+  // Referência estável: o `useEffect` do AgeGate depende de `onVerified`, e uma
+  // arrow inline mudaria de identidade a cada render, reexecutando o efeito que
+  // lê o localStorage.
+  const handleVerified = useCallback(() => setAgeVerified(true), []);
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
   // Registra a visualização do perfil — é o denominador da taxa de clique.
   //
+  // Só conta DEPOIS da barreira de idade: quem desiste no modal nunca viu os
+  // links, e contá-lo diluiria a taxa de clique de todo perfil adulto.
+  //
   // `keepalive` porque a pessoa pode tocar num link imediatamente: sem ele o
   // navegador cancela a requisição ao sair da página e a view some, inflando a
   // taxa de clique justamente nos perfis que convertem mais rápido.
   useEffect(() => {
-    if (!isValidSlug || !slug) return;
+    if (!isValidSlug || !slug || needsAgeGate) return;
     fetch("/api/tracking/view", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,7 +59,7 @@ export default function ProfilePage() {
     }).catch(() => {
       // Falha de rastreamento nunca afeta a página do visitante.
     });
-  }, [isValidSlug, slug]);
+  }, [isValidSlug, slug, needsAgeGate]);
 
   // Aplicar tema
   useEffect(() => {
@@ -116,6 +129,22 @@ export default function ProfilePage() {
           </Link>
         </div>
       </div>
+    );
+  }
+
+  // Barreira de idade — vem ANTES do perfil, e por isso nada do conteúdo
+  // adulto chega ao DOM antes da confirmação.
+  //
+  // O componente já existia pronto (localStorage por slug, validade de 24 h,
+  // prevenção de flash) e nunca havia sido importado: `/bella` abria o conteúdo
+  // +18 direto.
+  if (needsAgeGate) {
+    return (
+      <AgeGate
+        slug={slug}
+        displayName={user.displayName}
+        onVerified={handleVerified}
+      />
     );
   }
 
