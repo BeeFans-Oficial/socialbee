@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { linkResolver, safeDestination, tracking } from "@/lib/tracking";
+import { siteOrigin } from "@/lib/site";
 
 /**
  * Redirecionador de link.
@@ -31,7 +32,7 @@ const HOP_HEADERS = {
 function notFound(): NextResponse {
   // Redireciona para a home em vez de mostrar erro: quem chega aqui com código
   // inválido é visitante de um link velho, não desenvolvedor depurando.
-  return NextResponse.redirect(new URL("/", process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"), {
+  return NextResponse.redirect(new URL("/", siteOrigin()), {
     status: 302,
     headers: HOP_HEADERS,
   });

@@ -17,6 +17,7 @@ import {
 import { Logo } from "@/components/shared/Logo";
 import { MOCK_USER } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+import { siteHost } from "@/lib/site";
 
 const menuItems = [
   { icon: Link2, label: "Links", href: "/links" },
@@ -88,7 +89,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
               {MOCK_USER.displayName}
             </div>
             <div className="text-xs text-bee-pink truncate">
-              beesocial.app/{MOCK_USER.slug}
+              {siteHost()}/{MOCK_USER.slug}
             </div>
           </div>
         </div>

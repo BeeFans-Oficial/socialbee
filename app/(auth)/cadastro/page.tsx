@@ -24,6 +24,7 @@ import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { toast, Toaster } from "sonner";
 import { validateSlug, isSlugTaken, slugify } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { siteHost } from "@/lib/site";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -365,7 +366,7 @@ export default function CadastroPage() {
                       </label>
                       <div className="flex items-center gap-2">
                         <span className="px-3 py-2 rounded-lg bg-bee-surface2 text-bee-muted text-sm border border-white/[0.08]">
-                          beesocial.app/
+                          {siteHost()}/
                         </span>
                         <div className="flex-1 relative">
                           <Input
@@ -408,7 +409,7 @@ export default function CadastroPage() {
                       )}
                       {slug && slugStatus === "valid" && (
                         <p className="text-xs text-bee-muted mt-1.5">
-                          Sua URL: beesocial.app/{slug}
+                          Sua URL: {siteHost()}/{slug}
                         </p>
                       )}
                     </div>

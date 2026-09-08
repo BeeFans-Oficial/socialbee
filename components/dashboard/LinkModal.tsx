@@ -18,6 +18,7 @@ import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { generateShortCode, getPlatformColor, getPlatformIcon, validateSlug, isSlugTaken, slugify } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
+import { siteHost } from "@/lib/site";
 import {
   ShieldCheck,
   ShieldOff,
@@ -1685,7 +1686,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-2.5 rounded-xl text-xs text-white/25 flex-shrink-0"
                       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      beesocial.app/
+                      {siteHost()}/
                     </span>
                     <div className="flex-1 relative">
                       <input
@@ -1873,7 +1874,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                 className="text-[9px] font-mono flex-1 truncate"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                beesocial.app/{previewProfile.slug}
+                {siteHost()}/{previewProfile.slug}
               </span>
               <a
                 href={`/${previewProfile.slug}`}
