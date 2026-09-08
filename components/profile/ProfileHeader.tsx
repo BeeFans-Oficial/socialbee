@@ -56,10 +56,25 @@ export function ProfileHeader({ user, themeAccent, activePlatforms }: ProfileHea
           )}
         </div>
 
-        {/* Display Name */}
-        <h1 className="font-bebas text-2xl uppercase mt-4 tracking-wide text-center">
-          {user.displayName}
-        </h1>
+        {/* Display Name + selo 18+
+            O `isAdult` já chegava nas props e nunca era renderizado: o perfil
+            adulto não se identificava como tal em nenhum lugar da página. */}
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <h1 className="font-bebas text-2xl uppercase tracking-wide text-center">
+            {user.displayName}
+          </h1>
+          {user.isAdult && (
+            <span
+              className="flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold leading-none text-red-400"
+              style={{
+                backgroundColor: "rgba(220, 38, 38, 0.18)",
+                border: "1px solid rgba(220, 38, 38, 0.4)",
+              }}
+            >
+              18+
+            </span>
+          )}
+        </div>
 
         {/* Bio */}
         <p className="text-sm text-bee-muted text-center max-w-xs mx-auto mt-2 line-clamp-2 leading-relaxed">

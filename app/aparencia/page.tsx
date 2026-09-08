@@ -15,6 +15,7 @@ import {
 } from "@/lib/mock-data";
 import { validateSlug, isSlugTaken, slugify, getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { siteHost } from "@/lib/site";
 
 type PageTab = "perfil" | "links";
 
@@ -302,7 +303,7 @@ export default function AparenciaPage() {
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-2 rounded-lg bg-bee-surface2 text-bee-muted text-sm border border-bee-border">
-                      beesocial.app/
+                      {siteHost()}/
                     </span>
                     <div className="flex-1 relative">
                       <Input
@@ -498,7 +499,13 @@ export default function AparenciaPage() {
               displayName={displayName}
               bio={bio}
               buttonStyle={buttonStyle}
-              showAgeBadge={false}
+              // Sem esta prop o preview mostrava "Nenhum link ativo" com 4 links
+              // ativos no estado ao lado — e o preview ao vivo é o motivo de
+              // existir desta página.
+              links={links}
+              // Esta página não tem toggle de +18 (o de verdade mora no
+              // cadastro); o preview reflete o que está no perfil.
+              showAgeBadge={MOCK_USER.isAdult}
             />
           </div>
         </div>
