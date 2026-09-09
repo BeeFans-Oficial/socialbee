@@ -3,7 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
-import { LinkAppearance, DEFAULT_LINK_APPEARANCE } from "@/lib/mock-data";
+import { LinkAppearance, DEFAULT_LINK_APPEARANCE } from "@/lib/catalog";
 
 interface LinkButtonProps {
   link: {

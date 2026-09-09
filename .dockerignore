@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.data
+api
+Dockerfile
+docker-compose.yml
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+tsconfig.tsbuildinfo

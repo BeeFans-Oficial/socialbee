@@ -47,14 +47,15 @@ export function getPlatformIcon(platform: string): string {
   return icons[platform.toLowerCase()] || "🔗";
 }
 
-export function generateShortCode(): string {
-  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-  let result = "";
-  for (let i = 0; i < 6; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return result;
-}
+/*
+ * `generateShortCode` foi removida daqui.
+ *
+ * O código curto é o ENDEREÇO PÚBLICO do link (`/r/<code>`) e precisa ser único
+ * no sistema inteiro. Quem o gera é a API, com `crypto.randomInt` e conferência
+ * contra o índice único da tabela. Um cliente que pudesse escolhê-lo poderia
+ * tentar colidir com o código de outra criadora — e `Math.random()`, que era o
+ * que estava aqui, torna o próximo código previsível a partir do anterior.
+ */
 
 export function slugify(text: string): string {
   return text
@@ -79,8 +80,16 @@ export function maskUrl(url: string): string {
   }
 }
 
-const RESERVED_SLUGS = ["bella", "luna", "demo", "admin", "beesocial", "api", "auth", "login", "signup", "dashboard", "settings", "help", "about", "terms", "privacy", "support"];
-
-export function isSlugTaken(slug: string): boolean {
-  return RESERVED_SLUGS.includes(slug.toLowerCase());
-}
+/*
+ * `RESERVED_SLUGS` e `isSlugTaken` foram removidas daqui.
+ *
+ * A lista reservava nomes de exemplo ("bella", "luna", "demo") e **não**
+ * reservava as rotas que o app realmente serve (`links`, `aparencia`,
+ * `analytics`, `configuracoes`, `cadastro`, `r`) — então um slug podia ser
+ * sombreado pelo dashboard para sempre. Além disso, disponibilidade não é
+ * decisão do cliente: só o servidor sabe quais perfis existem.
+ *
+ * Agora quem responde é `GET /api/v1/public/slug-available`, que confere
+ * formato, reservados (a lista de verdade, em `api/src/profiles/reserved-slugs.ts`)
+ * e perfil existente, de uma vez.
+ */

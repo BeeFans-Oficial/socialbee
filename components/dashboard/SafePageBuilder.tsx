@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SocialLink, SafePage } from "@/lib/mock-data";
+import { SocialLink, SafePage } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
 interface SafePageBuilderProps {
@@ -28,9 +28,11 @@ export function SafePageBuilder({
 }: SafePageBuilderProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
-  const [selectedPlatforms, setSelectedPlatforms] = useState<
-    (typeof SAFE_PLATFORMS)[number]["id"][]
-  >(safePage?.socialLinks.map((link) => link.platform) || []);
+  // `string[]` e não a união de ids: a lista inicial vem da API, onde canal é
+  // texto aberto. Quem restringe a escolha continua sendo o seletor abaixo.
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(
+    safePage?.socialLinks.map((link) => link.platform) || [],
+  );
   const [socialLinks, setSocialLinks] = useState<SocialLink[]>(
     safePage?.socialLinks || []
   );

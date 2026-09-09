@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Link, LinkAppearance, DEFAULT_LINK_APPEARANCE } from "@/lib/mock-data";
+import { Link, LinkAppearance, DEFAULT_LINK_APPEARANCE } from "@/lib/catalog";
 import { getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 

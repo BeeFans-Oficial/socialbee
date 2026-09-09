@@ -7,7 +7,8 @@ import { HexBackground } from "@/components/shared/HexBackground";
 import { AgeGate } from "@/components/profile/AgeGate";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { LinkButton } from "@/components/profile/LinkButton";
-import { MOCK_USER, MOCK_LINKS, THEMES } from "@/lib/mock-data";
+import { THEMES, type Link as LinkType, type User } from "@/lib/catalog";
+import { api } from "@/lib/api/client";
 import { handleLinkClick } from "@/lib/cloak";
 import { getPlatformIcon } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
@@ -21,12 +22,70 @@ export default function ProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
 
-  // Mock: aceitar apenas "bella" ou "demo"
-  const isValidSlug = slug === "bella" || slug === "demo";
+  /**
+   * Perfil público, vindo da API.
+   *
+   * O que havia aqui: `const isValidSlug = slug === "bella" || slug === "demo"`
+   * — duas strings chumbadas. Qualquer outra criadora que se cadastrasse tinha
+   * um link na bio que respondia "perfil não encontrado", e as duas que
+   * "existiam" mostravam sempre o MESMO perfil de mentira.
+   *
+   * `loading` é um terceiro estado necessário: sem ele, o primeiro render (antes
+   * da resposta) cai no ramo de 404 e a visitante vê "perfil não encontrado"
+   * piscar antes do perfil aparecer.
+   */
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [links, setLinks] = useState<LinkType[]>([]);
 
-  // Dados do usuário (mock)
-  const user = isValidSlug ? MOCK_USER : null;
-  const links = isValidSlug ? MOCK_LINKS.filter((l) => l.isActive) : [];
+  useEffect(() => {
+    if (!slug) return;
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const data = await api.publicProfile(slug);
+        if (cancelado) return;
+        setUser({
+          id: data.profile.id,
+          slug: data.profile.slug,
+          displayName: data.profile.displayName,
+          bio: data.profile.bio,
+          avatarUrl: data.profile.avatarUrl,
+          coverUrl: data.profile.coverUrl,
+          themeId: data.profile.themeId,
+          buttonStyle: data.profile.buttonStyle,
+          isAdult: data.profile.isAdult,
+          joinedAt: data.profile.joinedAt,
+        });
+        // A API só devolve os links ATIVOS e já ordenados — e sem
+        // `destinationUrl`: o destino nunca chega ao navegador, é o
+        // redirecionador que o conhece. Sem isso, o robô da rede social leria o
+        // link do OnlyFans direto do HTML, que é o que o produto existe para
+        // evitar.
+        setLinks(
+          data.links.map((link) => ({
+            ...link,
+            subtitle: link.subtitle ?? undefined,
+            thumbnailUrl: link.thumbnailUrl,
+            isActive: true,
+            clicks: 0,
+          })),
+        );
+      } catch {
+        // Qualquer falha (404, rede) cai no mesmo lugar: a visitante não tem o
+        // que fazer com a diferença entre "não existe" e "API fora do ar".
+        if (!cancelado) setUser(null);
+      } finally {
+        if (!cancelado) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [slug]);
+
   const theme = THEMES.find((t) => t.id === user?.themeId) || THEMES[0];
 
   // Perfil adulto exige confirmação de idade antes de mostrar qualquer link.
@@ -45,21 +104,13 @@ export default function ProfilePage() {
   //
   // Só conta DEPOIS da barreira de idade: quem desiste no modal nunca viu os
   // links, e contá-lo diluiria a taxa de clique de todo perfil adulto.
-  //
-  // `keepalive` porque a pessoa pode tocar num link imediatamente: sem ele o
-  // navegador cancela a requisição ao sair da página e a view some, inflando a
-  // taxa de clique justamente nos perfis que convertem mais rápido.
   useEffect(() => {
-    if (!isValidSlug || !slug || needsAgeGate) return;
-    fetch("/api/tracking/view", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug }),
-      keepalive: true,
-    }).catch(() => {
-      // Falha de rastreamento nunca afeta a página do visitante.
-    });
-  }, [isValidSlug, slug, needsAgeGate]);
+    if (!user || !slug || needsAgeGate) return;
+    // Manda o SLUG, nunca o id do perfil: quem traduz é o servidor. Aceitar o
+    // id do cliente deixaria qualquer um postar views no perfil de qualquer
+    // criadora.
+    api.recordView(slug);
+  }, [user, slug, needsAgeGate]);
 
   // Aplicar tema
   useEffect(() => {
@@ -99,7 +150,7 @@ export default function ProfilePage() {
   const activePlatforms = links.map((link) => getPlatformIcon(link.platform));
 
   // Loading ou aguardando mount
-  if (!mounted) {
+  if (!mounted || loading) {
     return (
       <div className="min-h-screen bg-bee-bg flex items-center justify-center">
         <div className="text-bee-muted">Carregando...</div>
@@ -108,7 +159,7 @@ export default function ProfilePage() {
   }
 
   // 404 - Perfil não encontrado
-  if (!isValidSlug || !user) {
+  if (!user) {
     return (
       <div className="relative min-h-screen bg-bee-bg text-bee-text overflow-hidden flex items-center justify-center">
         <HexBackground density="low" />

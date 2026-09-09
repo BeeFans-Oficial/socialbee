@@ -1,0 +1,17 @@
+# dependências e build
+node_modules
+dist
+
+# ambiente
+.env
+.env.*
+!.env.example
+
+# testes
+coverage
+
+# typescript
+*.tsbuildinfo
+
+# logs
+*.log

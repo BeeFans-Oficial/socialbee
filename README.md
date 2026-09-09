@@ -5,11 +5,27 @@ Link na bio para criadoras de conteúdo adulto. O diferencial pretendido é o
 limpa aos robôs da rede, para que links de OnlyFans/Privacy/Telegram não sejam
 bloqueados.
 
-> **Estado: protótipo.** O rastreamento de links é real e persiste em disco
-> (ver abaixo). O resto — perfil, links, aparência — vive em `useState` sobre
-> `lib/mock-data.ts` e se perde no refresh. Não há autenticação nem banco.
+> **Estado: MVP com API.** Autenticação por email e senha, perfil, links e
+> rastreamento vivem em Postgres, atrás de uma API própria (`api/`). O que
+> continua faltando está listado em [O que ainda não existe](#o-que-ainda-não-existe).
 
 ## Rodar
+
+Tudo — banco, API e app — com um comando:
+
+```bash
+cp .env.example .env      # gere seus próprios segredos antes de qualquer deploy
+docker compose up
+```
+
+App em `http://localhost:3000`, API em `http://localhost:3333/v1`.
+
+Conta de demonstração: `bella@beesocial.app` / `123456` (perfil `/bella`).
+
+> Portas 3000, 3333 ou 5433 ocupadas? Ajuste `WEB_PORT`, `API_PORT` e
+> `POSTGRES_PORT` no `.env`.
+
+Só o app, contra uma API que já esteja rodando:
 
 ```bash
 npm install
@@ -17,95 +33,111 @@ npm run dev      # http://localhost:3000
 npm run build
 ```
 
-Login mockado: `bella@beesocial.app` / `123456`.
-
 ## Stack
 
-Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict ·
+**App:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict ·
 Tailwind 3.4 · framer-motion · @dnd-kit · recharts · sonner · Radix
 (dialog, switch, slot).
+
+**API** (`api/`, documentada em [api/README.md](api/README.md)): NestJS ·
+Postgres 16 · TypeORM com migrations de SQL escrito à mão · JWT em cookie
+`httpOnly`.
+
+**Infra:** `docker compose` com três serviços — `db`, `api`, `web`.
 
 ## Rotas
 
 | Rota | Estado |
 | --- | --- |
 | `/` | Landing completa |
-| `/login` · `/cadastro` | UI completa, autenticação falsa |
+| `/login` · `/cadastro` | Autenticação real contra a API |
 | `/links` | Dashboard principal: drag & drop, CRUD, modal com abas Link/Aparência/Perfil |
 | `/aparencia` | Perfil, temas, estilos de botão, preview em celular |
 | `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento |
 | `/configuracoes` | Placeholder |
+| `/api/v1/*` | Proxy para a API, no servidor do Next (é o que mantém o cookie de sessão same-origin) |
 | `/dashboard` | Existe, mas a Sidebar não aponta para lá |
-| `/[slug]` | Perfil público (só `bella` e `demo` resolvem). Registra visualização |
+| `/[slug]` | Perfil público de qualquer criadora cadastrada. Barreira de idade + registro de visualização |
 | `/r/[code]` | Redirecionador real: registra o clique e faz 302 para o destino |
+
+## Arquitetura
+
+```
+navegador ──► app Next (3000) ──► API Nest (3333) ──► Postgres (schema socialbee)
+                   │
+                   └─ /api/v1/*  proxy no servidor: o navegador só fala com a
+                      própria origem, então o cookie de sessão é same-site, o
+                      token nunca passa por localStorage e não há CORS no
+                      caminho do produto
+```
+
+O app não fala com o banco. Toda leitura e escrita passa pela API, e o
+`profileId` sai **sempre** da sessão — nunca da query string.
+
+Duas peças do app rodam no servidor e falam com a API por dentro, com o segredo
+interno:
+
+- `app/api/v1/[...path]/route.ts` — o proxy acima. É Route Handler e não
+  `rewrites` porque `rewrites()` é avaliado no build: o destino iria congelado
+  para dentro da imagem Docker, apontando para o `localhost` da máquina que
+  buildou.
+- `app/r/[code]/route.ts` — o redirecionador. Pede à API o destino, repassando
+  os cabeçalhos do visitante (é com eles que a API decide se o acesso é humano),
+  e faz o 302. O destino nunca chega ao navegador.
 
 ## Rastreamento de links
 
-Registra clique e visualização de verdade, escopado por perfil e agnóstico de
-canal. Vive em `lib/tracking/`.
-
-| Arquivo | Papel |
-| --- | --- |
-| `types.ts` | Domínio e as interfaces trocáveis (`TrackingStore`, `LinkResolver`) |
-| `bots.ts` | Filtro de robô: user agent, faixas de datacenter, heurística de cabeçalho |
-| `attribution.ts` | UTM, click ids, referrer, dispositivo, navegador embutido, prefixo de IP |
-| `store-file.ts` | Persistência em `.data/tracking/` (evento append-only + contador) |
-| `resolver.ts` | Código curto → link. Hoje lê `mock-data.ts`; é o ponto de troca para o banco |
-| `service.ts` | Casos de uso: `recordClick`, `recordView`, `report` |
-
-Endpoints: `GET /r/[code]` (redireciona e conta), `POST /api/tracking/view`,
-`GET /api/tracking/report?days=7|30|90`.
+Vive na API, em `api/src/tracking/`. O núcleo (`bots.ts`, `attribution.ts`,
+`service.ts`) foi portado de `lib/tracking/` sem mudar nenhuma decisão de
+domínio; só a persistência mudou — era arquivo em `.data/tracking/` com mutex em
+memória, servindo um processo só, e agora é Postgres com
+`INSERT ... ON CONFLICT DO UPDATE SET clicks = clicks + 1`.
 
 Três decisões que valem saber:
 
 - **Robô não vira clique.** Cada link colado em WhatsApp, Telegram ou Discord
   gera requisição de prévia. Sem o filtro, um link compartilhado em grupo grande
   nasce com dezenas de cliques que ninguém deu. Requisições de robô são
-  redirecionadas normalmente e contadas em separado (`botHits`).
+  redirecionadas normalmente e contadas em separado (`botHits`), visíveis no
+  relatório — sem isso a criadora acha que perdeu tráfego.
 - **`HEAD` não conta.** Sondagem não é visita.
 - **Contador desnormalizado por link.** O evento cru tem TTL de 90 dias e é
-  volume; o contador não expira e é o histórico. Essa separação vem do
-  `bee-api-2` e é o que a troca por banco deve reproduzir.
+  volume; o contador não expira e é o histórico.
 
-Nada aqui conhece "onlyfans" ou "telegram": `channel` é string opaca, o destino
-é qualquer URL http(s), e o funil termina no redirecionamento — o destino é de
+Nada ali conhece "onlyfans" ou "telegram": `channel` é string opaca, o destino é
+qualquer URL http(s), e o funil termina no redirecionamento — o destino é de
 terceiro e ninguém nos avisa quando a venda acontece lá.
 
-**Limites da implementação atual:** o store em arquivo serve um processo só (o
-contador faz ler-modificar-gravar sob mutex em memória); em produção isso vira
-`UPDATE ... SET clicks = clicks + 1`. E `/api/tracking/report` fixa o perfil em
-`MOCK_USER.id` porque não há autenticação — quando houver sessão, o `profileId`
-sai dela e nunca da query string.
+O diretório `.data/tracking/` do protótipo ficou obsoleto e **não** é migrado:
+os eventos gravados nele não vão para o banco.
 
 ## O que ainda não existe
 
-- **Autenticação.** Não há sessão, e por isso o relatório é escopado num perfil
-  fixo.
-- **Banco.** O rastreamento grava em arquivo (ver acima); o resto do app segue
-  em `useState` sobre `lib/mock-data.ts`.
+- **Recuperação de senha.** A tela "Esqueci minha senha" não aponta para nada.
+- **Upload de arquivo.** Avatar, capa e miniatura são data URL em base64 e vão
+  para colunas de texto. O certo é armazenamento de objeto com URL assinada.
 - **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
-  cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona.
-  Mas nenhuma rota serve conteúdo diferente a crawler — a `SafePage` é montada
-  no `LinkModal` e descartada. Decisão de produto em aberto: servir conteúdo
-  diferente ao robô da Meta viola o ToS deles.
-- **Age gate ligado.** `components/profile/AgeGate.tsx` está pronto e
-  **não é importado por ninguém** — `/bella` abre conteúdo +18 direto.
-- **Tipografia da marca.** `font-bebas` e `font-barlow` são usados em 56 lugares
-  e não existem em `tailwind.config.ts` (falta `fontFamily`). Tudo renderiza em
-  Inter.
-- **ESLint.** Não há config, e `npm run lint` quebra: `next lint` foi removido
-  no Next 16.
-- **Testes e CI.**
+  cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona. A
+  safe page agora é **persistida**, mas nenhuma rota serve conteúdo diferente a
+  crawler. Decisão de produto em aberto: servir conteúdo diferente ao robô da
+  Meta viola o ToS deles.
+- **`/configuracoes`.** Continua placeholder; sair está na Sidebar.
+- **`/dashboard`.** Existe e nenhuma navegação aponta para lá.
+- **ESLint.** Não há config, e `npm run lint` quebra: `next lint` foi removido no
+  Next 16.
+- **CI.** A API tem 49 testes (unitários + ponta a ponta com Postgres real) e
+  eles passam; nada os roda automaticamente. O app não tem teste.
 
-## Bugs conhecidos
+## Limites conhecidos
 
-- `app/links/page.tsx` — `handleSaveLink` descarta payload sem `id`, então o
-  primeiro link criado a partir do estado vazio some, e o toast diz "Link salvo".
-- `app/aparencia/page.tsx` — o `<PhoneMockup>` não recebe `links`, e o preview
-  ao vivo fica sempre em "Nenhum link ativo".
-- `lib/utils.ts` — `RESERVED_SLUGS` não inclui as rotas reais (`links`,
-  `aparencia`, `analytics`, `configuracoes`, `cadastro`, `r`), então um slug
-  pode ser sombreado pelo dashboard.
-- `lib/mock-data.ts:172` — `Math.random()` no escopo do módulo. Já não afeta
-  `/analytics` (que agora lê dados reais), mas ainda é risco de hydration
-  mismatch para quem consumir `MOCK_ANALYTICS` no servidor.
+- **Reordenar exige a lista completa de links.** É de propósito (ordem parcial
+  deixaria dois links na mesma posição), mas significa que arrastar enquanto
+  existe um link em rascunho — escolhido no seletor e ainda sem destino — só
+  reordena na tela; a ordem é gravada no arraste seguinte.
+- **A sessão dura 7 dias e não tem refresh.** Expirada, a primeira requisição
+  responde 401 e a tela manda para o login.
+- **O IP do visitante chega por `x-forwarded-for`**, que qualquer salto
+  intermediário pode reescrever. Por isso ele alimenta só o filtro de robô e o
+  prefixo de rede do relatório — nunca autorização — e bater numa faixa de
+  datacenter **pontua** em vez de descartar direto (um proxy mal configurado na
+  frente apagaria todo clique humano em silêncio).

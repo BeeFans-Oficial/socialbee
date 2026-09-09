@@ -22,9 +22,10 @@ import { Logo } from "@/components/shared/Logo";
 import { HexBackground } from "@/components/shared/HexBackground";
 import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { toast, Toaster } from "sonner";
-import { validateSlug, isSlugTaken, slugify } from "@/lib/utils";
+import { validateSlug, slugify } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { siteHost } from "@/lib/site";
+import { api, ApiError } from "@/lib/api/client";
 
 export default function CadastroPage() {
   const router = useRouter();
@@ -71,25 +72,52 @@ export default function CadastroPage() {
     "#FF3C6E",
   ];
 
-  // Slug validation debounce
+  /**
+   * Disponibilidade do slug.
+   *
+   * Antes: `isSlugTaken` comparava com uma lista de sete nomes chumbada em
+   * `lib/utils.ts` — que reservava "bella" e "luna" mas NÃO reservava as rotas
+   * reais do app (`links`, `aparencia`, `analytics`, `configuracoes`). Quem se
+   * cadastrasse com o slug `links` ficaria com um perfil público que o
+   * dashboard sombreia para sempre.
+   *
+   * Agora quem responde é a API, que confere as três coisas de uma vez: formato,
+   * lista de reservados (a de verdade, com as rotas) e perfil já existente.
+   *
+   * O `cancelado` no fecho existe porque as respostas podem chegar fora de
+   * ordem: sem ele, a resposta de um slug já apagado sobrescreveria o estado do
+   * slug que a pessoa está digitando agora.
+   */
   useEffect(() => {
     if (!slug || step !== 2) {
       setSlugStatus("idle");
       return;
     }
 
-    setSlugStatus("checking");
-    const timer = setTimeout(() => {
-      if (!validateSlug(slug)) {
-        setSlugStatus("invalid");
-      } else if (isSlugTaken(slug)) {
-        setSlugStatus("taken");
-      } else {
-        setSlugStatus("valid");
-      }
-    }, 300);
+    if (!validateSlug(slug)) {
+      setSlugStatus("invalid");
+      return;
+    }
 
-    return () => clearTimeout(timer);
+    setSlugStatus("checking");
+    let cancelado = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await api.slugAvailable(slug);
+        if (!cancelado) setSlugStatus(available ? "valid" : "taken");
+      } catch {
+        // Falha de rede não é "indisponível": marcar como livre aqui faria a
+        // pessoa avançar e receber o erro só no fim. `checking` mantém o botão
+        // desabilitado até a próxima tentativa.
+        if (!cancelado) setSlugStatus("checking");
+      }
+    }, 400);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
   }, [slug, step]);
 
   // Step 1 validation
@@ -109,18 +137,46 @@ export default function CadastroPage() {
     }
   };
 
+  /**
+   * Cria a conta.
+   *
+   * O que havia aqui: um `setTimeout` que mostrava "Conta criada!" e navegava
+   * para o painel. Nenhuma conta era criada, nenhuma sessão existia, e no
+   * refresh a pessoa voltava para o zero.
+   *
+   * `ageConfirmed` (declaração de maioridade de quem se cadastra) e `isAdult`
+   * (o perfil tem conteúdo adulto e liga a barreira de idade) são coisas
+   * diferentes e vão separados — a API guarda a data da declaração como
+   * registro de consentimento.
+   */
   const handleStep2Submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canProceedStep2) return;
 
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      await api.register({
+        email,
+        password,
+        displayName,
+        slug,
+        ageConfirmed: ageConfirmed,
+        isAdult,
+      });
       toast.success("Conta criada! Bem-vinda ao BeeSocial 🎉");
-      setTimeout(() => {
-        router.push("/links");
-      }, 1000);
-    }, 1500);
+      // O registro já devolve a sessão em cookie: dá para ir direto ao painel.
+      router.replace("/links");
+    } catch (caught) {
+      const mensagem = caught instanceof ApiError ? caught.message : "Não foi possível criar a conta.";
+      toast.error(mensagem);
+      // Slug tomado entre a checagem e o envio: devolve o campo ao estado certo
+      // em vez de deixar o visto verde numa escolha que a API recusou.
+      if (caught instanceof ApiError && caught.code === "slug_unavailable") {
+        setSlugStatus("taken");
+      }
+      setLoading(false);
+    }
   };
 
   // Features list
