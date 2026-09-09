@@ -22,9 +22,6 @@ import request from "supertest";
  * Pré-requisito: `docker compose up -d db`.
  */
 
-const PG_URL =
-  process.env.TEST_DATABASE_URL ?? "postgres://beesocial:beesocial@localhost:5434/beesocial";
-
 let app: INestApplication;
 let dataSource: DataSource;
 let servidor: ReturnType<typeof request>;
@@ -38,10 +35,28 @@ let linkDaBella = "";
 const senha = "senha-de-teste-123";
 
 beforeAll(async () => {
+  /**
+   * Conexão do teste.
+   *
+   * Sai do `.env` do próprio pacote, não de um valor chumbado aqui: a primeira
+   * versão deste arquivo trazia `localhost:5434` — a porta que eu estava usando
+   * naquele dia por colisão com outro serviço — e o dia em que o compose voltou
+   * para 5433 os 22 testes quebraram com `AggregateError` sem mensagem, que não
+   * diz nada sobre porta. `TEST_DATABASE_URL` continua tendo a última palavra,
+   * para apontar para um banco separado quando fizer sentido.
+   */
+  const { config: loadDotenv } = await import("dotenv");
+  loadDotenv({ path: process.env.ENV_FILE ?? ".env" });
+
+  const pgUrl =
+    process.env.TEST_DATABASE_URL ??
+    process.env.DATABASE_URL ??
+    "postgres://beesocial:beesocial@localhost:5433/beesocial";
+
   // Precisa acontecer ANTES de qualquer import do código da API: `loadEnv()`
   // roda no import de `data-source.ts` e guarda o resultado em cache.
   process.env.NODE_ENV = "test";
-  process.env.DATABASE_URL = PG_URL;
+  process.env.DATABASE_URL = pgUrl;
   process.env.DB_SCHEMA = "socialbee_test";
   process.env.JWT_SECRET = "segredo-de-teste-com-mais-de-32-caracteres-ok";
   process.env.INTERNAL_API_SECRET = "segredo-interno-de-teste-24+";
@@ -308,6 +323,77 @@ describe("perfil público", () => {
 
   it("responde 404 para slug que não existe", async () => {
     await servidor.get("/v1/public/profiles/nao-existe-ninguem").expect(404);
+  });
+
+  it("não devolve veredito de robô para quem não é o nosso servidor", async () => {
+    // O campo só existe para o servidor do Next, que renderiza a página. Se
+    // saísse na resposta pública, qualquer um saberia exatamente quais
+    // cabeçalhos passam pelo filtro — é entregar o gabarito.
+    const { body } = await servidor
+      .get("/v1/public/profiles/bella-teste")
+      .set("user-agent", "facebookexternalhit/1.1")
+      .expect(200);
+
+    expect(body.requester).toBeUndefined();
+  });
+
+  it("classifica o requisitante quando o servidor do Next pergunta", async () => {
+    const segredo = "segredo-interno-de-teste-24+";
+
+    const robo = await servidor
+      .get("/v1/public/profiles/bella-teste")
+      .set("x-internal-secret", segredo)
+      .set("user-agent", "facebookexternalhit/1.1")
+      .expect(200);
+    expect(robo.body.requester.isBot).toBe(true);
+
+    const humano = await servidor
+      .get("/v1/public/profiles/bella-teste")
+      .set("x-internal-secret", segredo)
+      .set("user-agent", "Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 300.0.0.0")
+      .set("accept-language", "pt-BR")
+      .set("accept", "text/html")
+      .expect(200);
+    expect(humano.body.requester.isBot).toBe(false);
+  });
+
+  it("serve o avatar como imagem, não como base64 no documento", async () => {
+    // Um data URL de 1,8 MB entrava duas a três vezes no HTML do perfil (o
+    // payload RSC carrega a mesma árvore), e a página passava de 2,9 MB.
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
+      "base64",
+    );
+    await servidor
+      .patch("/v1/me/profile")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .send({ avatarUrl: `data:image/png;base64,${png.toString("base64")}` })
+      .expect(200);
+
+    const publico = await servidor.get("/v1/public/profiles/bella-teste").expect(200);
+    expect(publico.body.profile.avatarUrl).toBe(
+      "/api/v1/public/profiles/bella-teste/avatar",
+    );
+
+    const imagem = await servidor
+      .get("/v1/public/profiles/bella-teste/avatar")
+      .expect(200);
+    expect(imagem.headers["content-type"]).toContain("image/png");
+    expect(imagem.headers["cache-control"]).toContain("max-age");
+    expect(imagem.headers["etag"]).toBeDefined();
+    expect(imagem.body.length).toBe(png.length);
+  });
+
+  it("responde 404 no avatar de quem não tem foto", async () => {
+    await servidor.get("/v1/public/profiles/luna-teste/avatar").expect(404);
+  });
+
+  it("o dono continua recebendo o data URL, para o editor", async () => {
+    const { body } = await servidor
+      .get("/v1/me/profile")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .expect(200);
+    expect(body.avatarUrl).toMatch(/^data:image\/png;base64,/);
   });
 });
 

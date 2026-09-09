@@ -1,7 +1,20 @@
-"use client";
-
 import React from "react";
-import { cn } from "@/lib/utils";
+
+/**
+ * Cabeçalho do perfil público.
+ *
+ * **Não é componente de cliente**, e isso é medida, não estilo: ele tinha
+ * `"use client"` sem usar um único hook ou handler. O efeito colateral era caro
+ * — ao receber `user` como prop através da fronteira de cliente, o avatar
+ * (data URL de até 2 MB, porque ainda não há upload de arquivo) ia para o
+ * payload RSC **além** do HTML renderizado. A mesma imagem, duas vezes, no
+ * mesmo documento: 2,9 MB para um perfil com uma foto de 1,8 MB.
+ *
+ * Sendo componente de servidor, ele sai do payload e a imagem viaja uma vez.
+ * Por isso ele é renderizado por `app/[slug]/page.tsx` e não de dentro do
+ * `ProfileClient` — módulo importado por componente de cliente volta a ser
+ * cliente.
+ */
 
 interface ProfileHeaderProps {
   user: {
