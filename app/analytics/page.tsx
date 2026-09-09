@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp } from "lucide-react";
 import {
   LineChart,
@@ -12,15 +13,24 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
-import { MOCK_LINKS } from "@/lib/mock-data";
-import type { LinkCounters, TrackingReport } from "@/lib/tracking/types";
+import { api, ApiError } from "@/lib/api/client";
+import type { ReportResponse } from "@/lib/api/types";
 import { cn, formatNumber, getPlatformColor, getPlatformIcon } from "@/lib/utils";
 
 /**
  * Analytics.
  *
- * Lê `/api/tracking/report` — o que foi de fato registrado pelo
- * redirecionador. Os números inventados que estavam aqui antes
+ * Lê `GET /me/tracking/report` na API — o que foi de fato registrado pelo
+ * redirecionador, escopado no perfil da SESSÃO.
+ *
+ * O escopo é a mudança que importa nesta tela: a versão anterior chamava uma
+ * rota do próprio Next que fixava o perfil em `MOCK_USER.id` porque não havia
+ * login. Com mais de uma criadora no ar, aquilo era leitura livre do analytics
+ * de qualquer uma delas. Agora o `profileId` sai da sessão e não existe
+ * parâmetro de perfil na rota.
+ *
+ * Os títulos dos links também vêm da API. Antes vinham de `MOCK_LINKS`, então
+ * a tabela "por link" mostrava o id cru para qualquer link real. Os números inventados que estavam aqui antes
  * (`+18% vs mês anterior`, `instagramClicks`, origens fixas em código) foram
  * removidos: comparar com o período anterior exige buscar o período anterior, e
  * enquanto isso não existir é mais honesto mostrar um dado real no lugar do
@@ -30,12 +40,6 @@ import { cn, formatNumber, getPlatformColor, getPlatformIcon } from "@/lib/utils
 type Period = "7d" | "30d" | "90d";
 
 const PERIOD_DAYS: Record<Period, number> = { "7d": 7, "30d": 30, "90d": 90 };
-
-interface ReportResponse {
-  days: number;
-  report: TrackingReport;
-  counters: Record<string, LinkCounters>;
-}
 
 /** Paleta de reserva para chaves de origem que não são plataforma conhecida
  *  (um domínio de referrer qualquer, uma utm_source nova). Índice por hash do
@@ -57,27 +61,37 @@ function shortDate(iso: string): string {
   return `${day}/${month}`;
 }
 
-const linkTitles = new Map(MOCK_LINKS.map((link) => [link.id, link.title]));
-
 export default function AnalyticsPage() {
+  const router = useRouter();
   const [period, setPeriod] = useState<Period>("30d");
   const [data, setData] = useState<ReportResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Título por id de link, para a tabela "por link" não mostrar UUID cru. */
+  const [linkTitles, setLinkTitles] = useState<Map<string, string>>(new Map());
 
-  const load = useCallback(async (days: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/tracking/report?days=${days}`, { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setData((await res.json()) as ReportResponse);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "falha desconhecida");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (days: number) => {
+      setLoading(true);
+      setError(null);
+      try {
+        // Relatório e títulos juntos: são duas leituras independentes e a
+        // tabela precisa das duas para significar algo.
+        const [report, links] = await Promise.all([api.report(days), api.links()]);
+        setData(report);
+        setLinkTitles(new Map(links.map((link) => [link.id, link.title])));
+      } catch (caught) {
+        if (caught instanceof ApiError && caught.isUnauthorized) {
+          router.replace("/login?de=/analytics");
+          return;
+        }
+        setError(caught instanceof ApiError ? caught.message : "falha desconhecida");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     void load(PERIOD_DAYS[period]);

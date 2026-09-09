@@ -10,7 +10,7 @@ import {
   Star,
   ChevronDown
 } from "lucide-react";
-import { PLATFORMS } from "@/lib/mock-data";
+import { PLATFORMS } from "@/lib/catalog";
 
 export default function LandingPage() {
   return (

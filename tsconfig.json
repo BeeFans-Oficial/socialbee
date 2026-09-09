@@ -36,6 +36,11 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    // A API é um pacote próprio, com o próprio tsconfig (decorators,
+    // emitDecoratorMetadata, target diferente). Sem esta exclusão, o
+    // `include: ["**/*.ts"]` daqui arrasta `api/src` para dentro do
+    // type-check do Next e o build quebra em cima de decorator de NestJS.
+    "api"
   ]
 }

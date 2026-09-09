@@ -10,14 +10,23 @@ import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { LinkModal, ModalTab } from "@/components/dashboard/LinkModal";
 import { toast, Toaster } from "sonner";
 import {
-  MOCK_USER, MOCK_LINKS, THEMES, Link,
+  THEMES, Link,
   LinkAppearance, DEFAULT_LINK_APPEARANCE,
-} from "@/lib/mock-data";
-import { validateSlug, isSlugTaken, slugify, getPlatformColor, getPlatformIcon } from "@/lib/utils";
+} from "@/lib/catalog";
+import { validateSlug, slugify, getPlatformColor, getPlatformIcon } from "@/lib/utils";
+import { api, ApiError } from "@/lib/api/client";
+import type { ApiLink } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { siteHost } from "@/lib/site";
+import { useRouter } from "next/navigation";
 
 type PageTab = "perfil" | "links";
+
+/** `ApiLink` já é compatível com o `Link` da UI; a conversão é só de forma
+ *  (`subtitle` opcional em vez de anulável). */
+function paraLinkDaUi(link: ApiLink): Link {
+  return { ...link, subtitle: link.subtitle ?? undefined };
+}
 
 // ── Mini Button Preview (inline, sem import do modal) ──────────────────────────
 function MiniLinkPreview({ appearance, title, icon }: { appearance: LinkAppearance; title: string; icon: string }) {
@@ -58,49 +67,108 @@ function MiniLinkPreview({ appearance, title, icon }: { appearance: LinkAppearan
 }
 
 export default function AparenciaPage() {
+  const router = useRouter();
   const [pageTab, setPageTab] = useState<PageTab>("perfil");
 
-  // Estados do formulário
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(
-    MOCK_USER.avatarUrl
-  );
-  const [coverPreview, setCoverPreview] = useState<string | null>(
-    MOCK_USER.coverUrl
-  );
-  const [displayName, setDisplayName] = useState(MOCK_USER.displayName);
-  const [slug, setSlug] = useState(MOCK_USER.slug);
+  // Estados do formulário. Começam vazios e são preenchidos pela API — antes
+  // eram inicializados com `MOCK_USER`, o que fazia a tela abrir mostrando o
+  // perfil de outra pessoa (a "Bella" de mentira) para qualquer criadora.
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugAtual, setSlugAtual] = useState("");
   const [slugStatus, setSlugStatus] = useState<
     "idle" | "checking" | "valid" | "invalid" | "taken"
   >("idle");
-  const [bio, setBio] = useState(MOCK_USER.bio);
-  const [selectedTheme, setSelectedTheme] = useState(MOCK_USER.themeId);
-  const [buttonStyle, setButtonStyle] = useState(MOCK_USER.buttonStyle);
+  const [bio, setBio] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState("neon-pink");
+  const [buttonStyle, setButtonStyle] = useState("soft");
+  const [isAdult, setIsAdult] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
   // Estado dos links (para editar aparência)
-  const [links, setLinks] = useState<Link[]>([...MOCK_LINKS].sort((a, b) => a.position - b.position));
+  const [links, setLinks] = useState<Link[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState<Link | null>(null);
   const [modalTab, setModalTab] = useState<ModalTab>("aparencia");
 
-  // Debounce para validação de slug
+  const tratarErro = React.useCallback(
+    (caught: unknown, fallback: string) => {
+      if (caught instanceof ApiError && caught.isUnauthorized) {
+        router.replace("/login?de=/aparencia");
+        return;
+      }
+      toast.error(caught instanceof ApiError ? caught.message : fallback);
+    },
+    [router],
+  );
+
   useEffect(() => {
-    if (slug === MOCK_USER.slug) {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const [perfil, apiLinks] = await Promise.all([api.profile(), api.links()]);
+        if (cancelado) return;
+        setAvatarPreview(perfil.avatarUrl);
+        setCoverPreview(perfil.coverUrl);
+        setDisplayName(perfil.displayName);
+        setSlug(perfil.slug);
+        setSlugAtual(perfil.slug);
+        setBio(perfil.bio);
+        setSelectedTheme(perfil.themeId);
+        setButtonStyle(perfil.buttonStyle);
+        setIsAdult(perfil.isAdult);
+        setLinks(apiLinks.map(paraLinkDaUi));
+      } catch (caught) {
+        if (!cancelado) tratarErro(caught, "Não foi possível carregar seu perfil.");
+      } finally {
+        if (!cancelado) setCarregando(false);
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [tratarErro]);
+
+  /**
+   * Disponibilidade do slug.
+   *
+   * Comparado com `slugAtual` (o que está salvo), não com uma constante: com
+   * `MOCK_USER.slug` no lugar, o próprio slug da criadora aparecia como "em
+   * uso" e o dela como "livre". A consulta é a mesma da tela de cadastro, e a
+   * API já ignora o perfil da própria sessão ao responder.
+   */
+  useEffect(() => {
+    if (!slug || slug === slugAtual) {
       setSlugStatus("idle");
       return;
     }
 
-    setSlugStatus("checking");
-    const timer = setTimeout(() => {
-      if (!validateSlug(slug)) {
-        setSlugStatus("invalid");
-      } else if (isSlugTaken(slug)) {
-        setSlugStatus("taken");
-      } else {
-        setSlugStatus("valid");
-      }
-    }, 300);
+    if (!validateSlug(slug)) {
+      setSlugStatus("invalid");
+      return;
+    }
 
-    return () => clearTimeout(timer);
-  }, [slug]);
+    setSlugStatus("checking");
+    let cancelado = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await api.slugAvailable(slug);
+        if (!cancelado) setSlugStatus(available ? "valid" : "taken");
+      } catch {
+        if (!cancelado) setSlugStatus("checking");
+      }
+    }, 400);
+
+    return () => {
+      cancelado = true;
+      clearTimeout(timer);
+    };
+  }, [slug, slugAtual]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -124,10 +192,43 @@ export default function AparenciaPage() {
     }
   };
 
-  const handleSave = () => {
-    setTimeout(() => {
+  /**
+   * Salvar o perfil.
+   *
+   * O que havia aqui: um `setTimeout` de 600 ms que só mostrava "Perfil
+   * atualizado! ✓". Nada saía da tela, e no refresh tudo voltava.
+   *
+   * O slug só entra no payload quando mudou: mandá-lo sempre faria a API
+   * revalidar disponibilidade a cada troca de tema — e responder "já está em
+   * uso" para o próprio slug de quem está salvando.
+   */
+  const handleSave = async () => {
+    if (slug !== slugAtual && slugStatus !== "valid") {
+      toast.error("Escolha um link válido e disponível antes de salvar.");
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const salvo = await api.updateProfile({
+        displayName,
+        bio,
+        avatarUrl: avatarPreview,
+        coverUrl: coverPreview,
+        themeId: selectedTheme,
+        buttonStyle,
+        isAdult,
+        ...(slug !== slugAtual ? { slug } : {}),
+      });
+      setSlugAtual(salvo.slug);
+      setSlug(salvo.slug);
+      setSlugStatus("idle");
       toast.success("Perfil atualizado! ✓");
-    }, 600);
+    } catch (caught) {
+      tratarErro(caught, "Não foi possível salvar o perfil.");
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const theme = THEMES.find((t) => t.id === selectedTheme) || THEMES[0];
@@ -478,6 +579,7 @@ export default function AparenciaPage() {
             <div className="sticky bottom-0 pt-6 pb-2 bg-bee-bg">
               <Button
                 onClick={handleSave}
+                disabled={salvando || carregando}
                 className="w-full bg-bee-pink hover:bg-bee-pink-hot text-white rounded-full font-barlow font-bold uppercase tracking-wide glow-pink-sm"
               >
                 SALVAR ALTERAÇÕES
@@ -505,7 +607,7 @@ export default function AparenciaPage() {
               links={links}
               // Esta página não tem toggle de +18 (o de verdade mora no
               // cadastro); o preview reflete o que está no perfil.
-              showAgeBadge={MOCK_USER.isAdult}
+              showAgeBadge={isAdult}
             />
           </div>
         </div>
@@ -627,11 +729,21 @@ export default function AparenciaPage() {
         appearanceOnly
         allLinks={links}
         profileData={{ displayName, slug, bio, avatarUrl: avatarPreview, coverUrl: coverPreview }}
-        onSave={(linkData) => {
-          setLinks((prev) =>
-            prev.map((l) => (l.id === linkData.id ? { ...l, ...linkData } : l))
-          );
-          toast.success("Aparência salva! ✓");
+        onSave={async (linkData) => {
+          if (!linkData.id) return;
+
+          const anterior = links;
+          // Otimista: a prévia no celular tem que refletir a mudança no mesmo
+          // gesto. Se a API recusar, volta.
+          setLinks((prev) => prev.map((l) => (l.id === linkData.id ? { ...l, ...linkData } : l)));
+
+          try {
+            await api.updateLink(linkData.id, { appearance: linkData.appearance });
+            toast.success("Aparência salva! ✓");
+          } catch (caught) {
+            setLinks(anterior);
+            tratarErro(caught, "Não foi possível salvar a aparência.");
+          }
         }}
       />
     </div>

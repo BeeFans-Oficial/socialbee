@@ -11,14 +11,14 @@ import {
   LinkAppearance,
   DEFAULT_LINK_APPEARANCE,
   LinkButtonStyle,
-  MOCK_USER,
   THEMES,
-} from "@/lib/mock-data";
+} from "@/lib/catalog";
 import { PhoneMockup } from "@/components/shared/PhoneMockup";
-import { generateShortCode, getPlatformColor, getPlatformIcon, validateSlug, isSlugTaken, slugify } from "@/lib/utils";
+import { getPlatformColor, getPlatformIcon, validateSlug, slugify } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { siteHost } from "@/lib/site";
+import { api } from "@/lib/api/client";
 import {
   ShieldCheck,
   ShieldOff,
@@ -986,8 +986,21 @@ interface LinkModalProps {
   appearanceOnly?: boolean;
   /** All current links (used for the Beacons-style list AND full-profile preview) */
   allLinks?: Link[];
-  /** Current profile data (used for the full-profile preview) */
-  profileData?: { displayName: string; slug: string; bio: string; avatarUrl: string | null; coverUrl: string | null };
+  /** Current profile data (used for the full-profile preview).
+   *
+   *  `themeId` e `buttonStyle` são opcionais porque só a tela de aparência os
+   *  conhece ao vivo; sem eles a prévia usa o padrão. Antes tudo isto vinha de
+   *  `MOCK_USER`, então a prévia dentro do modal mostrava o perfil de mentira
+   *  em cima dos links reais da criadora. */
+  profileData?: {
+    displayName: string;
+    slug: string;
+    bio: string;
+    avatarUrl: string | null;
+    coverUrl: string | null;
+    themeId?: string;
+    buttonStyle?: string;
+  };
 }
 
 export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, editLink, initialTab = "link", appearanceOnly = false, allLinks = [], profileData }: LinkModalProps) {
@@ -1014,13 +1027,25 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
   const [appearance, setAppearance] = useState<LinkAppearance>({ ...DEFAULT_LINK_APPEARANCE });
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
-  // Profile tab state
-  const [profileDisplayName, setProfileDisplayName] = useState(MOCK_USER.displayName);
-  const [profileSlug, setProfileSlug] = useState(MOCK_USER.slug);
-  const [profileBio, setProfileBio] = useState(MOCK_USER.bio);
-  const [profileAvatar, setProfileAvatar] = useState<string | null>(MOCK_USER.avatarUrl);
-  const [profileCover, setProfileCover] = useState<string | null>(MOCK_USER.coverUrl);
+  // Profile tab state. Vem do perfil real, via prop — nunca de constante.
+  const [profileDisplayName, setProfileDisplayName] = useState(profileData?.displayName ?? "");
+  const [profileSlug, setProfileSlug] = useState(profileData?.slug ?? "");
+  const [profileBio, setProfileBio] = useState(profileData?.bio ?? "");
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(profileData?.avatarUrl ?? null);
+  const [profileCover, setProfileCover] = useState<string | null>(profileData?.coverUrl ?? null);
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "valid" | "invalid" | "taken">("idle");
+
+  // O perfil chega por prop e pode ainda estar carregando quando o modal é
+  // montado: sem este efeito, abrir o modal antes da resposta da API deixaria a
+  // aba "Perfil" com os campos vazios e um "salvar" que apagaria a bio.
+  useEffect(() => {
+    if (!open || !profileData) return;
+    setProfileDisplayName(profileData.displayName);
+    setProfileSlug(profileData.slug);
+    setProfileBio(profileData.bio);
+    setProfileAvatar(profileData.avatarUrl);
+    setProfileCover(profileData.coverUrl);
+  }, [open, profileData]);
 
   useEffect(() => {
     if (open) {
@@ -1059,17 +1084,32 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
     }
   }, [focusedLinkId, isListMode]);
 
-  // Slug validation debounce
+  // Disponibilidade do slug, pela API.
+  //
+  // A comparação é com o slug SALVO (`profileData?.slug`) e não com uma
+  // constante: com `MOCK_USER.slug` ali, o slug da própria criadora aparecia
+  // como "em uso" e o de outra pessoa como "livre".
   useEffect(() => {
-    if (profileSlug === MOCK_USER.slug) { setSlugStatus("idle"); return; }
+    const slugSalvo = profileData?.slug ?? "";
+    if (!profileSlug || profileSlug === slugSalvo) { setSlugStatus("idle"); return; }
+    if (!validateSlug(profileSlug)) { setSlugStatus("invalid"); return; }
+
     setSlugStatus("checking");
-    const t = setTimeout(() => {
-      if (!validateSlug(profileSlug)) setSlugStatus("invalid");
-      else if (isSlugTaken(profileSlug)) setSlugStatus("taken");
-      else setSlugStatus("valid");
-    }, 350);
-    return () => clearTimeout(t);
-  }, [profileSlug]);
+    let cancelado = false;
+
+    const t = setTimeout(async () => {
+      try {
+        const { available } = await api.slugAvailable(profileSlug);
+        if (!cancelado) setSlugStatus(available ? "valid" : "taken");
+      } catch {
+        // Falha de rede não é "indisponível": manter `checking` deixa o botão
+        // desabilitado em vez de liberar um slug que talvez não exista.
+        if (!cancelado) setSlugStatus("checking");
+      }
+    }, 400);
+
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [profileSlug, profileData?.slug]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1118,11 +1158,18 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
   const handleListAddLink = (platformId: string) => {
     const platform = PLATFORMS.find((p) => p.id === platformId)!;
     const newId = `l${Date.now()}`;
+    // Rascunho: entra na lista sem destino, para a pessoa preencher a URL na
+    // própria linha. O `id` provisório (`l<timestamp>`) é o que a página usa
+    // para saber que este link ainda NÃO existe na API — ela só o cria quando o
+    // destino é preenchido. Ver `handleSaveLink` em `app/links/page.tsx`.
+    //
+    // `shortCode` saiu do payload: quem escolhe o código curto é o servidor. É
+    // o endereço público do link, e um cliente que pudesse escolhê-lo poderia
+    // tentar colidir com o de outra criadora.
     const newLink: Partial<Link> = {
       id: newId,
       title: `Meu ${platform.label}`,
       platform: platformId,
-      shortCode: generateShortCode(),
       isActive: true,
       position: 0,
       clicks: 0,
@@ -1142,7 +1189,6 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
     thumbnailUrl: thumbnailUrl || undefined,
     platform: selectedPlatform!,
     destinationUrl: destinationUrl.trim(),
-    shortCode: editLink?.shortCode || generateShortCode(),
     cloakEnabled,
     safePage: cloakEnabled ? safePage : null,
     isActive,
@@ -1155,6 +1201,14 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
     if (!selectedPlatform || !title.trim()) {
       setActiveTab("link");
       toast.error("Selecione uma plataforma e preencha o título");
+      return false;
+    }
+    // O destino é obrigatório e a API o recusa vazio — um link sem destino é um
+    // botão que não leva a lugar nenhum. Validar aqui mostra o erro no campo,
+    // em vez de deixar a requisição falhar depois do "salvar".
+    if (!appearanceOnly && !destinationUrl.trim()) {
+      setActiveTab("link");
+      toast.error("Informe o link de destino");
       return false;
     }
     if (!appearanceOnly && cloakEnabled && (!safePage || safePage.socialLinks.length === 0)) {
@@ -1200,13 +1254,14 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
   ];
 
   // ── Preview helpers ──────────────────────────────────────────────────────
-  const previewTheme = THEMES.find((t) => t.id === MOCK_USER.themeId) ?? THEMES[0];
+  const previewTheme = THEMES.find((t) => t.id === profileData?.themeId) ?? THEMES[0];
   const previewProfile = profileData ?? {
-    displayName: MOCK_USER.displayName,
-    slug: MOCK_USER.slug,
-    bio: MOCK_USER.bio,
-    avatarUrl: MOCK_USER.avatarUrl,
-    coverUrl: MOCK_USER.coverUrl,
+    displayName: "",
+    slug: "",
+    bio: "",
+    avatarUrl: null,
+    coverUrl: null,
+    buttonStyle: "soft",
   };
   // Merge live appearance into focused link for real-time preview
   const previewLinks = allLinks.map((l) =>
@@ -1854,7 +1909,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                   avatarUrl={previewProfile.avatarUrl}
                   displayName={previewProfile.displayName}
                   bio={previewProfile.bio}
-                  buttonStyle={MOCK_USER.buttonStyle}
+                  buttonStyle={profileData?.buttonStyle ?? "soft"}
                   links={previewLinks}
                 />
               </div>

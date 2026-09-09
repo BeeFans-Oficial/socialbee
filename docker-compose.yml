@@ -1,0 +1,91 @@
+# BeeSocial — banco, API e app, em três serviços.
+#
+#   cp .env.example .env
+#   docker compose up
+#
+# Depois: app em http://localhost:3000, API em http://localhost:3333/v1.
+#
+# O banco expõe 5433 no host (e não 5432) para não colidir com um Postgres
+# instalado na máquina; dentro da rede do compose os serviços falam pela porta
+# padrão, pelo nome `db`.
+
+name: beesocial
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beesocial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beesocial}
+      POSTGRES_DB: ${POSTGRES_DB:-beesocial}
+      # Sem isto o Postgres inicializa com o locale do container e a ordenação
+      # de texto muda entre ambientes — o tipo de diferença que só aparece num
+      # ORDER BY com acento, meses depois.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      # Volume nomeado: `docker compose down` NÃO apaga os dados. Para zerar de
+      # propósito é `docker compose down -v`.
+      - beesocial-db:/var/lib/postgresql/data
+    healthcheck:
+      # É o que faz a API esperar o banco de verdade. `depends_on` sem
+      # healthcheck só garante que o container subiu — e o Postgres aceita
+      # conexão vários segundos depois disso, então a API morreria na primeira
+      # tentativa de migration.
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beesocial} -d ${POSTGRES_DB:-beesocial}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgres://${POSTGRES_USER:-beesocial}:${POSTGRES_PASSWORD:-beesocial}@db:5432/${POSTGRES_DB:-beesocial}
+      DB_SCHEMA: ${DB_SCHEMA:-socialbee}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET no .env da raiz (cp .env.example .env)}
+      JWT_TTL: ${JWT_TTL:-7d}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET no .env da raiz (cp .env.example .env)}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      # `NODE_ENV=production` deixaria o cookie exigindo HTTPS, e em
+      # `http://localhost` o navegador o descartaria — o login pareceria
+      # funcionar e nada ficaria autenticado. Em deploy real, remova esta linha.
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      # Conta de demonstração (bella@beesocial.app / 123456). Desligue em
+      # qualquer coisa que não seja sua máquina.
+      SEED_DEMO: ${SEED_DEMO:-true}
+    ports:
+      - "${API_PORT:-3333}:3333"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Endereço da API DENTRO da rede do compose. O navegador nunca vê esta
+      # URL: ele chama `/api/v1/*` na própria origem e o Next reescreve para cá
+      # (ver next.config.js). É o que dispensa CORS e faz o cookie de sessão
+      # funcionar sem `SameSite=None`.
+      API_INTERNAL_URL: http://api:3333
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET no .env da raiz}
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  beesocial-db:

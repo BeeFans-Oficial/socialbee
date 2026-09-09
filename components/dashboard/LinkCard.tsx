@@ -6,7 +6,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, Palette, Copy, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "@/lib/mock-data";
+import { Link } from "@/lib/catalog";
 import { getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { shortLinkUrl, siteHost } from "@/lib/site";

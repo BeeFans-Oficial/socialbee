@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/shared/Logo";
 import { HexBackground } from "@/components/shared/HexBackground";
+import { api, ApiError } from "@/lib/api/client";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,20 +19,39 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  /**
+   * Login de verdade.
+   *
+   * O que havia aqui: um `setTimeout` de 1,5 s comparando o email com a string
+   * `bella@beesocial.app` e a senha com `123456`, dentro do código que vai para
+   * o navegador. Qualquer pessoa lia a credencial no bundle, e o `router.push`
+   * levava ao painel sem nenhuma sessão existir.
+   *
+   * Agora a resposta vem da API, que devolve o cookie `httpOnly` de sessão. O
+   * `de` na query é para onde o middleware queria levar a pessoa antes de ela
+   * ser mandada para cá.
+   */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // Simular autenticação
-    setTimeout(() => {
-      if (email === "bella@beesocial.app" && password === "123456") {
-        router.push("/links");
-      } else {
-        setError("E-mail ou senha incorretos");
-        setLoading(false);
-      }
-    }, 1500);
+    try {
+      await api.login(email, password);
+      // Lido de `window.location` dentro do handler, e não com
+      // `useSearchParams()`: o hook obriga a página a ter fronteira de Suspense
+      // (ou vira renderização dinâmica) e esta tela é estática. O valor só
+      // interessa no momento do envio, quando o navegador já existe.
+      const destino = new URLSearchParams(window.location.search).get("de");
+      // `replace` e não `push`: com push, o botão "voltar" do navegador
+      // devolveria a pessoa autenticada para a tela de login.
+      router.replace(destino && destino.startsWith("/") ? destino : "/links");
+    } catch (caught) {
+      // A mensagem vem da API: ela é a única que sabe se foi credencial errada,
+      // excesso de tentativas ou o serviço fora do ar.
+      setError(caught instanceof ApiError ? caught.message : "Não foi possível entrar.");
+      setLoading(false);
+    }
   };
 
   // Testimonials for decorative panel

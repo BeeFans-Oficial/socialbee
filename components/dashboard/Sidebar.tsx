@@ -15,9 +15,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
-import { MOCK_USER } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 import { siteHost } from "@/lib/site";
+import { api } from "@/lib/api/client";
+import { invalidateSession, useSession } from "@/lib/api/use-session";
 
 const menuItems = [
   { icon: Link2, label: "Links", href: "/links" },
@@ -27,6 +28,7 @@ const menuItems = [
 ];
 
 function getInitials(name: string): string {
+  if (!name.trim()) return "";
   return name
     .split(" ")
     .map((word) => word[0])
@@ -41,10 +43,37 @@ interface SidebarContentProps {
 
 function SidebarContent({ onClose }: SidebarContentProps) {
   const pathname = usePathname();
+  const { session } = useSession();
 
-  const handleLogout = () => {
-    // Mock logout - em produção, limpar auth e redirecionar
-    window.location.href = "/login";
+  // Enquanto a sessão carrega, mostra o mínimo em vez de um nome de outra
+  // pessoa: era `MOCK_USER`, então toda criadora via "Bella ✨" e um link para
+  // `/bella` dentro do próprio painel.
+  const displayName = session?.profile.displayName ?? "";
+  const slug = session?.profile.slug ?? "";
+  const avatarUrl = session?.profile.avatarUrl ?? null;
+
+  /**
+   * Sair de verdade.
+   *
+   * Antes: `window.location.href = "/login"`, que só trocava de página — não
+   * havia sessão para encerrar. Agora a API revoga a linha em `sessions` e
+   * apaga o cookie, então o token deixa de valer mesmo para quem o tivesse
+   * copiado.
+   *
+   * A navegação usa `window.location` de propósito, e não o router: recarregar
+   * a página inteira descarta todo estado de cliente da sessão anterior. Com
+   * navegação do lado do cliente, dados da conta antiga continuariam em memória.
+   */
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      // Falha ao revogar não pode prender a pessoa no painel: o cookie some do
+      // navegador de todo jeito e a próxima requisição será recusada.
+    } finally {
+      invalidateSession();
+      window.location.href = "/login";
+    }
   };
 
   return (
@@ -70,33 +99,31 @@ function SidebarContent({ onClose }: SidebarContentProps) {
               background: "linear-gradient(135deg, #FF3C6E, #FF1F57)",
             }}
           >
-            {MOCK_USER.avatarUrl ? (
+            {avatarUrl ? (
               <img
-                src={MOCK_USER.avatarUrl}
-                alt={MOCK_USER.displayName}
+                src={avatarUrl}
+                alt={displayName}
                 className="w-full h-full rounded-full object-cover"
               />
             ) : (
-              <span className="text-white">
-                {getInitials(MOCK_USER.displayName)}
-              </span>
+              <span className="text-white">{getInitials(displayName)}</span>
             )}
           </div>
 
           {/* Info */}
           <div className="flex-1 min-w-0">
             <div className="font-barlow font-semibold text-sm text-white truncate">
-              {MOCK_USER.displayName}
+              {displayName || "..."}
             </div>
             <div className="text-xs text-bee-pink truncate">
-              {siteHost()}/{MOCK_USER.slug}
+              {siteHost()}/{slug}
             </div>
           </div>
         </div>
 
         {/* Botão Ver Página */}
         <Link
-          href={`/${MOCK_USER.slug}`}
+          href={slug ? `/${slug}` : "/links"}
           target="_blank"
           className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors"
           style={{
