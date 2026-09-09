@@ -48,10 +48,20 @@ export function siteHost(): string {
   }
 }
 
-/** URL do redirecionador de um link. */
-export function shortLinkUrl(shortCode: string): string {
-  return `${clientOrigin()}/r/${shortCode}`;
-}
+/*
+ * `shortLinkUrl` foi removida daqui.
+ *
+ * Ela montava `host/r/<código curto>` e era o que o botão de copiar do cartão
+ * entregava. Mas esse endereço é o redirecionador que a PÁGINA da criadora usa
+ * por dentro para contar o clique — não um link de bio. Copiado para a bio, ele
+ * leva a um destino só, sem a página, sem os outros links e sem a barreira de
+ * idade. O que ela divulga é `host/<slug>`, e é isso que `profileUrl` devolve.
+ *
+ * Quem precisa montar o endereço do redirecionador hoje é a própria página
+ * pública, e ela o faz a partir de `window.location.origin` para casar com o
+ * `lib/cloak.ts` — que precisa da MESMA origem de onde a página foi servida
+ * para o escape de navegador embutido funcionar.
+ */
 
 /** URL pública de um perfil. */
 export function profileUrl(slug: string): string {

@@ -1466,7 +1466,6 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                   {/* ── Configuração do Link Card ──────────────────── */}
                   {(() => {
                     const hint = PLATFORM_URL_HINTS[selectedPlatform || "custom"] ?? PLATFORM_URL_HINTS.custom;
-                    const shortCode = editLink?.shortCode || "xxxxxx";
                     const hasUrl = destinationUrl.trim().length > 0;
                     const platformColor = getPlatformColor(selectedPlatform || "custom");
                     const platformIcon = PLATFORMS.find(p => p.id === selectedPlatform)?.icon ?? "⭐";
