@@ -25,13 +25,40 @@ Conta de demonstração: `bella@beesocial.app` / `123456` (perfil `/bella`).
 > Portas 3000, 3333 ou 5433 ocupadas? Ajuste `WEB_PORT`, `API_PORT` e
 > `POSTGRES_PORT` no `.env`.
 
-Só o app, contra uma API que já esteja rodando:
+## Desenvolvimento
+
+No dia a dia, só o **banco** roda em container. API e app sobem na mão, cada um
+no seu terminal, com recarga automática:
 
 ```bash
-npm install
-npm run dev      # http://localhost:3000
-npm run build
+cp .env.example .env                 # uma vez
+cp api/.env.example api/.env         # uma vez
+npm install && npm --prefix api install
+
+npm run dev:db                       # sobe só o Postgres (porta 5433)
+npm --prefix api run migration:run   # uma vez, ou quando houver migration nova
+npm --prefix api run seed            # conta de demonstração (opcional)
+
+npm run dev:api                      # terminal 2 — API em :3333, com watch
+npm run dev                          # terminal 3 — app em :3000, com watch
 ```
+
+O app fala com a API por `/api/v1/*` na própria origem (o proxy em
+`app/api/v1/[...path]/route.ts` repassa para `API_INTERNAL_URL`, que em
+desenvolvimento tem default `http://localhost:3333`). Não é preciso configurar
+CORS nem mexer em porta.
+
+**Uma armadilha que vale saber:** `JWT_SECRET` e `INTERNAL_API_SECRET` existem
+nos dois arquivos (`.env` e `api/.env`) e precisam ter o **mesmo valor**. Se
+divergirem, o cookie de sessão assinado por um não vale no outro (você fica
+deslogado sem explicação) e o redirecionador para de contar clique — a API
+responde 404 no registro, o visitante é redirecionado normalmente, e nada avisa.
+
+Para parar o banco: `npm run dev:db:stop`. Os dados ficam no volume; só
+`docker compose down -v` os apaga.
+
+Rodar tudo em container continua sendo `docker compose up` — é assim que se
+verifica a imagem antes de subir para algum lugar.
 
 ## Stack
 
