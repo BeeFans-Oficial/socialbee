@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:db": "docker compose up -d db",
+    "dev:db:stop": "docker compose stop db",
+    "dev:api": "npm --prefix api run start:dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"
