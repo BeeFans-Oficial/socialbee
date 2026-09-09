@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "ver:robo": "node scripts/ver-como-robo.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint"

@@ -40,3 +40,6 @@ yarn-error.log*
 
 # tracking local store (dados de clique gravados em arquivo)
 /.data/
+
+# saída do `npm run ver:robo -- <slug> --render`
+/.visao-do-bot.html
