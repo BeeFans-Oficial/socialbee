@@ -433,6 +433,7 @@ export default function LinksPage() {
                   <LinkCard
                     key={link.id}
                     link={link}
+                    profileSlug={profile.slug}
                     onOpenModal={() => openModal("link")}
                     onEditAppearance={() => openModal("aparencia")}
                     onDelete={handleDeleteLink}
