@@ -53,7 +53,7 @@ services:
       JWT_TTL: ${JWT_TTL:-7d}
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET no .env da raiz (cp .env.example .env)}
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:${WEB_PORT:-3000}}
       # `NODE_ENV=production` deixaria o cookie exigindo HTTPS, e em
       # `http://localhost` o navegador o descartaria — o login pareceria
       # funcionar e nada ficaria autenticado. Em deploy real, remova esta linha.
@@ -70,6 +70,19 @@ services:
   web:
     build:
       context: .
+      args:
+        # Precisa ser argumento de BUILD, não só variável de ambiente: o Next
+        # embute `NEXT_PUBLIC_*` no bundle no momento da compilação. Sem esta
+        # linha, mudar o endereço no `.env` não tem efeito nenhum no que o
+        # navegador recebe — a imagem sai com o valor default embutido e o botão
+        # de copiar entrega um link para uma porta onde não há nada.
+        #
+        # Por isso o default sai de `WEB_PORT`: as duas coisas TÊM que
+        # concordar, e quem muda a porta não deveria precisar lembrar de mudar
+        # o endereço também.
+        #
+        # Mudou o endereço? `docker compose up --build`.
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:${WEB_PORT:-3000}}
     restart: unless-stopped
     environment:
       NODE_ENV: production
@@ -80,7 +93,10 @@ services:
       # funcionar sem `SameSite=None`.
       API_INTERNAL_URL: http://api:3333
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET no .env da raiz}
-      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}
+      # Em runtime isto serve só ao SERVIDOR do Next (o redirect de "não
+      # encontrado" em `/r/<código>`). O lado do cliente já vem embutido do
+      # build, pelo argumento acima.
+      NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:${WEB_PORT:-3000}}
     ports:
       - "${WEB_PORT:-3000}:3000"
     depends_on:
