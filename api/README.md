@@ -11,6 +11,25 @@ JWT em cookie `httpOnly`.
 
 ## Subir
 
+### Desenvolvimento (o caminho do dia a dia)
+
+Só o banco em container; a API na mão, com recarga automática:
+
+```bash
+cp .env.example .env          # da raiz do repositório
+cd api && cp .env.example .env && npm install
+
+npm run dev:db                # da raiz: sobe só o Postgres na 5433
+npm run migration:run         # aqui: cria o schema e aplica as migrations
+npm run seed                  # conta de demonstração
+npm run start:dev             # API em http://localhost:3333/v1, com watch
+```
+
+`JWT_SECRET` e `INTERNAL_API_SECRET` daqui têm que ser **iguais** aos do `.env`
+da raiz — o app usa os mesmos para validar a sessão e para registrar clique.
+
+### Tudo em container
+
 Junto com o app e o banco, da raiz do repositório:
 
 ```bash
@@ -26,17 +45,6 @@ qualquer `/r/xK9mP1` que já exista num print continua resolvendo).
 
 > Se as portas 3000, 3333 ou 5433 já estiverem ocupadas na sua máquina, ajuste
 > `WEB_PORT`, `API_PORT` e `POSTGRES_PORT` no `.env`.
-
-Só a API, contra um Postgres avulso:
-
-```bash
-cd api
-cp .env.example .env
-npm install
-npm run migration:run
-npm run seed
-npm run start:dev
-```
 
 ## Comandos
 
