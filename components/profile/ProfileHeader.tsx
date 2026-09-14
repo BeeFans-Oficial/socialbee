@@ -34,10 +34,21 @@ export function ProfileHeader({ user, themeAccent, activePlatforms }: ProfileHea
         }}
       />
 
-      {/* Avatar */}
-      <div className="flex flex-col items-center -mt-11 px-6">
+      {/* Avatar
+          `w-22 h-22` estava aqui e **não existe** na escala do Tailwind (ela vai
+          de 20 para 24). As duas classes não geravam CSS nenhum, então o
+          contêiner ficava sem largura e sem altura, e a `<img className="w-full
+          h-full">` dentro dele passava a valer 100% de um pai de tamanho
+          automático — ou seja, o tamanho natural do arquivo. Com iniciais no
+          lugar da foto o defeito não aparecia (o `<span>` é pequeno), mas quem
+          subia um avatar de câmera via a foto tomar a tela inteira.
+
+          Agora usa `w-24 h-24` (96 px) com `-mt-12` (48 px), mantendo a
+          sobreposição de metade do avatar sobre a capa que o `-mt-11` original
+          pretendia. `flex-shrink-0` impede que a coluna esprema o círculo. */}
+      <div className="flex flex-col items-center -mt-12 px-6">
         <div
-          className="w-22 h-22 rounded-full border-2 bg-bee-surface2 flex items-center justify-center overflow-hidden"
+          className="w-24 h-24 flex-shrink-0 rounded-full border-2 bg-bee-surface2 flex items-center justify-center overflow-hidden"
           style={{ borderColor: themeAccent }}
         >
           {user.avatarUrl ? (
