@@ -1,263 +1,222 @@
-"use client";
-
-import React, { useState, useEffect, useCallback } from "react";
+import { cookies, headers } from "next/headers";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import type { Metadata } from "next";
+import { cache } from "react";
+
 import { HexBackground } from "@/components/shared/HexBackground";
-import { AgeGate } from "@/components/profile/AgeGate";
-import { ProfileHeader } from "@/components/profile/ProfileHeader";
-import { LinkButton } from "@/components/profile/LinkButton";
-import { THEMES, type Link as LinkType, type User } from "@/lib/catalog";
-import { api } from "@/lib/api/client";
-import { handleLinkClick } from "@/lib/cloak";
-import { getPlatformIcon } from "@/lib/utils";
 import { Logo } from "@/components/shared/Logo";
+import { ProfileHeader } from "@/components/profile/ProfileHeader";
+import { THEMES } from "@/lib/catalog";
+import { getPlatformIcon } from "@/lib/utils";
+import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/server";
+import { SESSION_COOKIE } from "@/lib/session-cookie";
+import { siteHost } from "@/lib/site";
+import type { Link as LinkType, User } from "@/lib/catalog";
+import { BotProfile } from "./BotProfile";
+import { ProfileClient } from "./ProfileClient";
 
-export default function ProfilePage() {
-  const params = useParams();
-  const slug = params?.slug as string;
+/**
+ * Perfil público, renderizado no SERVIDOR.
+ *
+ * Era um componente de cliente, e a consequência aparecia em duas pontas:
+ *
+ *   - **Prévia genérica.** Quem não executa JavaScript recebia 21 KB de casca
+ *     com os metadados globais do layout. Quando uma fã compartilhava o link no
+ *     WhatsApp, a prévia dizia "BeeSocial — Seu link na bio", sem o nome nem a
+ *     foto da criadora. Custava clique em toda partilha orgânica, que é o canal
+ *     mais valioso que ela tem.
+ *   - **Bifurcação acidental.** Robô e humano já recebiam páginas diferentes,
+ *     mas por efeito colateral do modelo de renderização — não por decisão que
+ *     alguém tomou, revisou ou testou.
+ *
+ * Agora a decisão é explícita e está numa linha só (`requester.isBot`), com
+ * teste em cima. O veredito vem da API, que é onde o detector vive: a página
+ * não reimplementa heurística de robô, porque duas heurísticas em dois lugares
+ * divergem, e a que fica errada é sempre a que ninguém está olhando.
+ */
 
-  const [showFallbackButton, setShowFallbackButton] = useState(false);
-  const [fallbackUrl, setFallbackUrl] = useState("");
-  const [mounted, setMounted] = useState(false);
-  const [ageVerified, setAgeVerified] = useState(false);
+// A resposta depende de QUEM pediu, então não pode ser cacheada: uma página de
+// perfil em cache entregaria ao visitante seguinte o veredito do anterior.
+export const dynamic = "force-dynamic";
+
+/**
+ * Uma busca por requisição, compartilhada entre `generateMetadata` e a página.
+ *
+ * `cache()` do React memoiza dentro do mesmo render. Sem ele, cada acesso faria
+ * duas chamadas idênticas à API — e as duas repassam os cabeçalhos do visitante,
+ * então nem o veredito de robô sairia consistente entre elas.
+ */
+const carregarPerfil = cache(
+  async (slug: string): Promise<PublicProfileForRender | null> =>
+    fetchPublicProfile(slug, await headers()),
+);
+
+function paraUser(view: PublicProfileForRender): User {
+  return {
+    id: view.profile.id,
+    slug: view.profile.slug,
+    displayName: view.profile.displayName,
+    bio: view.profile.bio,
+    avatarUrl: view.profile.avatarUrl,
+    coverUrl: view.profile.coverUrl,
+    themeId: view.profile.themeId,
+    buttonStyle: view.profile.buttonStyle,
+    isAdult: view.profile.isAdult,
+    joinedAt: view.profile.joinedAt,
+  };
+}
+
+function paraLinks(view: PublicProfileForRender): LinkType[] {
+  // A API já devolve só os links ATIVOS, ordenados, e **sem** `destinationUrl`:
+  // o destino nunca chega ao navegador, é o redirecionador que o conhece.
+  return view.links.map((link) => ({
+    ...link,
+    subtitle: link.subtitle ?? undefined,
+    isActive: true,
+    clicks: 0,
+  }));
+}
+
+/**
+ * Metadados da prévia.
+ *
+ * O que o crawler lê aqui é o que vira o cartão no WhatsApp, no Telegram e no
+ * Instagram. Duas escolhas deliberadas:
+ *
+ *   - **O nome da criadora entra** — é o que faz a fã reconhecer o link e clicar.
+ *   - **A bio NÃO entra.** Ela é campo de expressão da criadora e costuma ser
+ *     explícita; a descrição da prévia é texto neutro gerado a partir do slug.
+ *     O próximo passo é dar a ela um campo de prévia próprio, para escolher o
+ *     que aparece sem ter que censurar a bio.
+ *
+ * Sem `og:image` por ora, pelo mesmo motivo: o avatar é escolha dela e pode ser
+ * conteúdo adulto — expor por padrão é decisão que não cabe a este código.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const view = await carregarPerfil(slug);
+
+  if (!view) {
+    return { title: "Perfil não encontrado | BeeSocial" };
+  }
+
+  const titulo = view.profile.displayName;
+  const descricao = `Todos os links de @${view.profile.slug} em um só lugar.`;
+
+  return {
+    title: titulo,
+    description: descricao,
+    openGraph: {
+      title: titulo,
+      description: descricao,
+      type: "profile",
+      url: `https://${siteHost()}/${view.profile.slug}`,
+      siteName: "BeeSocial",
+    },
+    twitter: { card: "summary", title: titulo, description: descricao },
+  };
+}
+
+export default async function ProfilePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ preview?: string }>;
+}) {
+  const { slug } = await params;
+  const view = await carregarPerfil(slug);
+
+  if (!view) return <PerfilNaoEncontrado slug={slug} />;
+
+  const user = paraUser(view);
 
   /**
-   * Perfil público, vindo da API.
+   * Prévia de robô, para a criadora ver na tela do painel como o crawler vê o
+   * perfil dela (`/previa`).
    *
-   * O que havia aqui: `const isValidSlug = slug === "bella" || slug === "demo"`
-   * — duas strings chumbadas. Qualquer outra criadora que se cadastrasse tinha
-   * um link na bio que respondia "perfil não encontrado", e as duas que
-   * "existiam" mostravam sempre o MESMO perfil de mentira.
-   *
-   * `loading` é um terceiro estado necessário: sem ele, o primeiro render (antes
-   * da resposta) cai no ramo de 404 e a visitante vê "perfil não encontrado"
-   * piscar antes do perfil aparecer.
+   * `?preview=bot` força o ramo do robô — mas **só com sessão**. A trava não é
+   * decorativa: sem ela, qualquer um forçaria o ramo pela URL, e um bot esperto
+   * usaria `?preview=human` (que não existe, justamente por isso) para pedir a
+   * versão com links. Aqui só o `bot` é forçável, e só para quem está logado —
+   * a presença do cookie basta, porque forçar o ramo do robô só entrega MENOS
+   * conteúdo, nunca mais.
    */
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
-  const [links, setLinks] = useState<LinkType[]>([]);
+  const { preview } = await searchParams;
+  const temSessao = (await cookies()).has(SESSION_COOKIE);
+  const forcarRoboNaPrevia = preview === "bot" && temSessao;
 
-  useEffect(() => {
-    if (!slug) return;
-    let cancelado = false;
-
-    (async () => {
-      try {
-        const data = await api.publicProfile(slug);
-        if (cancelado) return;
-        setUser({
-          id: data.profile.id,
-          slug: data.profile.slug,
-          displayName: data.profile.displayName,
-          bio: data.profile.bio,
-          avatarUrl: data.profile.avatarUrl,
-          coverUrl: data.profile.coverUrl,
-          themeId: data.profile.themeId,
-          buttonStyle: data.profile.buttonStyle,
-          isAdult: data.profile.isAdult,
-          joinedAt: data.profile.joinedAt,
-        });
-        // A API só devolve os links ATIVOS e já ordenados — e sem
-        // `destinationUrl`: o destino nunca chega ao navegador, é o
-        // redirecionador que o conhece. Sem isso, o robô da rede social leria o
-        // link do OnlyFans direto do HTML, que é o que o produto existe para
-        // evitar.
-        setLinks(
-          data.links.map((link) => ({
-            ...link,
-            subtitle: link.subtitle ?? undefined,
-            thumbnailUrl: link.thumbnailUrl,
-            isActive: true,
-            clicks: 0,
-          })),
-        );
-      } catch {
-        // Qualquer falha (404, rede) cai no mesmo lugar: a visitante não tem o
-        // que fazer com a diferença entre "não existe" e "API fora do ar".
-        if (!cancelado) setUser(null);
-      } finally {
-        if (!cancelado) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [slug]);
-
-  const theme = THEMES.find((t) => t.id === user?.themeId) || THEMES[0];
-
-  // Perfil adulto exige confirmação de idade antes de mostrar qualquer link.
-  const needsAgeGate = Boolean(user?.isAdult) && !ageVerified;
-
-  // Referência estável: o `useEffect` do AgeGate depende de `onVerified`, e uma
-  // arrow inline mudaria de identidade a cada render, reexecutando o efeito que
-  // lê o localStorage.
-  const handleVerified = useCallback(() => setAgeVerified(true), []);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  // Registra a visualização do perfil — é o denominador da taxa de clique.
-  //
-  // Só conta DEPOIS da barreira de idade: quem desiste no modal nunca viu os
-  // links, e contá-lo diluiria a taxa de clique de todo perfil adulto.
-  useEffect(() => {
-    if (!user || !slug || needsAgeGate) return;
-    // Manda o SLUG, nunca o id do perfil: quem traduz é o servidor. Aceitar o
-    // id do cliente deixaria qualquer um postar views no perfil de qualquer
-    // criadora.
-    api.recordView(slug);
-  }, [user, slug, needsAgeGate]);
-
-  // Aplicar tema
-  useEffect(() => {
-    if (!mounted || !user) return;
-
-    const root = document.documentElement;
-    root.style.setProperty("--theme-bg", theme.bg);
-    root.style.setProperty("--theme-accent", theme.accent);
-    
-    // Calcular surface (mais claro que bg)
-    const surface = theme.bg.replace(/[^,]+(?=\))/, (m) =>
-      String(Math.min(255, parseInt(m) + 20))
-    );
-    root.style.setProperty("--theme-surface", surface);
-
-    // Aplicar bg color
-    document.body.style.backgroundColor = theme.bg;
-
-    return () => {
-      document.body.style.backgroundColor = "";
-    };
-  }, [mounted, user, theme]);
-
-  // Handler de clique com fallback
-  const onLinkClick = (shortCode: string, cloakEnabled: boolean) => {
-    const url = `${window.location.origin}/r/${shortCode}`;
-    setFallbackUrl(url);
-
-    handleLinkClick(shortCode, cloakEnabled, () => {
-      // Callback para iOS - mostrar botão manual
-      setShowFallbackButton(true);
-      setTimeout(() => setShowFallbackButton(false), 10000);
-    });
-  };
-
-  // Ícones das plataformas ativas
-  const activePlatforms = links.map((link) => getPlatformIcon(link.platform));
-
-  // Loading ou aguardando mount
-  if (!mounted || loading) {
-    return (
-      <div className="min-h-screen bg-bee-bg flex items-center justify-center">
-        <div className="text-bee-muted">Carregando...</div>
-      </div>
-    );
+  // A bifurcação. Uma linha, explícita, testável.
+  if (forcarRoboNaPrevia || view.requester?.isBot) {
+    return <BotProfile user={user} />;
   }
 
-  // 404 - Perfil não encontrado
-  if (!user) {
-    return (
-      <div className="relative min-h-screen bg-bee-bg text-bee-text overflow-hidden flex items-center justify-center">
-        <HexBackground density="low" />
-        <div className="relative z-10 text-center px-6">
-          <Logo size="lg" variant="full" className="mb-8 justify-center" />
-          <h1 className="font-bebas text-6xl uppercase mb-4">
-            Perfil não encontrado
-          </h1>
-          <p className="text-bee-muted mb-8 max-w-md mx-auto">
-            O perfil <span className="text-bee-pink">@{slug}</span> não existe
-            ou foi removido.
-          </p>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-bee-pink rounded-full font-semibold hover:opacity-90 transition-opacity glow-pink-sm"
-          >
-            Voltar para o início
-          </Link>
-        </div>
-      </div>
-    );
-  }
+  /**
+   * Humano: a página real, já renderizada no servidor.
+   *
+   * O cabeçalho — nome, bio, avatar, selo de idade — vai no HTML, então aparece
+   * no primeiro paint, sem esperar JavaScript. É o que atende "humano vai
+   * direto para a página real".
+   *
+   * **Os links só vão no HTML quando o perfil NÃO é adulto.** Sendo adulto, a
+   * barreira de idade só significa algo se o conteúdo não estiver no documento
+   * antes da confirmação — senão basta abrir o código-fonte. O `ProfileClient`
+   * os busca em paralelo com a barreira na tela, então confirmar revela tudo no
+   * mesmo gesto.
+   *
+   * Os ícones de plataforma seguem a mesma regra: são derivados dos links, e
+   * `onlyfans` no cabeçalho é a mesma informação que os links dariam.
+   */
+  const links = paraLinks(view);
+  const theme = THEMES.find((t) => t.id === user.themeId) ?? THEMES[0];
 
-  // Barreira de idade — vem ANTES do perfil, e por isso nada do conteúdo
-  // adulto chega ao DOM antes da confirmação.
-  //
-  // O componente já existia pronto (localStorage por slug, validade de 24 h,
-  // prevenção de flash) e nunca havia sido importado: `/bella` abria o conteúdo
-  // +18 direto.
-  if (needsAgeGate) {
-    return (
-      <AgeGate
-        slug={slug}
-        displayName={user.displayName}
-        onVerified={handleVerified}
-      />
-    );
-  }
-
-  // Perfil
   return (
     <div
       className="relative min-h-screen text-bee-text overflow-hidden"
       style={{ backgroundColor: theme.bg }}
     >
-      {/* Background */}
       <HexBackground density="medium" />
 
-      {/* Content */}
       <div className="relative z-10 pb-20">
-        {/* Profile Header */}
-        <ProfileHeader 
-          user={user} 
+        <ProfileHeader
+          user={user}
           themeAccent={theme.accent}
-          activePlatforms={activePlatforms} 
+          activePlatforms={user.isAdult ? [] : links.map((l) => getPlatformIcon(l.platform))}
         />
 
-        {/* Links List */}
-        <div className="max-w-sm mx-auto px-4 mt-6 space-y-3">
-          {links.map((link, index) => (
-            <LinkButton
-              key={link.id}
-              link={link}
-              icon={getPlatformIcon(link.platform)}
-              buttonStyle={user.buttonStyle}
-              accentColor={theme.accent}
-              index={index}
-              onClick={() => onLinkClick(link.shortCode, link.cloakEnabled)}
-            />
-          ))}
-        </div>
+        <ProfileClient
+          slug={slug}
+          displayName={user.displayName}
+          isAdult={user.isAdult}
+          themeId={user.themeId}
+          buttonStyle={user.buttonStyle}
+          initialLinks={user.isAdult ? null : links}
+        />
+      </div>
+    </div>
+  );
+}
 
-        {/* Fallback Button (iOS) */}
-        {showFallbackButton && (
-          <div className="fixed bottom-6 left-6 right-6 z-50 animate-in slide-in-from-bottom">
-            <div className="max-w-sm mx-auto bg-bee-surface border border-bee-border rounded-xl p-4 shadow-2xl">
-              <p className="text-sm text-bee-muted mb-3">
-                Não abriu automaticamente?
-              </p>
-              <button
-                onClick={() => window.open(fallbackUrl, "_blank")}
-                className="w-full px-4 py-2 bg-bee-pink rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              >
-                Toque aqui para abrir
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="text-center mt-12">
-          <Link
-            href="/"
-            className="text-xs text-bee-muted hover:text-bee-pink transition-colors"
-          >
-            Powered by BeeSocial
-          </Link>
-        </div>
+function PerfilNaoEncontrado({ slug }: { slug: string }) {
+  return (
+    <div className="relative min-h-screen bg-bee-bg text-bee-text overflow-hidden flex items-center justify-center">
+      <HexBackground density="low" />
+      <div className="relative z-10 text-center px-6">
+        <Logo size="lg" variant="full" className="mb-8 justify-center" />
+        <h1 className="font-bebas text-6xl uppercase mb-4">Perfil não encontrado</h1>
+        <p className="text-bee-muted mb-8 max-w-md mx-auto">
+          O perfil <span className="text-bee-pink">@{slug}</span> não existe ou foi removido.
+        </p>
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-bee-pink rounded-full font-semibold hover:opacity-90 transition-opacity glow-pink-sm"
+        >
+          Voltar para o início
+        </Link>
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { ApiProfile, ApiPublicLink } from "./types";
+
 /**
  * Cliente da API para o SERVIDOR do Next.
  *
@@ -15,6 +17,55 @@ import "server-only";
  */
 
 const INTERNAL_BASE = (process.env.API_INTERNAL_URL ?? "http://localhost:3333").replace(/\/+$/, "");
+
+/** Cabeçalhos do visitante que a API precisa para julgar se o acesso é humano e
+ *  para montar a atribuição. Lista fechada: repassar tudo mandaria também o
+ *  cookie de sessão de quem estiver logado para rotas que não precisam dele. */
+const CABECALHOS_DO_VISITANTE = [
+  "user-agent",
+  "accept",
+  "accept-language",
+  "referer",
+  "sec-ch-ua",
+  "sec-ch-ua-mobile",
+  "sec-ch-ua-platform",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
+  "sec-fetch-site",
+  "upgrade-insecure-requests",
+  "cf-ipcountry",
+  "x-vercel-ip-country",
+] as const;
+
+/** Qualquer fonte de cabeçalho: `request.headers` no Route Handler,
+ *  `await headers()` no componente de servidor. */
+type FonteDeCabecalho = { get(name: string): string | null };
+
+function repassarCabecalhos(fonte: FonteDeCabecalho, ip?: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const name of CABECALHOS_DO_VISITANTE) {
+    const value = fonte.get(name);
+    if (value) out[name] = value;
+  }
+  if (ip) out["x-forwarded-for"] = ip;
+  return out;
+}
+
+/** IP do visitante a partir dos cabeçalhos de borda. Alimenta filtro de robô e
+ *  prefixo de rede — nunca autorização: `x-forwarded-for` é falsificável quando
+ *  não há proxy confiável na frente. */
+export function clientIp(fonte: FonteDeCabecalho): string | undefined {
+  const candidates = [
+    fonte.get("cf-connecting-ip"),
+    fonte.get("x-real-ip"),
+    fonte.get("x-forwarded-for")?.split(",")[0],
+  ];
+  for (const candidate of candidates) {
+    const value = candidate?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
 
 export interface ClickResult {
   destinationUrl: string | null;
@@ -47,27 +98,10 @@ export async function recordClick(
   }
 
   const forwarded: Record<string, string> = {
+    ...repassarCabecalhos(request.headers, clientIp),
     "content-type": "application/json",
     "x-internal-secret": secret,
   };
-
-  // Cabeçalhos que alimentam o filtro de robô e a atribuição. Lista fechada:
-  // repassar tudo mandaria também o cookie de sessão de quem estiver logado
-  // para uma rota que não precisa dele.
-  for (const name of [
-    "user-agent",
-    "accept",
-    "accept-language",
-    "referer",
-    "sec-ch-ua",
-    "sec-fetch-mode",
-    "cf-ipcountry",
-    "x-vercel-ip-country",
-  ]) {
-    const value = request.headers.get(name);
-    if (value) forwarded[name] = value;
-  }
-  if (clientIp) forwarded["x-forwarded-for"] = clientIp;
 
   const response = await fetch(`${INTERNAL_BASE}/v1/public/tracking/click`, {
     method: "POST",
@@ -90,4 +124,45 @@ export async function recordClick(
   }
 
   return result;
+}
+
+
+/** Perfil público como o SERVIDOR o busca, para renderizar `/[slug]`.
+ *
+ *  A resposta traz `requester` — o veredito do filtro de robô sobre o VISITANTE,
+ *  calculado pela API a partir dos cabeçalhos repassados aqui. A detecção não é
+ *  reimplementada no app de propósito: duas heurísticas de robô em dois lugares
+ *  divergem, e a que fica errada é sempre a que ninguém está olhando.
+ *
+ *  `cache: "no-store"` porque a resposta depende de quem pediu. Uma página de
+ *  perfil cacheada entregaria ao visitante seguinte o veredito do anterior. */
+export interface PublicProfileForRender {
+  profile: ApiProfile;
+  links: ApiPublicLink[];
+  requester?: { isBot: boolean; score: number; reason: string };
+}
+
+export async function fetchPublicProfile(
+  slug: string,
+  fonte: FonteDeCabecalho,
+): Promise<PublicProfileForRender | null> {
+  const secret = process.env.INTERNAL_API_SECRET;
+  const headers: Record<string, string> = repassarCabecalhos(fonte, clientIp(fonte));
+  // Sem segredo a API responde o perfil, só sem o veredito — a página ainda
+  // renderiza, tratando o visitante como humano. Degradar assim é melhor do que
+  // derrubar o perfil da criadora por configuração ausente.
+  if (secret) headers["x-internal-secret"] = secret;
+
+  const response = await fetch(
+    `${INTERNAL_BASE}/v1/public/profiles/${encodeURIComponent(slug)}`,
+    { headers, cache: "no-store" },
+  );
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    console.error(`[perfil] API respondeu ${response.status} para /${slug}`);
+    return null;
+  }
+
+  return (await response.json()) as PublicProfileForRender;
 }

@@ -132,6 +132,28 @@ export class ProfilesService {
   }
 
   /**
+   * Bytes do avatar, para a rota que o serve como imagem.
+   *
+   * O `etag` sai de `updated_at`: a criadora trocar a foto invalida o cache do
+   * navegador na hora, e nada além disso invalida.
+   */
+  async avatarBytes(
+    slug: string,
+  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
+    const profile = await this.profiles.findOne({
+      where: { slug: slug.trim().toLowerCase() },
+      select: { avatarUrl: true, updatedAt: true },
+    });
+    if (!profile?.avatarUrl) return null;
+
+    const decoded = decodeDataUrl(profile.avatarUrl);
+    // Avatar que já é URL http(s) não passa por aqui — a interface o usa direto.
+    if (!decoded) return null;
+
+    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
+  }
+
+  /**
    * Perfil público por slug.
    *
    * Uma consulta para o perfil e uma para os links ativos, ordenados. Não usa
@@ -150,11 +172,32 @@ export class ProfilesService {
       order: { position: "ASC", createdAt: "ASC" },
     });
 
+    const view = toOwnProfileView(profile);
+
     return {
-      profile: toOwnProfileView(profile),
+      profile: {
+        ...view,
+        // Troca o data URL pela rota que serve a imagem. O documento carrega
+        // uma URL curta em vez de megabytes de base64 repetidos no HTML e no
+        // payload de hidratação. O dono do perfil continua recebendo o data URL
+        // em `GET /me/profile`, porque o editor precisa dele para a prévia.
+        avatarUrl: profile.avatarUrl
+          ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/avatar`
+          : null,
+        // A capa ainda não é renderizada em lugar nenhum; quando for, segue o
+        // mesmo caminho.
+        coverUrl: null,
+      },
       links: links.map(toPublicLinkView),
     };
   }
+}
+
+/** Data URL em base64 → bytes + tipo. `null` quando não é data URL. */
+function decodeDataUrl(value: string): { contentType: string; bytes: Buffer } | null {
+  const match = /^data:([\w/+.-]+);base64,(.*)$/s.exec(value);
+  if (!match) return null;
+  return { contentType: match[1], bytes: Buffer.from(match[2], "base64") };
 }
 
 export function toOwnProfileView(profile: Profile): OwnProfileView {

@@ -37,9 +37,22 @@ export class InternalSecretGuard implements CanActivate {
 
 /** Comparação de tempo constante. Um `===` em segredo vazaria o prefixo
  *  correto pelo tempo de resposta, dado tentativas suficientes. */
-function safeEquals(a: string, b: string): boolean {
+export function safeEquals(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
   if (left.length !== right.length) return false;
   return timingSafeEqual(left, right);
+}
+
+/**
+ * A requisição vem do nosso próprio servidor?
+ *
+ * Usado onde a rota precisa continuar PÚBLICA mas ganha informação extra
+ * quando quem chama é o servidor do Next — caso do veredito de robô no perfil
+ * público. Um guard não serve ali: ele recusaria o visitante comum.
+ */
+export function isInternalRequest(headers: Record<string, string | string[] | undefined>): boolean {
+  const provided = headers[INTERNAL_SECRET_HEADER];
+  if (typeof provided !== "string") return false;
+  return safeEquals(provided, loadEnv().internalApiSecret);
 }

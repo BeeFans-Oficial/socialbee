@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { SESSION_COOKIE } from "@/lib/session-cookie";
+
 /**
  * Barreira das rotas do painel.
  *
@@ -22,10 +24,9 @@ import { NextResponse, type NextRequest } from "next/server";
  * login — o caminho correto, já implementado nas telas.
  */
 
-const COOKIE_NAME = process.env.COOKIE_NAME || "beesocial_session";
 
 export function proxy(request: NextRequest): NextResponse {
-  const hasSession = request.cookies.has(COOKIE_NAME);
+  const hasSession = request.cookies.has(SESSION_COOKIE);
   if (hasSession) return NextResponse.next();
 
   const login = new URL("/login", request.url);
@@ -35,5 +36,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/links", "/aparencia", "/analytics", "/configuracoes", "/dashboard"],
+  matcher: ["/links", "/aparencia", "/previa", "/analytics", "/configuracoes", "/dashboard"],
 };

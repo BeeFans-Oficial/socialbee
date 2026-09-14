@@ -8,6 +8,7 @@ import {
   Link2,
   Palette,
   BarChart2,
+  Eye,
   Settings,
   LogOut,
   Menu,
@@ -23,6 +24,7 @@ import { invalidateSession, useSession } from "@/lib/api/use-session";
 const menuItems = [
   { icon: Link2, label: "Links", href: "/links" },
   { icon: Palette, label: "Aparência", href: "/aparencia" },
+  { icon: Eye, label: "Prévia", href: "/previa" },
   { icon: BarChart2, label: "Analytics", href: "/analytics" },
   { icon: Settings, label: "Configurações", href: "/configuracoes" },
 ];
