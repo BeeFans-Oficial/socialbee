@@ -4,6 +4,9 @@
 .pnp.js
 .yarn/install-state.gz
 
+# o projeto usa npm (package-lock.json); lockfile de outro gerenciador fica de fora
+pnpm-lock.yaml
+
 # testing
 /coverage
 
