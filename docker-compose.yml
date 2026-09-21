@@ -81,6 +81,11 @@ services:
         # concordar, e quem muda a porta não deveria precisar lembrar de mudar
         # o endereço também.
         #
+        # No Dockerfile ela NÃO tem default, de propósito: sem esta linha o
+        # build falha. Aqui o default de `localhost` é legítimo, porque este
+        # arquivo É o ambiente de desenvolvimento — em produção quem preenche é
+        # docker-compose.prod.yml, com o domínio real.
+        #
         # Mudou o endereço? `docker compose up --build`.
         NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:-http://localhost:${WEB_PORT:-3000}}
     restart: unless-stopped

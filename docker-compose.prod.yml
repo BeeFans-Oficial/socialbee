@@ -1,0 +1,140 @@
+# BeeSocial — produção na VPS: BANCO, API e FRONT.
+#
+#   cp .env.production.example .env
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# O produto inteiro roda nesta máquina, nos três serviços abaixo. Os três
+# publicam SÓ no loopback: quem atende a internet e termina o TLS é o **nginx
+# nativo do host** (apt + certbot), não um container — por isso não há serviço
+# de borda neste arquivo. Os dois blocos de servidor estão em deploy/nginx/.
+#
+#     navegador ──> nginx (host, :80/:443)
+#                     ├─ beesocial.bio      ──> 127.0.0.1:3000   web  (Next)
+#                     └─ api.beesocial.bio  ──> 127.0.0.1:3333   api  (NestJS)
+#
+#     web ──(rede interna do Compose)──> api:3333 ──> db:5432
+#
+# Por que o navegador nunca fala direto com a API: ele chama `/api/v1/*` no
+# domínio do FRONT e quem repassa é o Route Handler do Next
+# (app/api/v1/[...path]/route.ts), lendo API_INTERNAL_URL a cada requisição. É
+# o que mantém o cookie de sessão same-site. O domínio público da API existe
+# para Postman e clientes externos; o caminho do produto não passa por ele.
+#
+# ARQUIVO AUTÔNOMO, e não um override de docker-compose.yml: o Compose ANEXA
+# listas de `ports`, nunca as substitui. Um override herdaria os `5433:5432` e
+# `3333:3333` do arquivo de desenvolvimento e o Postgres continuaria publicado
+# na internet — exatamente o que este arquivo existe para impedir.
+
+name: beesocial
+
+# Log com teto. O default do Docker é arquivo que cresce sem limite — é assim
+# que um disco enche e o Postgres para de aceitar escrita por falta de espaço.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beesocial}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-beesocial}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    # SEM `ports`. Nem no loopback: quem fala com o banco é a API, pela rede
+    # interna do Compose. Para abrir um psql:
+    #   docker compose -f docker-compose.prod.yml exec db psql -U beesocial
+    volumes:
+      - beesocial-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beesocial} -d ${POSTGRES_DB:-beesocial}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      NODE_ENV: production
+      PORT: 3333
+      DATABASE_URL: postgres://${POSTGRES_USER:-beesocial}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-beesocial}
+      DB_SCHEMA: ${DB_SCHEMA:-socialbee}
+      JWT_SECRET: ${JWT_SECRET:?defina JWT_SECRET (openssl rand -hex 32)}
+      JWT_TTL: ${JWT_TTL:-7d}
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET (openssl rand -hex 32)}
+      # A origem pública do FRONT — não o domínio da API.
+      #
+      # O caminho do navegador é same-origin (passa pelo Route Handler do Next),
+      # então o CORS só é exercitado por acesso direto: curl, Postman, um app
+      # futuro. Mantê-lo restrito impede que outra origem peça com credenciais.
+      CORS_ORIGINS: ${SITE_URL:?defina SITE_URL - origem publica do front}
+      PUBLIC_SITE_URL: ${SITE_URL:?defina SITE_URL}
+      # O cookie de sessão chega ao navegador pelo nginx, que é quem serve
+      # HTTPS (certbot). Sem TLS na borda, `secure` faria o navegador descartar
+      # o cookie e ninguém conseguiria entrar.
+      COOKIE_SECURE: "true"
+      # Conta de demonstração DESLIGADA. `seed.ts` se protege sozinho quando a
+      # variável está AUSENTE, mas o compose de dev sempre define um valor — e
+      # valor definido vence o guard. Aqui é explícito.
+      SEED_DEMO: "false"
+    # Publicada SÓ no loopback do host.
+    #
+    # O `127.0.0.1:` no começo não é detalhe: sem ele o Docker faz bind em
+    # 0.0.0.0 e escreve iptables ANTES do ufw, então a regra de firewall não
+    # bloquearia — a API ficaria acessível pela internet sem TLS e aceitando
+    # `x-forwarded-for` forjado. Com o prefixo, só processos da própria máquina
+    # alcançam, e o único que alcança é o nginx.
+    ports:
+      - "127.0.0.1:3333:3333"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      args:
+        # Embutida no bundle no BUILD. O Dockerfile exige esta variável (não tem
+        # default lá, de propósito): sem ela o build FALHA, em vez de produzir
+        # uma imagem com `localhost` chumbado no botão de copiar.
+        #
+        # Trocar o domínio depois exige rebuild, não basta reiniciar:
+        #   docker compose -f docker-compose.prod.yml up -d --build web
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:?defina SITE_URL}
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # A API pela REDE INTERNA do Compose, não pelo domínio público.
+      #
+      # É a vantagem de ter o front na mesma máquina: a chamada não sai do
+      # servidor. Sem salto pela internet, sem custo de TLS a cada requisição, e
+      # o INTERNAL_API_SECRET nunca trafega fora daqui. O caminho público
+      # (api.beesocial.bio) continua existindo para Postman e clientes externos,
+      # mas o produto não depende dele.
+      #
+      # Lida a CADA requisição pelo Route Handler — é por isso que o repasse não
+      # é `rewrites`, que congelaria o destino no build.
+      API_INTERNAL_URL: http://api:3333
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?defina INTERNAL_API_SECRET}
+      # Repetida aqui por completude — o valor que o navegador enxerga é o que
+      # foi embutido no BUILD, acima. Mudar só esta linha não muda nada na tela.
+      NEXT_PUBLIC_SITE_URL: ${SITE_URL:?defina SITE_URL}
+    # Publicada SÓ no loopback, como a API. Quem atende a internet é o nginx.
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  beesocial-db:
