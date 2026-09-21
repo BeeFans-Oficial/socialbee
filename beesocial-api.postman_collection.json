@@ -1,0 +1,458 @@
+{
+  "info": {
+    "_postman_id": "b3e50c1a-7d42-4f8e-9a61-2f0c8d5e4a11",
+    "name": "BeeSocial API",
+    "description": "API do BeeSocial em produção (https://api.beesocial.bio).\n\n## Como a sessão funciona\n\nO login **não devolve token no corpo**. Ele devolve um cookie `httpOnly` chamado `beesocial_session`, e o Postman guarda esse cookie sozinho no cookie jar do domínio. Ou seja: rode o `Login` uma vez e todas as rotas `/v1/me/*` passam a funcionar, sem copiar nada à mão.\n\nSe uma rota `/v1/me/*` responder 401, é porque o cookie expirou (validade de 7 dias) ou você limpou o jar. Rode o `Login` de novo.\n\n## Ordem sugerida na primeira vez\n\n1. `Saúde → Health` — confirma que a API responde\n2. `Público → Slug disponível?` — escolhe um slug livre\n3. `Autenticação → Registrar` — cria a conta (já deixa você logado)\n4. `Meus links → Criar link` — o teste salva o `id` e o `shortCode` nas variáveis\n5. `Público → Perfil público` — vê o resultado como visitante\n\n## Variáveis\n\n`baseUrl` já vem preenchida. `email`, `password` e `slug` têm valores de exemplo — troque antes de registrar. `linkId` e `shortCode` são preenchidas automaticamente quando você cria um link.\n\n`internalSecret` está **vazia de propósito**: ela protege o registro de clique e não deve circular em arquivo versionado. Pegue o valor na VPS com:\n\n    ssh root@179.197.233.125 'grep INTERNAL_API_SECRET /opt/beesocial/.env'",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://api.beesocial.bio",
+      "type": "string",
+      "description": "Origem da API em produção. Para bater local, troque por http://localhost:3333"
+    },
+    {
+      "key": "email",
+      "value": "teste@exemplo.com",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "senha-de-teste-123",
+      "type": "string"
+    },
+    {
+      "key": "slug",
+      "value": "meu-perfil-teste",
+      "type": "string",
+      "description": "3 a 30 caracteres: letras minúsculas, números e hífen"
+    },
+    {
+      "key": "linkId",
+      "value": "",
+      "type": "string",
+      "description": "Preenchida automaticamente por 'Criar link'"
+    },
+    {
+      "key": "shortCode",
+      "value": "",
+      "type": "string",
+      "description": "Preenchida automaticamente por 'Criar link'"
+    },
+    {
+      "key": "internalSecret",
+      "value": "",
+      "type": "string",
+      "description": "Segredo servidor-a-servidor. Ler na VPS, nunca versionar."
+    }
+  ],
+  "item": [
+    {
+      "name": "Saúde",
+      "item": [
+        {
+          "name": "Health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "health"]
+            },
+            "description": "Toca o banco de propósito. Um 200 aqui significa que a API responde E consegue consultar o Postgres — processo que responde 200 sem alcançar o banco é o pior tipo de 'saudável'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Autenticação",
+      "item": [
+        {
+          "name": "Registrar",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('conta criada', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "pm.test('cookie de sessão veio', () => {",
+                  "    const cookie = pm.cookies.get('beesocial_session');",
+                  "    pm.expect(cookie, 'o registro já deixa a pessoa logada').to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"displayName\": \"Perfil de Teste\",\n  \"slug\": \"{{slug}}\",\n  \"ageConfirmed\": true,\n  \"isAdult\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "register"]
+            },
+            "description": "Cria conta e perfil de uma vez, e já devolve o cookie de sessão.\n\nRegras de validação:\n- `password`: 6 a 72 caracteres\n- `displayName`: 1 a 60\n- `slug`: 3 a 30, só `[a-z0-9-]`\n- `ageConfirmed`: obrigatório\n- `isAdult`: opcional — liga a barreira de idade no perfil público\n\nA API usa `forbidNonWhitelisted`, então mandar um campo que não existe no DTO **falha a requisição** em vez de ignorar em silêncio."
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('login aceito', () => pm.response.to.have.status(200));",
+                  "pm.test('cookie de sessão gravado', () => {",
+                  "    pm.expect(pm.cookies.get('beesocial_session')).to.not.be.null;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "login"]
+            },
+            "description": "Devolve o cookie `beesocial_session` (httpOnly, Secure, SameSite=Lax). O Postman o guarda automaticamente — não há token para copiar.\n\nEsta rota tem teto de requisições mais apertado que o resto da API (declarado com `@Throttle` no controller), então uma sequência de tentativas erradas responde 429."
+          },
+          "response": []
+        },
+        {
+          "name": "Quem sou eu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "me"]
+            },
+            "description": "Confere se o cookie ainda vale. É a forma mais rápida de saber se um 401 nas outras rotas é sessão expirada ou outro problema."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "logout"]
+            },
+            "description": "Invalida a sessão no banco e limpa o cookie. Depois disto, `/v1/me/*` responde 401 até um novo login."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Meu perfil",
+      "item": [
+        {
+          "name": "Ver meu perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "profile"]
+            },
+            "description": "Perfil completo da pessoa logada — inclusive o que não aparece na versão pública."
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar meu perfil",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"displayName\": \"Nome Novo\",\n  \"bio\": \"Bio de teste\",\n  \"isAdult\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "profile"]
+            },
+            "description": "Campos aceitos, todos opcionais: `displayName`, `slug`, `bio`, `avatarUrl`, `coverUrl`, `themeId`, `buttonStyle`, `isAdult`.\n\n`avatarUrl` e `coverUrl` recebem **data URL em base64** — ainda não há upload de arquivo. O limite de corpo é 10 MB, e uma foto de celular passa de 1,8 MB.\n\nTrocar o `slug` muda a URL pública do perfil. Links já compartilhados no slug antigo deixam de resolver."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Meus links",
+      "item": [
+        {
+          "name": "Listar links",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links"]
+            },
+            "description": "Todos os links do perfil, ativos e inativos, na ordem de exibição."
+          },
+          "response": []
+        },
+        {
+          "name": "Criar link",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('link criado', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "",
+                  "const link = pm.response.json();",
+                  "if (link && link.id) {",
+                  "    pm.collectionVariables.set('linkId', link.id);",
+                  "    console.log('linkId salvo:', link.id);",
+                  "}",
+                  "if (link && link.shortCode) {",
+                  "    pm.collectionVariables.set('shortCode', link.shortCode);",
+                  "    console.log('shortCode salvo:', link.shortCode);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Meu Instagram\",\n  \"subtitle\": \"me segue lá\",\n  \"platform\": \"instagram\",\n  \"destinationUrl\": \"https://instagram.com/exemplo\",\n  \"isActive\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links"]
+            },
+            "description": "Obrigatórios: `title` e `destinationUrl`.\n\nOpcionais: `subtitle`, `thumbnailUrl`, `platform`, `isActive`, `cloakEnabled`, `position`, `appearance`, `safePage`.\n\nA API gera um `shortCode` — é ele que forma a URL curta (`/r/<shortCode>`) e o que o teste desta requisição salva na variável `shortCode`.\n\nO `destinationUrl` **nunca** é devolvido nas rotas públicas: só o redirecionador conhece o destino. É o que mantém o link fora do alcance de quem varre HTML."
+          },
+          "response": []
+        },
+        {
+          "name": "Ver um link",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links/{{linkId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links", "{{linkId}}"]
+            },
+            "description": "Usa a variável `linkId`, preenchida por 'Criar link'."
+          },
+          "response": []
+        },
+        {
+          "name": "Atualizar link",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Título atualizado\",\n  \"isActive\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links/{{linkId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links", "{{linkId}}"]
+            },
+            "description": "Todos os campos são opcionais — manda só o que muda. `isActive: false` tira o link do perfil público sem apagá-lo, e o `shortCode` continua existindo."
+          },
+          "response": []
+        },
+        {
+          "name": "Reordenar links",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\"{{linkId}}\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links/reorder",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links", "reorder"]
+            },
+            "description": "Recebe a lista completa de ids na ordem desejada. A posição de cada link passa a ser o índice dele no array."
+          },
+          "response": []
+        },
+        {
+          "name": "Apagar link",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/links/{{linkId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "links", "{{linkId}}"]
+            },
+            "description": "Remove o link de vez. O `shortCode` deixa de resolver — um link já colado numa bio passa a cair no 'não encontrado'."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Relatório",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/me/tracking/report?days=30",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "me", "tracking", "report"],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "30",
+                  "description": "Janela em dias"
+                }
+              ]
+            },
+            "description": "Cliques e visualizações do perfil na janela pedida.\n\nOs números aqui já passaram pelo filtro de robô (`api/src/tracking/bots.ts`): prévia de link do WhatsApp, crawler de rede social e cliente HTTP de script **não** contam. Sem isso, um link compartilhado num grupo grande nasceria com dezenas de cliques que ninguém deu."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Público",
+      "item": [
+        {
+          "name": "Slug disponível?",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/public/slug-available?slug={{slug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "public", "slug-available"],
+              "query": [{ "key": "slug", "value": "{{slug}}" }]
+            },
+            "description": "Checa se o slug está livre antes de tentar registrar. Não exige sessão."
+          },
+          "response": []
+        },
+        {
+          "name": "Perfil público",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/public/profiles/{{slug}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "public", "profiles", "{{slug}}"]
+            },
+            "description": "O perfil como um visitante o recebe: só links **ativos**, ordenados, e **sem** `destinationUrl`.\n\nA resposta traz um campo `requester.isBot`. É ele que a página do Next usa para decidir entre a página real e a versão de robô — o veredito vive aqui, na API, e não é reimplementado no front: duas heurísticas em dois lugares divergem, e a que fica errada é sempre a que ninguém está olhando.\n\nPara testar o ramo de robô, troque o `User-Agent` da requisição para `facebookexternalhit/1.1`."
+          },
+          "response": []
+        },
+        {
+          "name": "Avatar (imagem)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/public/profiles/{{slug}}/avatar",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "public", "profiles", "{{slug}}", "avatar"]
+            },
+            "description": "Devolve os bytes da imagem, não JSON. Responde 404 quando o perfil não tem avatar — de propósito, e não um placeholder: quem decide o que mostrar sem foto é a interface, que já desenha as iniciais.\n\nExiste porque o avatar é gravado como data URL em base64, e embuti-lo no HTML fazia o perfil passar de 2,9 MB antes de qualquer imagem ser otimizada."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar visualização",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"slug\": \"{{slug}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/public/tracking/view",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "public", "tracking", "view"]
+            },
+            "description": "Registra uma visualização de perfil. Teto próprio de 60 por minuto.\n\nNão exige segredo interno — diferente do clique, inflar visualização não mexe no número que a criadora usa para negociar."
+          },
+          "response": []
+        },
+        {
+          "name": "Registrar clique (segredo interno)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              {
+                "key": "X-Internal-Secret",
+                "value": "{{internalSecret}}",
+                "description": "Sem isto: 404 (não 401, de propósito). Ler na VPS em /opt/beesocial/.env"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{shortCode}}\",\n  \"url\": \"https://beesocial.bio/r/{{shortCode}}?utm_source=postman\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/public/tracking/click",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "public", "tracking", "click"]
+            },
+            "description": "Resolve o código curto e registra o clique, devolvendo o `destinationUrl`.\n\n**Exige `X-Internal-Secret`.** O motivo: o código curto é público, está na bio da criadora. Sem o segredo, qualquer pessoa dispararia esta rota em laço e inflaria o contador de cliques dela — que é o número que ela usa para negociar valor.\n\nSem o cabeçalho (ou com valor errado) a resposta é **404**, não 401 ou 403. É deliberado: a existência da rota interna não é informação que precise ser confirmada a quem não tem o segredo. Então um 404 aqui significa 'segredo ausente/errado' OU 'código curto inexistente' — os dois casos são indistinguíveis de fora, por desenho.\n\nA comparação do segredo é de tempo constante (`timingSafeEqual`), para não vazar o prefixo correto pelo tempo de resposta.\n\nNo produto, quem chama isto é o servidor do Next, nunca o navegador. O campo `url` carrega os UTM e click ids que o visitante trouxe."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
