@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Link } from "@/lib/catalog";
 import { getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { shortLinkUrl, siteHost } from "@/lib/site";
+import { profileUrl, siteHost } from "@/lib/site";
 
 // ── Mini Toggle ───────────────────────────────────────────────────────────────
 
@@ -42,18 +42,33 @@ function MiniToggle({ checked, onChange }: { checked: boolean; onChange: (v: boo
 
 interface LinkCardProps {
   link: Link;
+  /** Slug do perfil da sessão. É o que o cartão exibe e o que o botão de copiar
+   *  entrega — não o código curto do link. Ver o comentário em `enderecoPublico`. */
+  profileSlug: string;
   onOpenModal: (link: Link) => void;
   onEditAppearance: (link: Link) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
 }
 
-export function LinkCard({ link, onOpenModal, onEditAppearance, onDelete, onToggleActive }: LinkCardProps) {
+export function LinkCard({ link, profileSlug, onOpenModal, onEditAppearance, onDelete, onToggleActive }: LinkCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
 
   const platformColor = getPlatformColor(link.platform);
   const platformIcon = getPlatformIcon(link.platform);
-  const maskedLink = `${siteHost()}/r/${link.shortCode}`;
+  /**
+   * O endereço que a criadora vê e copia.
+   *
+   * Era `host/r/<código curto>`. Virou `host/<slug>` porque é o endereço que
+   * ela realmente divulga: o `/r/<código>` é o redirecionador que a PÁGINA dela
+   * usa por dentro para contar o clique, não um link de bio. Oferecer o código
+   * opaco no botão de copiar fazia ela colar na bio uma URL que leva a um único
+   * destino, sem a página, sem os outros links e sem o gate de idade.
+   *
+   * O código curto continua existindo e funcionando — só deixou de ser a coisa
+   * que a interface entrega.
+   */
+  const enderecoPublico = profileSlug ? `${siteHost()}/${profileSlug}` : "";
 
   const destinationDomain = (() => {
     if (!link.destinationUrl) return null;
@@ -121,7 +136,9 @@ export function LinkCard({ link, onOpenModal, onEditAppearance, onDelete, onTogg
           <div className="font-semibold text-sm text-white leading-tight truncate">{link.title}</div>
           {link.subtitle && <div className="text-[11px] text-white/35 truncate">{link.subtitle}</div>}
           <div className="flex items-center gap-2 mt-0.5">
-            <span className="text-[11px] text-white/20 truncate font-mono">{maskedLink}</span>
+            {enderecoPublico && (
+              <span className="text-[11px] text-white/20 truncate font-mono">{enderecoPublico}</span>
+            )}
             {destinationDomain && (
               <span className="flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
                 style={{ color: `${platformColor}cc`, background: `${platformColor}12`, border: `1px solid ${platformColor}25` }}>
@@ -156,8 +173,18 @@ export function LinkCard({ link, onOpenModal, onEditAppearance, onDelete, onTogg
             <Palette className="w-3.5 h-3.5" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(shortLinkUrl(link.shortCode)); toast.success("Link copiado!"); }}
-            className="p-2 text-white/25 hover:text-bee-pink rounded-lg hover:bg-bee-pink/[0.08] transition-all focus:outline-none">
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!profileSlug) return;
+              // `profileUrl` usa a origem de onde a página foi servida, então o
+              // link copiado funciona até acessando pelo IP da rede local para
+              // testar no celular.
+              navigator.clipboard.writeText(profileUrl(profileSlug));
+              toast.success("Link do seu perfil copiado!");
+            }}
+            disabled={!profileSlug}
+            title={profileSlug ? `Copiar ${enderecoPublico}` : "Carregando seu perfil..."}
+            className="p-2 text-white/25 hover:text-bee-pink rounded-lg hover:bg-bee-pink/[0.08] transition-all focus:outline-none disabled:opacity-40 disabled:cursor-default disabled:hover:text-white/25 disabled:hover:bg-transparent">
             <Copy className="w-3.5 h-3.5" />
           </button>
           <button
