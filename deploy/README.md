@@ -71,19 +71,53 @@ VPS não puxa do GitHub sozinha.
 
 ### 1. Enviar o código
 
+**Commite antes.** O que vai para a VPS é o commit, não o seu diretório — então
+mudança não commitada simplesmente não sobe. É de propósito, e o motivo está
+logo abaixo.
+
 Da raiz do repositório, no Mac:
 
 ```bash
-rsync -az --delete \
-  --exclude node_modules --exclude .next --exclude .git \
-  --exclude dist --exclude .env --exclude .data \
-  ./ root@179.197.233.125:/opt/beesocial/
+git archive HEAD | ssh root@179.197.233.125 'tar -x -C /opt/beesocial'
 ```
 
-> **O `--exclude .env` não é opcional.** Sem ele o seu `.env` de
-> desenvolvimento sobrescreve o de produção — segredos trocados, `COOKIE_SECURE`
-> errado, `SEED_DEMO` ligado — e o `--delete` já apagou o original. É o jeito
-> mais rápido de derrubar tudo com um comando que parecia inofensivo.
+> **Por que não `rsync`.** O procedimento anterior era um `rsync --delete` com
+> uma lista de exclusões, e ela tinha um furo que só apareceu num teste em modo
+> seco: `--exclude .env` **não cobre `.env.local`**. Esse arquivo é gitignored,
+> existe em toda máquina de desenvolvimento, e guarda `JWT_SECRET` e
+> `INTERNAL_API_SECRET` locais. Em produção ele invalidaria toda sessão aberta e
+> derrubaria o registro de clique — sem erro em lugar nenhum, que é o pior modo
+> de falhar. Junto iriam `pnpm-lock.yaml` e `tsconfig.tsbuildinfo`.
+>
+> Trocar a lista por `--filter=':- .gitignore'` **também está errado**: ele
+> apagaria `api/.env.example`, que é rastreado, porque o `.gitignore` da API
+> ignora `.env*`.
+>
+> O `git archive` não tem lista de exclusões para manter: ele envia exatamente
+> os arquivos versionados no commit. O que não está no git não existe para ele.
+
+> **O `.env` de produção não é tocado**, porque não está no repositório. Depois
+> do primeiro deploy, confira uma vez:
+> `ls -la /opt/beesocial/.env` — data antiga e `-rw-------` significam que
+> continua o mesmo.
+
+**Um arquivo saiu do repositório?** O `tar -x` sobrescreve e acrescenta, mas
+nunca remove — um arquivo apagado no git continua na VPS. Quando isso
+acontecer, apague-o à mão lá, ou refaça o diretório do zero:
+
+```bash
+# 1. Cópia do .env — CÓPIA, não `mv`: se algo falhar no meio, o original
+#    continua onde estava. É o único arquivo insubstituível da máquina.
+ssh root@179.197.233.125 'cp -a /opt/beesocial/.env /root/.env.bak && ls -la /root/.env.bak'
+
+# 2. Só depois de ver a cópia listada acima, esvazie e reenvie.
+ssh root@179.197.233.125 'cd /opt/beesocial && rm -rf ./* ./.[!.]*'
+git archive HEAD | ssh root@179.197.233.125 'tar -x -C /opt/beesocial'
+ssh root@179.197.233.125 'cp -a /root/.env.bak /opt/beesocial/.env && ls -la /opt/beesocial/.env'
+```
+
+O `ls` no fim não é enfeite: sem o `.env` de volta, o `up` falha com "defina
+POSTGRES_PASSWORD" e o site fica fora do ar até alguém perceber.
 
 ### 2. Buildar e subir
 
@@ -128,7 +162,7 @@ embutida no bundle. `restart` não resolve:
 docker compose -f docker-compose.prod.yml up -d --build web
 ```
 
-**Mudou algum bloco do nginx no repositório?** O rsync **não** toca em
+**Mudou algum bloco do nginx no repositório?** O envio **não** toca em
 `/etc/nginx/`, e ainda bem: os arquivos instalados já foram reescritos pelo
 certbot, com o `listen 443 ssl` e o redirecionamento da 80. Copiar por cima
 apaga isso. Aplique a mudança à mão no arquivo de
@@ -137,8 +171,17 @@ para ele reinstalar o TLS.
 
 ### Voltar atrás
 
-Não há versionamento de imagem. O rollback hoje é reverter o código no Mac,
-rodar o rsync de novo e rebuildar. **Migration aplicada não volta sozinha** —
+Não há versionamento de imagem. O rollback hoje é `git checkout` do commit
+anterior no Mac, enviar de novo e rebuildar:
+
+```bash
+git checkout <commit-bom>
+git archive HEAD | ssh root@179.197.233.125 'tar -x -C /opt/beesocial'
+ssh root@179.197.233.125 'cd /opt/beesocial && docker compose -f docker-compose.prod.yml up -d --build'
+git checkout main
+```
+
+**Migration aplicada não volta sozinha** —
 `npm run migration:revert` existe, mas é decisão caso a caso, e depois de gente
 usando o produto raramente é a decisão certa.
 
@@ -162,7 +205,8 @@ sudo ufw allow OpenSSH && sudo ufw allow 80 && sudo ufw allow 443 && sudo ufw en
 **2. Apontar o DNS** — dois registros `A` para o IP da VPS: `@` e `api`, mais um
 `CNAME` de `www`. Faça primeiro: a propagação demora e o certbot depende dela.
 
-**3. Levar o código** para `/opt/beesocial` (o `rsync` da Parte 1).
+**3. Levar o código** para `/opt/beesocial` (o `git archive` da Parte 1). O
+diretório precisa existir antes: `mkdir -p /opt/beesocial`.
 
 **4. Escrever o `.env`** — `cp .env.production.example .env`, `chmod 600 .env`, e
 preencher as quatro obrigatórias: `JWT_SECRET`, `POSTGRES_PASSWORD`,
@@ -263,8 +307,12 @@ gunzip -c ~/backup-2026-09-21-1430.sql.gz | \
 - **Sem backup automático.** Existe banco de produção com conta real e nenhuma
   rotina. Os avatares em base64 fazem o dump crescer rápido. É a pendência mais
   séria desta lista.
-- **Deploy manual, preso a uma máquina.** Sai do Mac de quem faz, por rsync. Uma
-  deploy key no GitHub deixaria a VPS puxar direto.
+- **Deploy manual, preso a uma máquina.** Sai do Mac de quem faz. Uma deploy
+  key no GitHub deixaria a VPS dar `git pull` — o que resolveria de vez a classe
+  de problema que o `git archive` só contorna: a VPS teria o repositório, e não
+  uma cópia dos arquivos dele.
+- **Arquivo removido não some da VPS.** O `tar -x` só sobrescreve e acrescenta.
+  Está documentado na Parte 1 como lidar.
 - **Sem zero-downtime.** `up -d --build` derruba e sobe o container: há alguns
   segundos de indisponibilidade.
 - **Sem CI.** A API tem testes (`api/test/`) e nada os roda antes do deploy.
