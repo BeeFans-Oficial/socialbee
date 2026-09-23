@@ -16,7 +16,18 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 # Variável pública é embutida no bundle no momento do build, não lida em
 # runtime: se o endereço final do site é outro, este build precisa ser refeito.
-ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
+#
+# Sem default, de propósito. Ela é lida por client components (o botão de copiar
+# em LinkCard.tsx, entre outros), então um default de `localhost` não seria
+# conveniência: seria uma imagem subindo em produção entregando link quebrado,
+# sem nada falhar para avisar. É a mesma regra que `loadEnv()` aplica aos
+# segredos da API — configuração incompleta derruba o build, não a visitante.
+ARG NEXT_PUBLIC_SITE_URL
+RUN test -n "$NEXT_PUBLIC_SITE_URL" || { \
+      echo "ERRO: NEXT_PUBLIC_SITE_URL nao foi passado ao build." >&2; \
+      echo "      docker build --build-arg NEXT_PUBLIC_SITE_URL=https://seu.dominio ." >&2; \
+      exit 1; \
+    }
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build

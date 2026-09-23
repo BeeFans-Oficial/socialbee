@@ -60,6 +60,23 @@ Para parar o banco: `npm run dev:db:stop`. Os dados ficam no volume; só
 Rodar tudo em container continua sendo `docker compose up` — é assim que se
 verifica a imagem antes de subir para algum lugar.
 
+## Deploy
+
+No ar em **https://beesocial.bio**, numa VPS: banco, API e front em containers
+publicados só no loopback, com nginx nativo do host terminando o TLS. O
+procedimento de deploy — enviar o código, subir, conferir, e o que fazer quando
+algo quebra — está em **[deploy/README.md](deploy/README.md)**, junto com a
+instalação do zero, a operação e o backup.
+
+```bash
+rsync -az --delete --exclude node_modules --exclude .next --exclude .git \
+  --exclude dist --exclude .env --exclude .data ./ root@<vps>:/opt/beesocial/
+ssh root@<vps> 'cd /opt/beesocial && docker compose -f docker-compose.prod.yml up -d --build'
+```
+
+O `--exclude .env` não é opcional: sem ele o `.env` de desenvolvimento
+sobrescreve o de produção.
+
 ## Stack
 
 **App:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict ·
