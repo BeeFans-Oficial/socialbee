@@ -62,15 +62,20 @@ verifica a imagem antes de subir para algum lugar.
 
 ## Deploy
 
-Produção roda numa VPS: banco, API e front em containers publicados só no
-loopback, com nginx nativo do host terminando o TLS. O passo a passo completo —
-DNS, segredos, containers, nginx, certbot, atualização, backup e o que fazer
-quando algo quebra — está em **[deploy/README.md](deploy/README.md)**.
+No ar em **https://beesocial.bio**, numa VPS: banco, API e front em containers
+publicados só no loopback, com nginx nativo do host terminando o TLS. O
+procedimento de deploy — enviar o código, subir, conferir, e o que fazer quando
+algo quebra — está em **[deploy/README.md](deploy/README.md)**, junto com a
+instalação do zero, a operação e o backup.
 
 ```bash
-cp .env.production.example .env    # preencha os três segredos e a SITE_URL
-docker compose -f docker-compose.prod.yml up -d --build
+rsync -az --delete --exclude node_modules --exclude .next --exclude .git \
+  --exclude dist --exclude .env --exclude .data ./ root@<vps>:/opt/beesocial/
+ssh root@<vps> 'cd /opt/beesocial && docker compose -f docker-compose.prod.yml up -d --build'
 ```
+
+O `--exclude .env` não é opcional: sem ele o `.env` de desenvolvimento
+sobrescreve o de produção.
 
 ## Stack
 
