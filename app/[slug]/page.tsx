@@ -13,6 +13,7 @@ import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { siteHost } from "@/lib/site";
 import type { Link as LinkType, User } from "@/lib/catalog";
 import { BotProfile } from "./BotProfile";
+import { IabLanding } from "./IabLanding";
 import { ProfileClient } from "./ProfileClient";
 
 /**
@@ -126,7 +127,7 @@ export default async function ProfilePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ preview?: string }>;
+  searchParams: Promise<{ preview?: string; fora?: string }>;
 }) {
   const { slug } = await params;
   const view = await carregarPerfil(slug);
@@ -146,12 +147,55 @@ export default async function ProfilePage({
    * a presença do cookie basta, porque forçar o ramo do robô só entrega MENOS
    * conteúdo, nunca mais.
    */
-  const { preview } = await searchParams;
+  const { preview, fora } = await searchParams;
   const temSessao = (await cookies()).has(SESSION_COOKIE);
   const forcarRoboNaPrevia = preview === "bot" && temSessao;
+  const forcarChegadaNaPrevia = preview === "iab" && temSessao;
 
-  // A bifurcação. Uma linha, explícita, testável.
-  if (forcarRoboNaPrevia || view.requester?.isBot) {
+  /**
+   * A bifurcação, agora com três saídas. A ordem é o que a torna correta.
+   *
+   * 1. **Página de chegada**, quando ligada, para quem vem de navegador
+   *    embutido E para robô. É o primeiro ramo de propósito: enquanto ela está
+   *    ligada, o robô recebe o MESMO documento que a fã do Instagram, e a
+   *    diferença entre os dois deixa de ser o user-agent (o que caracteriza
+   *    cloaking) e passa a ser executar JavaScript ou não.
+   * 2. **Perfil do robô**, para crawler quando a chegada está desligada. É o
+   *    comportamento antigo, preservado para quem não ativou nada.
+   * 3. **Perfil completo**, para todo o resto.
+   *
+   * `?fora=1` é a volta do escape: a pessoa já está num navegador de verdade,
+   * então pular o ramo 1 é o que impede o laço. Não precisa de sessão nem de
+   * proteção — forçar a rota a entregar o perfil completo é o que ela faz por
+   * padrão para qualquer navegador comum.
+   */
+  const escapou = fora === "1";
+  const chegouDeApp = view.requester?.isInAppBrowser ?? false;
+  const ehRobo = forcarRoboNaPrevia || (view.requester?.isBot ?? false);
+
+  const iab = view.profile.iab;
+  const mostrarChegada =
+    forcarChegadaNaPrevia || (iab?.enabled === true && !escapou && (chegouDeApp || ehRobo));
+
+  if (mostrarChegada) {
+    return (
+      <IabLanding
+        slug={slug}
+        displayName={user.displayName}
+        themeId={user.themeId}
+        imageUrl={iab?.imageUrl ?? null}
+        headline={iab?.headline ?? null}
+        buttonLabel={iab?.buttonLabel ?? null}
+        platform={view.requester?.platform ?? "other"}
+        // Na prévia do painel a página é desenhada, nunca executada: sem isto,
+        // abrir a prévia tentaria escapar e levaria a criadora para fora do
+        // painel dela.
+        preview={forcarChegadaNaPrevia}
+      />
+    );
+  }
+
+  if (ehRobo) {
     return <BotProfile user={user} />;
   }
 

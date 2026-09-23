@@ -6,6 +6,7 @@ import { Public } from "../common/decorators/public.decorator";
 import { isInternalRequest } from "../common/guards/internal-secret.guard";
 import { clientIP } from "../tracking/attribution";
 import { detectBot } from "../tracking/bots";
+import { detectInAppBrowser } from "../tracking/in-app-browser";
 import { ProfilesService } from "./profiles.service";
 
 /**
@@ -52,8 +53,10 @@ export class PublicProfilesController {
     const view = await this.profilesService.publicProfile(slug);
     if (!isInternalRequest(request.headers)) return view;
 
+    const userAgent = header(request, "user-agent") ?? "";
+
     const verdict = detectBot({
-      userAgent: header(request, "user-agent") ?? "",
+      userAgent,
       ip: clientIP(request.headers),
       method: header(request, "x-original-method") ?? "GET",
       acceptLanguage: header(request, "accept-language"),
@@ -62,9 +65,28 @@ export class PublicProfilesController {
       secFetchMode: header(request, "sec-fetch-mode"),
     });
 
+    /**
+     * O navegador embutido só é julgado quando o visitante NÃO é robô.
+     *
+     * A ordem importa: os dois detectores olham o mesmo cabeçalho e um robô mal
+     * disfarçado pode casar com os dois. Sendo robô, o veredito de robô vence —
+     * a página de chegada que ele recebe é a mesma, mas o relatório não passa a
+     * contar crawler como fã que veio do Instagram.
+     */
+    const inApp = verdict.isBot
+      ? { isInApp: false, source: null, platform: "other" as const }
+      : detectInAppBrowser(userAgent);
+
     return {
       ...view,
-      requester: { isBot: verdict.isBot, score: verdict.score, reason: verdict.reason },
+      requester: {
+        isBot: verdict.isBot,
+        score: verdict.score,
+        reason: verdict.reason,
+        isInAppBrowser: inApp.isInApp,
+        inAppSource: inApp.source,
+        platform: inApp.platform,
+      },
     };
   }
 }

@@ -139,7 +139,21 @@ export async function recordClick(
 export interface PublicProfileForRender {
   profile: ApiProfile;
   links: ApiPublicLink[];
-  requester?: { isBot: boolean; score: number; reason: string };
+  /**
+   * Veredito sobre QUEM pediu, preenchido só para o nosso próprio servidor.
+   *
+   * `isBot` e `isInAppBrowser` são excludentes por construção na API: sendo
+   * robô, o segundo vem `false`. A página usa os dois para escolher entre três
+   * documentos — chegada, perfil do robô e perfil completo.
+   */
+  requester?: {
+    isBot: boolean;
+    score: number;
+    reason: string;
+    isInAppBrowser: boolean;
+    inAppSource: "instagram" | "facebook" | "tiktok" | "other" | null;
+    platform: "android" | "ios" | "other";
+  };
 }
 
 export async function fetchPublicProfile(

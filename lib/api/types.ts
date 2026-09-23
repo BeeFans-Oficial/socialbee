@@ -22,6 +22,21 @@ export interface ApiUser {
   createdAt: string;
 }
 
+/**
+ * Página de chegada para navegador embutido (IAB).
+ *
+ * `imageUrl` chega de dois jeitos conforme quem pergunta: data URL em
+ * `GET /me/profile` (a dona precisa dele para a prévia antes de salvar) e rota
+ * de imagem no perfil público (o documento não carrega base64).
+ */
+export interface ApiIabLanding {
+  enabled: boolean;
+  imageUrl: string | null;
+  /** `null` cai no `displayName` na renderização. */
+  headline: string | null;
+  buttonLabel: string | null;
+}
+
 /** Perfil como o dono dele vê. */
 export interface ApiProfile {
   id: string;
@@ -34,6 +49,7 @@ export interface ApiProfile {
   buttonStyle: string;
   isAdult: boolean;
   joinedAt: string;
+  iab: ApiIabLanding;
 }
 
 /** Link como o dono dele vê: com destino e com números. */
@@ -161,6 +177,12 @@ export interface ProfileInput {
   themeId?: string;
   buttonStyle?: string;
   isAdult?: boolean;
+  // Página de chegada. Campos planos, e não um objeto `iab`, porque o PATCH
+  // salva um campo por vez — aninhar exigiria mesclar no servidor.
+  iabEnabled?: boolean;
+  iabImageUrl?: string | null;
+  iabHeadline?: string | null;
+  iabButtonLabel?: string | null;
 }
 
 export interface RegisterInput {

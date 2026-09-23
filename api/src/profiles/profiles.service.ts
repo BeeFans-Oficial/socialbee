@@ -8,6 +8,16 @@ import { isReservedSlug } from "./reserved-slugs";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 /** Perfil como o dono dele vê (dashboard). */
+/** A página de chegada (IAB) como o dono do perfil a edita. */
+export interface IabLandingView {
+  enabled: boolean;
+  /** Data URL para o dono; rota de imagem na visão pública. */
+  imageUrl: string | null;
+  /** `null` cai no `displayName` na renderização. */
+  headline: string | null;
+  buttonLabel: string | null;
+}
+
 export interface OwnProfileView {
   id: string;
   slug: string;
@@ -19,6 +29,7 @@ export interface OwnProfileView {
   buttonStyle: string;
   isAdult: boolean;
   joinedAt: string;
+  iab: IabLandingView;
 }
 
 /** Link como o VISITANTE o recebe.
@@ -111,6 +122,10 @@ export class ProfilesService {
     if (dto.themeId !== undefined) profile.themeId = dto.themeId;
     if (dto.buttonStyle !== undefined) profile.buttonStyle = dto.buttonStyle;
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
+    if (dto.iabEnabled !== undefined) profile.iabEnabled = dto.iabEnabled;
+    if (dto.iabImageUrl !== undefined) profile.iabImageUrl = dto.iabImageUrl;
+    if (dto.iabHeadline !== undefined) profile.iabHeadline = dto.iabHeadline;
+    if (dto.iabButtonLabel !== undefined) profile.iabButtonLabel = dto.iabButtonLabel;
 
     await this.profiles.save(profile);
     return toOwnProfileView(profile);
@@ -129,6 +144,24 @@ export class ProfilesService {
       select: { id: true },
     });
     return profile?.id ?? null;
+  }
+
+  /**
+   * Bytes da imagem da página de chegada. Mesma mecânica do avatar.
+   */
+  async iabImageBytes(
+    slug: string,
+  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
+    const profile = await this.profiles.findOne({
+      where: { slug: slug.trim().toLowerCase() },
+      select: { iabImageUrl: true, updatedAt: true },
+    });
+    if (!profile?.iabImageUrl) return null;
+
+    const decoded = decodeDataUrl(profile.iabImageUrl);
+    if (!decoded) return null;
+
+    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
   }
 
   /**
@@ -187,6 +220,15 @@ export class ProfilesService {
         // A capa ainda não é renderizada em lugar nenhum; quando for, segue o
         // mesmo caminho.
         coverUrl: null,
+        // Mesma troca do avatar, e aqui ela pesa mais: a página de chegada é o
+        // PRIMEIRO documento que a fã recebe, dentro de um aplicativo, em rede
+        // móvel. Base64 no HTML seria o pior lugar possível para megabytes.
+        iab: {
+          ...view.iab,
+          imageUrl: profile.iabImageUrl
+            ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/iab-image`
+            : null,
+        },
       },
       links: links.map(toPublicLinkView),
     };
@@ -212,6 +254,14 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
     buttonStyle: profile.buttonStyle,
     isAdult: profile.isAdult,
     joinedAt: profile.createdAt.toISOString(),
+    // A dona do perfil recebe o data URL cru: o editor precisa dele para a
+    // prévia antes de salvar. A visitante recebe a rota (ver `publicProfile`).
+    iab: {
+      enabled: profile.iabEnabled,
+      imageUrl: profile.iabImageUrl,
+      headline: profile.iabHeadline,
+      buttonLabel: profile.iabButtonLabel,
+    },
   };
 }
 
