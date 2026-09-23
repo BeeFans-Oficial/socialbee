@@ -26,6 +26,37 @@ export const BUTTON_STYLES = ["soft", "filled", "outlined", "glass", "pill"] as 
  * renderiza botão sem estilo.
  */
 export class UpdateProfileDto {
+  // ---------------------------------------------- página de chegada (IAB)
+  //
+  // Os quatro campos abaixo descrevem o que a fã vê quando chega pelo
+  // navegador embutido de um aplicativo. Os limites de tamanho repetem os
+  // `CHECK` da migration de propósito: o DTO devolve mensagem legível, o
+  // `CHECK` protege o dado de qualquer outro caminho de escrita.
+
+  @IsOptional()
+  @IsBoolean()
+  iabEnabled?: boolean;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(2_000_000, { message: "Imagem muito grande. Use um arquivo menor." })
+  iabImageUrl?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(60, { message: "O título da página de chegada pode ter no máximo 60 caracteres." })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  iabHeadline?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(40, { message: "O texto do botão pode ter no máximo 40 caracteres." })
+  @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
+  iabButtonLabel?: string | null;
+
   @IsOptional()
   @IsString()
   @MinLength(1, { message: "O nome de exibição não pode ficar vazio." })

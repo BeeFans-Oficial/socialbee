@@ -22,6 +22,10 @@ import { ProfilesService } from "./profiles.service";
  * Não é a solução final: o certo é armazenamento de objeto com URL assinada. É
  * a solução que cabe sem mudar a infraestrutura, e o dia em que o upload
  * existir, só esta rota muda.
+ *
+ * O controlador serve DUAS imagens pela mesma mecânica: o avatar e a imagem da
+ * página de chegada (IAB). O nome do arquivo ficou do primeiro caso; o que os
+ * une é serem data URL guardada em coluna de texto.
  */
 @Controller("public/profiles")
 export class AvatarController {
@@ -39,6 +43,30 @@ export class AvatarController {
     if (!imagem) {
       // 404 e não imagem placeholder: quem decide o que mostrar sem avatar é a
       // interface, que já desenha as iniciais.
+      response.status(404).end();
+      return;
+    }
+
+    response.setHeader("content-type", imagem.contentType);
+    response.setHeader("etag", imagem.etag);
+    response.end(imagem.bytes);
+  }
+
+  /**
+   * Imagem da página de chegada (IAB).
+   *
+   * Cache mais longo que o do avatar: esta imagem é escolhida uma vez e quase
+   * nunca trocada, e é o único peso do primeiro documento que a fã recebe —
+   * dentro de um aplicativo, em rede móvel. O `etag` sai de `updated_at`, então
+   * trocar a imagem continua invalidando na hora.
+   */
+  @Public()
+  @Get(":slug/iab-image")
+  @Header("cache-control", "public, max-age=3600")
+  async iabImage(@Param("slug") slug: string, @Res() response: Response): Promise<void> {
+    const imagem = await this.profilesService.iabImageBytes(slug);
+
+    if (!imagem) {
       response.status(404).end();
       return;
     }

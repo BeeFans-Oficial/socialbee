@@ -54,6 +54,31 @@ export class Profile {
   @Column({ name: "is_adult", type: "boolean", default: false })
   isAdult: boolean;
 
+  /**
+   * Página de chegada para navegador embutido (IAB).
+   *
+   * Ligada, `/{slug}` passa a servir DOIS documentos: esta página a quem vem do
+   * navegador embutido de um aplicativo (e a robôs), e o perfil completo ao
+   * resto. Desligada, o comportamento é o de antes.
+   *
+   * A imagem é data URL em base64, como o avatar, e pelo mesmo motivo: não há
+   * upload de arquivo ainda. Quem a serve como imagem de verdade é
+   * `AvatarController`, para o data URL não entrar no HTML.
+   */
+  @Column({ name: "iab_enabled", type: "boolean", default: false })
+  iabEnabled: boolean;
+
+  @Column({ name: "iab_image_url", type: "text", nullable: true })
+  iabImageUrl: string | null;
+
+  /** Título da página de chegada. Vazio cai no `displayName` na renderização —
+   *  o default não é gravado, para trocar o nome não deixar o título velho. */
+  @Column({ name: "iab_headline", type: "text", nullable: true })
+  iabHeadline: string | null;
+
+  @Column({ name: "iab_button_label", type: "text", nullable: true })
+  iabButtonLabel: string | null;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 
