@@ -69,13 +69,12 @@ algo quebra — está em **[deploy/README.md](deploy/README.md)**, junto com a
 instalação do zero, a operação e o backup.
 
 ```bash
-rsync -az --delete --exclude node_modules --exclude .next --exclude .git \
-  --exclude dist --exclude .env --exclude .data ./ root@<vps>:/opt/beesocial/
+git archive HEAD | ssh root@<vps> 'tar -x -C /opt/beesocial'
 ssh root@<vps> 'cd /opt/beesocial && docker compose -f docker-compose.prod.yml up -d --build'
 ```
 
-O `--exclude .env` não é opcional: sem ele o `.env` de desenvolvimento
-sobrescreve o de produção.
+Sobe o **commit**, não o diretório: o que não está versionado — a começar pelo
+seu `.env.local` — nunca chega ao servidor. Commite antes.
 
 ## Stack
 
