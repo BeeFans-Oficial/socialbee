@@ -50,6 +50,49 @@ export class Profile {
   @Column({ name: "button_style", type: "text", default: "soft" })
   buttonStyle: string;
 
+  /**
+   * Template: o LAYOUT da página pública.
+   *
+   * Eixo distinto do tema, e é o que faltava. Tema são cores; template é
+   * estrutura — onde o avatar fica, se a capa é faixa ou tela cheia, se os
+   * links são lista ou grade, se há fundo decorativo. Texto livre pelo mesmo
+   * motivo de `theme_id`: o catálogo vive no front.
+   */
+  @Column({ name: "template_id", type: "text", default: "classico" })
+  templateId: string;
+
+  /**
+   * Cores escolhidas a dedo, por cima do preset.
+   *
+   * Nulas, vale o `theme_id`. Guardar a exceção em vez de sobrescrever o tema é
+   * o que permite voltar ao preset sem ter que adivinhar qual cor era antes.
+   */
+  @Column({ name: "bg_color", type: "text", nullable: true })
+  bgColor: string | null;
+
+  @Column({ name: "accent_color", type: "text", nullable: true })
+  accentColor: string | null;
+
+  /** Família tipográfica do nome e dos botões. `null` usa a do template. */
+  @Column({ name: "font_id", type: "text", nullable: true })
+  fontId: string | null;
+
+  /**
+   * Enquadramento da imagem de fundo (`cover_url`), em porcentagem — vira
+   * `object-position` na página. Sem isso, toda foto vertical de celular
+   * aparece cortada no meio, que é justamente onde o rosto costuma estar.
+   */
+  @Column({ name: "cover_pos_x", type: "smallint", default: 50 })
+  coverPosX: number;
+
+  @Column({ name: "cover_pos_y", type: "smallint", default: 50 })
+  coverPosY: number;
+
+  /** Camada preta sobre a foto, 0 a 100. Sem ela, texto branco sobre imagem
+   *  clara fica ilegível — e a criadora só descobre pelo print de uma fã. */
+  @Column({ name: "cover_overlay", type: "smallint", default: 55 })
+  coverOverlay: number;
+
   /** Liga a barreira de idade no perfil público. */
   @Column({ name: "is_adult", type: "boolean", default: false })
   isAdult: boolean;

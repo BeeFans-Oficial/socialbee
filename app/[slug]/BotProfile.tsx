@@ -1,6 +1,7 @@
 import { HexBackground } from "@/components/shared/HexBackground";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
-import { THEMES, type User } from "@/lib/catalog";
+import { type User } from "@/lib/catalog";
+import { resolverVisual } from "@/lib/templates";
 
 /**
  * O perfil como um cliente NÃO HUMANO o recebe.
@@ -22,17 +23,20 @@ import { THEMES, type User } from "@/lib/catalog";
  * que é o que motivou a mudança.
  */
 export function BotProfile({ user }: { user: User }) {
-  const theme = THEMES.find((t) => t.id === user.themeId) ?? THEMES[0];
+  // Sem imagem de fundo e sem template: para o robô, o cabeçalho é identidade,
+  // não vitrine. Passar a capa aqui mandaria uma imagem grande a quem só vai
+  // ler texto, e o tamanho do documento é o que mais importa nesse caminho.
+  const visual = resolverVisual({ themeId: user.themeId });
 
   return (
     <div
       className="relative min-h-screen text-bee-text overflow-hidden"
-      style={{ backgroundColor: theme.bg }}
+      style={{ backgroundColor: visual.bg }}
     >
       <HexBackground density="medium" />
 
       <div className="relative z-10 pb-20">
-        <ProfileHeader user={user} themeAccent={theme.accent} activePlatforms={[]} />
+        <ProfileHeader user={user} visual={visual} activePlatforms={[]} />
       </div>
     </div>
   );

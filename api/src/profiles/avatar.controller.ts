@@ -53,6 +53,30 @@ export class AvatarController {
   }
 
   /**
+   * Imagem de fundo do template.
+   *
+   * É a maior das três — ocupa a tela inteira em alguns templates — e a que
+   * mais se beneficia de sair do documento: numa audiência que chega por
+   * celular e dados móveis, base64 no HTML é a diferença entre a visitante
+   * esperar e desistir.
+   */
+  @Public()
+  @Get(":slug/cover")
+  @Header("cache-control", "public, max-age=300")
+  async cover(@Param("slug") slug: string, @Res() response: Response): Promise<void> {
+    const imagem = await this.profilesService.coverBytes(slug);
+
+    if (!imagem) {
+      response.status(404).end();
+      return;
+    }
+
+    response.setHeader("content-type", imagem.contentType);
+    response.setHeader("etag", imagem.etag);
+    response.end(imagem.bytes);
+  }
+
+  /**
    * Imagem da página de chegada (IAB).
    *
    * Cache mais longo que o do avatar: esta imagem é escolhida uma vez e quase

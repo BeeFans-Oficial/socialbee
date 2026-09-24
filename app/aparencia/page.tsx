@@ -1,13 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Camera, CheckCircle2, XCircle, Loader2, Palette, ChevronRight, Sparkles, User, Link2 } from "lucide-react";
+import { Camera, CheckCircle2, XCircle, Loader2, LayoutTemplate, Palette, ChevronRight, Sparkles, User, Link2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { LinkModal, ModalTab } from "@/components/dashboard/LinkModal";
+import { EditorDeTemplate } from "@/components/dashboard/EditorDeTemplate";
+import type { ApiTemplate } from "@/lib/api/types";
 import { toast, Toaster } from "sonner";
 import {
   THEMES, Link,
@@ -20,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { siteHost } from "@/lib/site";
 import { useRouter } from "next/navigation";
 
-type PageTab = "perfil" | "links";
+type PageTab = "modelo" | "perfil" | "links";
 
 /** `ApiLink` já é compatível com o `Link` da UI; a conversão é só de forma
  *  (`subtitle` opcional em vez de anulável). */
@@ -68,7 +70,9 @@ function MiniLinkPreview({ appearance, title, icon }: { appearance: LinkAppearan
 
 export default function AparenciaPage() {
   const router = useRouter();
-  const [pageTab, setPageTab] = useState<PageTab>("perfil");
+  // A aba do editor é a primeira e o padrão: é ela que responde "como minha
+  // página vai ficar", que é o motivo de alguém abrir esta tela.
+  const [pageTab, setPageTab] = useState<PageTab>("modelo");
 
   // Estados do formulário. Começam vazios e são preenchidos pela API — antes
   // eram inicializados com `MOCK_USER`, o que fazia a tela abrir mostrando o
@@ -86,6 +90,29 @@ export default function AparenciaPage() {
   const [buttonStyle, setButtonStyle] = useState("soft");
   const [isAdult, setIsAdult] = useState(false);
   const [carregando, setCarregando] = useState(true);
+
+  /**
+   * O bloco de template como veio da API.
+   *
+   * Fica cru aqui, sem virar sete estados: quem edita esses campos é o
+   * `EditorDeTemplate`, que guarda o próprio estado a partir deles. Espalhar
+   * `coverPosX`, `coverOverlay` e companhia por esta tela de 750 linhas seria
+   * dar a dois componentes a mesma responsabilidade.
+   */
+  const [templateInicial, setTemplateInicial] = useState<ApiTemplate>({
+    templateId: "classico",
+    bgColor: null,
+    accentColor: null,
+    fontId: null,
+    coverPosX: 50,
+    coverPosY: 50,
+    coverOverlay: 55,
+  });
+
+  /** Muda quando o perfil chega da API, para o editor remontar já preenchido.
+   *  Sem isso ele nasceria com os valores padrão e sobrescreveria o que está
+   *  gravado no primeiro salvamento. */
+  const [perfilCarregadoEm, setPerfilCarregadoEm] = useState(0);
   const [salvando, setSalvando] = useState(false);
   // Estado dos links (para editar aparência)
   const [links, setLinks] = useState<Link[]>([]);
@@ -120,6 +147,8 @@ export default function AparenciaPage() {
         setSelectedTheme(perfil.themeId);
         setButtonStyle(perfil.buttonStyle);
         setIsAdult(perfil.isAdult);
+        setTemplateInicial(perfil.template);
+        setPerfilCarregadoEm(Date.now());
         setLinks(apiLinks.map(paraLinkDaUi));
       } catch (caught) {
         if (!cancelado) tratarErro(caught, "Não foi possível carregar seu perfil.");
@@ -131,6 +160,16 @@ export default function AparenciaPage() {
     return () => {
       cancelado = true;
     };
+  }, [tratarErro]);
+
+  /** Relê os links depois de o editor criar ou remover um botão. */
+  const recarregarLinks = React.useCallback(async () => {
+    try {
+      const apiLinks = await api.links();
+      setLinks(apiLinks.map(paraLinkDaUi));
+    } catch (caught) {
+      tratarErro(caught, "Não foi possível recarregar seus links.");
+    }
   }, [tratarErro]);
 
   /**
@@ -256,6 +295,7 @@ export default function AparenciaPage() {
           <div className="inline-flex p-1 rounded-2xl gap-1"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
             {([
+              { id: "modelo" as PageTab, label: "Modelo", icon: LayoutTemplate },
               { id: "perfil" as PageTab, label: "Perfil", icon: User },
               { id: "links" as PageTab, label: "Links", icon: Palette },
             ] as { id: PageTab; label: string; icon: React.ElementType }[]).map(({ id, label, icon: Icon }) => {
@@ -287,6 +327,41 @@ export default function AparenciaPage() {
         </div>
 
         {/* ── TAB CONTENT ────────────────────────────────────────────────── */}
+
+        {/* ═══ ABA: MODELO ══════════════════════════════════════════════════
+            O editor da página: template, imagem de fundo e enquadramento,
+            cores, tipografia, textos e botões — com a prévia ao lado, montada
+            com os componentes de verdade. */}
+        <div className={cn("transition-opacity duration-200", pageTab !== "modelo" && "hidden")}>
+          {carregando ? (
+            <div className="py-20 text-center text-bee-muted text-sm">Carregando…</div>
+          ) : (
+            <EditorDeTemplate
+              // Remonta quando o perfil chega da API: o editor nasce do que
+              // está gravado e guarda o próprio estado a partir daí.
+              key={perfilCarregadoEm}
+              inicial={{
+                templateId: templateInicial.templateId,
+                themeId: selectedTheme,
+                buttonStyle,
+                bgColor: templateInicial.bgColor,
+                accentColor: templateInicial.accentColor,
+                fontId: templateInicial.fontId,
+                coverUrl: coverPreview,
+                coverPosX: templateInicial.coverPosX,
+                coverPosY: templateInicial.coverPosY,
+                coverOverlay: templateInicial.coverOverlay,
+                displayName,
+                bio,
+                avatarUrl: avatarPreview,
+                isAdult,
+              }}
+              links={links}
+              onLinksMudaram={recarregarLinks}
+              onNaoAutorizado={() => router.replace("/login?de=/aparencia")}
+            />
+          )}
+        </div>
 
         {/* ═══ ABA: PERFIL ══════════════════════════════════════════════════ */}
         <div className={cn("transition-opacity duration-200", pageTab !== "perfil" && "hidden")}>

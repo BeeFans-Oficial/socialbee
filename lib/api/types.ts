@@ -37,6 +37,18 @@ export interface ApiIabLanding {
   buttonLabel: string | null;
 }
 
+/** Layout e ajustes finos da página pública — o que o editor controla. */
+export interface ApiTemplate {
+  templateId: string;
+  /** Exceções por cima do preset de `themeId`. Nulas, vale o preset. */
+  bgColor: string | null;
+  accentColor: string | null;
+  fontId: string | null;
+  coverPosX: number;
+  coverPosY: number;
+  coverOverlay: number;
+}
+
 /** Perfil como o dono dele vê. */
 export interface ApiProfile {
   id: string;
@@ -49,6 +61,7 @@ export interface ApiProfile {
   buttonStyle: string;
   isAdult: boolean;
   joinedAt: string;
+  template: ApiTemplate;
   iab: ApiIabLanding;
 }
 
@@ -177,12 +190,28 @@ export interface ProfileInput {
   themeId?: string;
   buttonStyle?: string;
   isAdult?: boolean;
+  // Template e ajustes finos. Planos pelo mesmo motivo do bloco abaixo.
+  templateId?: string;
+  bgColor?: string | null;
+  accentColor?: string | null;
+  fontId?: string | null;
+  coverPosX?: number;
+  coverPosY?: number;
+  coverOverlay?: number;
   // Página de chegada. Campos planos, e não um objeto `iab`, porque o PATCH
   // salva um campo por vez — aninhar exigiria mesclar no servidor.
   iabEnabled?: boolean;
   iabImageUrl?: string | null;
   iabHeadline?: string | null;
   iabButtonLabel?: string | null;
+}
+
+/** Criação de uma PÁGINA nova. Só o essencial: o resto se edita no editor. */
+export interface CreateProfileInput {
+  displayName: string;
+  slug: string;
+  templateId?: string;
+  isAdult?: boolean;
 }
 
 export interface RegisterInput {

@@ -6,7 +6,7 @@ import { cache } from "react";
 import { HexBackground } from "@/components/shared/HexBackground";
 import { Logo } from "@/components/shared/Logo";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
-import { THEMES } from "@/lib/catalog";
+import { resolverVisual } from "@/lib/templates";
 import { getPlatformIcon } from "@/lib/utils";
 import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/server";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
@@ -216,19 +216,62 @@ export default async function ProfilePage({
    * `onlyfans` no cabeçalho é a mesma informação que os links dariam.
    */
   const links = paraLinks(view);
-  const theme = THEMES.find((t) => t.id === user.themeId) ?? THEMES[0];
+
+  /**
+   * Template e escolhas da criadora, resolvidos numa estrutura só.
+   *
+   * A precedência está em `resolverVisual()` e não espalhada por aqui: cor
+   * personalizada ganha do preset de tema, que ganha do padrão do template. A
+   * mesma função alimenta a prévia do editor, que é o que garante que o que ela
+   * vê enquanto edita seja o que a fã recebe.
+   */
+  const visual = resolverVisual({
+    templateId: view.profile.template?.templateId,
+    themeId: user.themeId,
+    buttonStyle: user.buttonStyle,
+    bgColor: view.profile.template?.bgColor,
+    accentColor: view.profile.template?.accentColor,
+    fontId: view.profile.template?.fontId,
+    coverUrl: view.profile.coverUrl,
+    coverPosX: view.profile.template?.coverPosX,
+    coverPosY: view.profile.template?.coverPosY,
+    coverOverlay: view.profile.template?.coverOverlay,
+  });
+
+  const capaEmTela = visual.capa === "tela" && visual.coverUrl;
 
   return (
     <div
       className="relative min-h-screen text-bee-text overflow-hidden"
-      style={{ backgroundColor: theme.bg }}
+      style={{ backgroundColor: visual.bg }}
     >
-      <HexBackground density="medium" />
+      {/* Imagem cobrindo a tela inteira, quando o template pede. As outras
+          formas de usar a capa (faixa, herói) são desenhadas no cabeçalho. */}
+      {capaEmTela && (
+        <div className="fixed inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
+              bytes de uma coluna do banco. */}
+          <img
+            src={visual.coverUrl!}
+            alt=""
+            className="w-full h-full object-cover"
+            style={{ objectPosition: visual.coverPos }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: `rgba(0,0,0,${visual.overlay})` }}
+          />
+        </div>
+      )}
+
+      {/* O fundo hexagonal é decoração da marca — alguns templates dispensam,
+          e sobre foto ele só suja a imagem. */}
+      {visual.hex && !capaEmTela && <HexBackground density="medium" />}
 
       <div className="relative z-10 pb-20">
         <ProfileHeader
           user={user}
-          themeAccent={theme.accent}
+          visual={visual}
           activePlatforms={user.isAdult ? [] : links.map((l) => getPlatformIcon(l.platform))}
         />
 
@@ -236,8 +279,7 @@ export default async function ProfilePage({
           slug={slug}
           displayName={user.displayName}
           isAdult={user.isAdult}
-          themeId={user.themeId}
-          buttonStyle={user.buttonStyle}
+          visual={visual}
           initialLinks={user.isAdult ? null : links}
         />
       </div>

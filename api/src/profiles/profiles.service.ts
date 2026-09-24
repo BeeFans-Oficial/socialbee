@@ -5,6 +5,7 @@ import { Not, Repository } from "typeorm";
 import { Link } from "../links/entities/link.entity";
 import { Profile } from "./entities/profile.entity";
 import { isReservedSlug } from "./reserved-slugs";
+import type { CreateProfileDto } from "./dto/create-profile.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 /** Perfil como o dono dele vê (dashboard). */
@@ -18,6 +19,19 @@ export interface IabLandingView {
   buttonLabel: string | null;
 }
 
+/** Layout e ajustes finos da página pública — o que o editor controla. */
+export interface TemplateView {
+  templateId: string;
+  /** Exceções por cima do preset de `themeId`. Nulas, vale o preset. */
+  bgColor: string | null;
+  accentColor: string | null;
+  fontId: string | null;
+  /** Enquadramento da imagem de fundo, em porcentagem, e o escurecimento. */
+  coverPosX: number;
+  coverPosY: number;
+  coverOverlay: number;
+}
+
 export interface OwnProfileView {
   id: string;
   slug: string;
@@ -29,6 +43,7 @@ export interface OwnProfileView {
   buttonStyle: string;
   isAdult: boolean;
   joinedAt: string;
+  template: TemplateView;
   iab: IabLandingView;
 }
 
@@ -92,10 +107,73 @@ export class ProfilesService {
     }
   }
 
+  /** A página por id. Lança 404 quando não existe — quem chama já passou pelo
+   *  guard, então "não existe" aqui é id inválido, não falta de permissão. */
+  async findById(profileId: string): Promise<Profile> {
+    const profile = await this.profiles.findOne({ where: { id: profileId } });
+    if (!profile) throw new NotFoundException("Página não encontrada.");
+    return profile;
+  }
+
   async findByUserId(userId: string): Promise<Profile> {
     const profile = await this.profiles.findOne({ where: { userId } });
     if (!profile) throw new NotFoundException("Perfil não encontrado.");
     return profile;
+  }
+
+  /**
+   * As páginas da conta, da mais antiga para a mais nova.
+   *
+   * Ordem por criação e não alfabética: a primeira da lista é a página
+   * original da criadora, que é a que ela reconhece como "a minha".
+   */
+  async listByUser(userId: string): Promise<OwnProfileView[]> {
+    const perfis = await this.profiles.find({
+      where: { userId },
+      order: { createdAt: "ASC" },
+    });
+    return perfis.map(toOwnProfileView);
+  }
+
+  /**
+   * Uma página nova para a conta.
+   *
+   * Herda `isAdult` da página mais antiga quando o DTO não diz: quem tem uma
+   * página adulta quase sempre quer outra adulta, e o valor errado aqui não
+   * gera erro nenhum — só deixa conteúdo +18 sem barreira.
+   */
+  async createForUser(userId: string, dto: CreateProfileDto): Promise<OwnProfileView> {
+    await this.assertSlugAvailable(dto.slug);
+
+    const primeira = await this.profiles.findOne({
+      where: { userId },
+      order: { createdAt: "ASC" },
+    });
+
+    const criado = await this.profiles.save(
+      this.profiles.create({
+        userId,
+        slug: dto.slug,
+        displayName: dto.displayName,
+        bio: "",
+        templateId: dto.templateId ?? "classico",
+        isAdult: dto.isAdult ?? primeira?.isAdult ?? false,
+      }),
+    );
+
+    return toOwnProfileView(criado);
+  }
+
+  /**
+   * A página pertence à conta?
+   *
+   * É o que sustenta o cabeçalho `x-profile-id` ser aceitável: o cliente diz
+   * QUAL página está editando, e o servidor confere se ela é dele. Sem esta
+   * verificação, o cabeçalho seria um jeito de editar a página de qualquer
+   * criadora — basta trocar um id.
+   */
+  async belongsToUser(userId: string, profileId: string): Promise<boolean> {
+    return this.profiles.exists({ where: { id: profileId, userId } });
   }
 
   async ownProfile(profileId: string): Promise<OwnProfileView> {
@@ -122,6 +200,13 @@ export class ProfilesService {
     if (dto.themeId !== undefined) profile.themeId = dto.themeId;
     if (dto.buttonStyle !== undefined) profile.buttonStyle = dto.buttonStyle;
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
+    if (dto.templateId !== undefined) profile.templateId = dto.templateId;
+    if (dto.bgColor !== undefined) profile.bgColor = dto.bgColor;
+    if (dto.accentColor !== undefined) profile.accentColor = dto.accentColor;
+    if (dto.fontId !== undefined) profile.fontId = dto.fontId;
+    if (dto.coverPosX !== undefined) profile.coverPosX = dto.coverPosX;
+    if (dto.coverPosY !== undefined) profile.coverPosY = dto.coverPosY;
+    if (dto.coverOverlay !== undefined) profile.coverOverlay = dto.coverOverlay;
     if (dto.iabEnabled !== undefined) profile.iabEnabled = dto.iabEnabled;
     if (dto.iabImageUrl !== undefined) profile.iabImageUrl = dto.iabImageUrl;
     if (dto.iabHeadline !== undefined) profile.iabHeadline = dto.iabHeadline;
@@ -144,6 +229,24 @@ export class ProfilesService {
       select: { id: true },
     });
     return profile?.id ?? null;
+  }
+
+  /**
+   * Bytes da imagem de fundo do template. Mesma mecânica do avatar.
+   */
+  async coverBytes(
+    slug: string,
+  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
+    const profile = await this.profiles.findOne({
+      where: { slug: slug.trim().toLowerCase() },
+      select: { coverUrl: true, updatedAt: true },
+    });
+    if (!profile?.coverUrl) return null;
+
+    const decoded = decodeDataUrl(profile.coverUrl);
+    if (!decoded) return null;
+
+    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
   }
 
   /**
@@ -217,9 +320,12 @@ export class ProfilesService {
         avatarUrl: profile.avatarUrl
           ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/avatar`
           : null,
-        // A capa ainda não é renderizada em lugar nenhum; quando for, segue o
-        // mesmo caminho.
-        coverUrl: null,
+        // A capa agora É renderizada — é a imagem de fundo do template — e
+        // segue o mesmo caminho do avatar, como este comentário prometia
+        // quando ela ainda não aparecia em lugar nenhum.
+        coverUrl: profile.coverUrl
+          ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/cover`
+          : null,
         // Mesma troca do avatar, e aqui ela pesa mais: a página de chegada é o
         // PRIMEIRO documento que a fã recebe, dentro de um aplicativo, em rede
         // móvel. Base64 no HTML seria o pior lugar possível para megabytes.
@@ -254,6 +360,15 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
     buttonStyle: profile.buttonStyle,
     isAdult: profile.isAdult,
     joinedAt: profile.createdAt.toISOString(),
+    template: {
+      templateId: profile.templateId,
+      bgColor: profile.bgColor,
+      accentColor: profile.accentColor,
+      fontId: profile.fontId,
+      coverPosX: profile.coverPosX,
+      coverPosY: profile.coverPosY,
+      coverOverlay: profile.coverOverlay,
+    },
     // A dona do perfil recebe o data URL cru: o editor precisa dele para a
     // prévia antes de salvar. A visitante recebe a rota (ver `publicProfile`).
     iab: {

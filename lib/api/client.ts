@@ -23,12 +23,48 @@ import type {
   ApiSession,
   ApiUser,
   LinkInput,
+  CreateProfileInput,
   ProfileInput,
   RegisterInput,
   ReportResponse,
 } from "./types";
 
 const BASE = "/api/v1";
+
+/**
+ * A PÁGINA que o painel está editando.
+ *
+ * Uma conta pode ter várias, e toda chamada de link, relatório e perfil é
+ * escopada por ela. O valor viaja no cabeçalho `x-profile-id` e a API **confere
+ * se a página é de quem está pedindo** antes de aceitar — id de outra criadora
+ * não chega a lugar nenhum, o pedido só cai na página padrão.
+ *
+ * Fica no `localStorage` porque é preferência de quem está na frente do
+ * navegador, não estado do servidor: duas abas podem editar páginas diferentes,
+ * e a sessão não deveria escolher por elas. Ausente, a API usa a página padrão
+ * da conta — que é o que acontece com quem tem uma página só.
+ */
+const CHAVE_PAGINA = "bs_pagina_ativa";
+
+export function paginaAtiva(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(CHAVE_PAGINA);
+  } catch {
+    // Navegação privada e armazenamento bloqueado: sem página escolhida, a API
+    // cai na padrão. Degradar assim é melhor que derrubar o painel.
+    return null;
+  }
+}
+
+export function definirPaginaAtiva(profileId: string | null): void {
+  try {
+    if (profileId) window.localStorage.setItem(CHAVE_PAGINA, profileId);
+    else window.localStorage.removeItem(CHAVE_PAGINA);
+  } catch {
+    /* idem */
+  }
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -62,6 +98,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       credentials: "include",
       headers: {
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        // Um lugar só manda o cabeçalho: toda chamada do painel passa por aqui,
+        // e espalhar isso por cada método seria esquecer em um deles.
+        ...(paginaAtiva() ? { "x-profile-id": paginaAtiva()! } : {}),
         ...init?.headers,
       },
     });
@@ -112,6 +151,13 @@ export const api = {
 
   updateProfile: (input: ProfileInput) =>
     request<ApiProfile>("/me/profile", { method: "PATCH", body: JSON.stringify(input) }),
+
+  /** As páginas da conta. */
+  profiles: () =>
+    request<{ profiles: ApiProfile[] }>("/me/profiles").then((d) => d.profiles),
+
+  createProfile: (input: CreateProfileInput) =>
+    request<ApiProfile>("/me/profiles", { method: "POST", body: JSON.stringify(input) }),
 
   slugAvailable: (slug: string) =>
     request<{ slug: string; available: boolean }>(

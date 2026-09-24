@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { cn } from "@/lib/utils";
-import { siteHost } from "@/lib/site";
+import { SeletorDePagina } from "@/components/dashboard/SeletorDePagina";
 import { api } from "@/lib/api/client";
 import { invalidateSession, useSession } from "@/lib/api/use-session";
 
@@ -117,9 +117,9 @@ function SidebarContent({ onClose }: SidebarContentProps) {
             <div className="font-barlow font-semibold text-sm text-white truncate">
               {displayName || "..."}
             </div>
-            <div className="text-xs text-bee-pink truncate">
-              {siteHost()}/{slug}
-            </div>
+            {/* O endereço vira o seletor de páginas: é onde a criadora
+                descobre que tem mais de uma e troca entre elas. */}
+            <SeletorDePagina slugAtual={slug} />
           </div>
         </div>
 

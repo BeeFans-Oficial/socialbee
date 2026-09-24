@@ -11,6 +11,7 @@ import { LinkCounter } from "../tracking/entities/link-counter.entity";
 import { TrackingEvent } from "../tracking/entities/tracking-event.entity";
 import { InitialSchema1788912000000 } from "./migrations/1788912000000-InitialSchema";
 import { IabLandingNoPerfil1790121600000 } from "./migrations/1790121600000-IabLandingNoPerfil";
+import { EditorDeTemplate1790200000000 } from "./migrations/1790200000000-EditorDeTemplate";
 
 /**
  * Conexão e lista de migrations.
@@ -55,7 +56,11 @@ export function buildDataSourceOptions(): DataSourceOptions {
       TrackingEvent,
       LinkCounter,
     ],
-    migrations: [InitialSchema1788912000000, IabLandingNoPerfil1790121600000],
+    migrations: [
+      InitialSchema1788912000000,
+      IabLandingNoPerfil1790121600000,
+      EditorDeTemplate1790200000000,
+    ],
     migrationsTableName: "migrations",
     synchronize: false,
     // Em produção o log de query é ruído com dado de usuário dentro; em

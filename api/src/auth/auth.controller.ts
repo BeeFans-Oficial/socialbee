@@ -79,7 +79,7 @@ export class AuthController {
 
   @Get("me")
   async me(@CurrentUser() auth: AuthContext) {
-    return this.authService.me(auth.userId);
+    return this.authService.me(auth.profileId);
   }
 }
 

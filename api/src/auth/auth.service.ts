@@ -161,10 +161,19 @@ export class AuthService {
     await this.sessions.update({ id: sessionId }, { revokedAt: new Date() });
   }
 
-  async me(userId: string): Promise<{ user: AuthenticatedUserView; profile: OwnProfileView }> {
-    const user = await this.users.findOne({ where: { id: userId } });
+  /**
+   * Quem está logado e QUAL PÁGINA está editando.
+   *
+   * O perfil devolvido é o da requisição (`auth.profileId`), não "o perfil da
+   * conta". Com várias páginas por conta, buscar por `userId` devolvia sempre a
+   * primeira — e o painel mostrava o nome e o endereço de uma página enquanto o
+   * editor trabalhava em outra. Quem resolve qual é a página é o
+   * `JwtAuthGuard`, que já conferiu a posse.
+   */
+  async me(profileId: string): Promise<{ user: AuthenticatedUserView; profile: OwnProfileView }> {
+    const profile = await this.profilesService.findById(profileId);
+    const user = await this.users.findOne({ where: { id: profile.userId } });
     if (!user) throw new UnauthorizedException("Sessão inválida.");
-    const profile = await this.profilesService.findByUserId(user.id);
     return { user: toUserView(user), profile: toOwnProfileView(profile) };
   }
 
