@@ -2,10 +2,13 @@ import { Transform } from "class-transformer";
 import {
   IsBoolean,
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   Matches,
+  Max,
   MaxLength,
+  Min,
   MinLength,
   ValidateIf,
 } from "class-validator";
@@ -26,6 +29,53 @@ export const BUTTON_STYLES = ["soft", "filled", "outlined", "glass", "pill"] as 
  * renderiza botão sem estilo.
  */
 export class UpdateProfileDto {
+  // ------------------------------------------------- editor de template
+  //
+  // O layout da página e as exceções de cor que a criadora fez por cima do
+  // tema. Cor vem validada por regex aqui e por `CHECK` no banco: o valor
+  // entra num `style` inline da página pública, então lixo aqui é lixo
+  // renderizado — e `#fff` (três dígitos) quebra o `color-mix` do CSS.
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  templateId?: string;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: "Cor inválida. Use o formato #rrggbb." })
+  bgColor?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @Matches(/^#[0-9a-fA-F]{6}$/, { message: "Cor inválida. Use o formato #rrggbb." })
+  accentColor?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsString()
+  @MaxLength(40)
+  fontId?: string | null;
+
+  // Enquadramento da imagem de fundo e o escurecimento por cima dela.
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  coverPosX?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  coverPosY?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  coverOverlay?: number;
+
   // ---------------------------------------------- página de chegada (IAB)
   //
   // Os quatro campos abaixo descrevem o que a fã vê quando chega pelo

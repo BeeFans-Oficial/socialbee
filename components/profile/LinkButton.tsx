@@ -9,6 +9,10 @@ interface LinkButtonProps {
   link: {
     id: string;
     title: string;
+    /** Editável no painel desde sempre, e até o template "Cartões" existir
+     *  NUNCA renderizado: este componente nem recebia o campo. */
+    subtitle?: string | null;
+    thumbnailUrl?: string | null;
     platform: string;
     shortCode: string;
     cloakEnabled: boolean;
@@ -19,11 +23,22 @@ interface LinkButtonProps {
   accentColor: string;
   /** fallback button style from profile settings */
   buttonStyle: string;
+  /** O template pede miniatura e subtítulo (`cartoes`). Fora dele o botão é a
+   *  linha de sempre — a informação existe, mas não cabe numa lista estreita. */
+  detalhes?: boolean;
   index: number;
   onClick: () => void;
 }
 
-export function LinkButton({ link, icon, accentColor, buttonStyle: profileButtonStyle, index, onClick }: LinkButtonProps) {
+export function LinkButton({
+  link,
+  icon,
+  accentColor,
+  buttonStyle: profileButtonStyle,
+  detalhes = false,
+  index,
+  onClick,
+}: LinkButtonProps) {
   // Per-link appearance takes priority over profile-wide settings
   const appearance: LinkAppearance = link.appearance ?? {
     ...DEFAULT_LINK_APPEARANCE,
@@ -84,22 +99,49 @@ export function LinkButton({ link, icon, accentColor, buttonStyle: profileButton
         </div>
       )}
 
-      <div className="grid items-center gap-2 py-4 px-4"
-        style={{ gridTemplateColumns: showIcon ? "48px 1fr 24px" : "1fr 24px" }}>
-        {showIcon && (
-          <div className="flex items-center justify-center">
-            <div className="w-9 h-9 flex items-center justify-center text-2xl">{icon}</div>
+      {detalhes ? (
+        /* Cartão: miniatura em cima, texto embaixo. O alinhamento é à esquerda
+           porque com subtítulo o bloco vira texto corrido, e texto corrido
+           centralizado é mais difícil de ler. */
+        <div className="flex flex-col text-left">
+          <div className="w-full aspect-[16/10] bg-black/20 overflow-hidden flex items-center justify-center">
+            {link.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element -- data URL
+              // vinda do banco, como o avatar.
+              <img src={link.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-3xl opacity-40">{icon}</span>
+            )}
           </div>
-        )}
-        <div className="flex items-center justify-center">
-          <span className="text-sm font-semibold" style={{ color: textColor }}>{link.title}</span>
+          <div className="px-3 py-2.5">
+            <div className="text-sm font-semibold leading-tight" style={{ color: textColor }}>
+              {link.title}
+            </div>
+            {link.subtitle && (
+              <div className="text-[11px] mt-0.5 line-clamp-2" style={{ color: `${textColor}99` }}>
+                {link.subtitle}
+              </div>
+            )}
+          </div>
         </div>
-        {showArrow && (
+      ) : (
+        <div className="grid items-center gap-2 py-4 px-4"
+          style={{ gridTemplateColumns: showIcon ? "48px 1fr 24px" : "1fr 24px" }}>
+          {showIcon && (
+            <div className="flex items-center justify-center">
+              <div className="w-9 h-9 flex items-center justify-center text-2xl">{icon}</div>
+            </div>
+          )}
           <div className="flex items-center justify-center">
-            <ChevronRight className="w-4 h-4" style={{ color: `${textColor}80` }} />
+            <span className="text-sm font-semibold" style={{ color: textColor }}>{link.title}</span>
           </div>
-        )}
-      </div>
+          {showArrow && (
+            <div className="flex items-center justify-center">
+              <ChevronRight className="w-4 h-4" style={{ color: `${textColor}80` }} />
+            </div>
+          )}
+        </div>
+      )}
     </motion.button>
   );
 }

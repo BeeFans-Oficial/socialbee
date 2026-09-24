@@ -3,8 +3,16 @@ import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
 /** Quem está autenticado na requisição. Preenchido pelo `JwtAuthGuard`. */
 export interface AuthContext {
   userId: string;
-  /** Perfil ativo da conta. Todo dado de link e de rastreamento é escopado por
-   *  ele, e ele **nunca** vem do cliente. */
+  /**
+   * A PÁGINA que esta requisição edita. Todo dado de link e de rastreamento é
+   * escopado por ela.
+   *
+   * Antes era "nunca vem do cliente", porque a conta tinha uma página só e o id
+   * vinha do token. Com várias páginas o painel precisa dizer qual — então ele
+   * vem no cabeçalho `x-profile-id` e o `JwtAuthGuard` **confere se pertence ao
+   * dono da sessão** antes de aceitar. A garantia deixou de ser a origem do
+   * valor e passou a ser a verificação: id de outra criadora não chega aqui.
+   */
   profileId: string;
   sessionId: string;
   email: string;

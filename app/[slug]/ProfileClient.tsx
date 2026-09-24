@@ -4,7 +4,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AgeGate } from "@/components/profile/AgeGate";
 import { LinkButton } from "@/components/profile/LinkButton";
-import { THEMES, type Link as LinkType } from "@/lib/catalog";
+import { type Link as LinkType } from "@/lib/catalog";
+import type { VisualResolvido } from "@/lib/templates";
+import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
 import { handleLinkClick } from "@/lib/cloak";
 import { getPlatformIcon } from "@/lib/utils";
@@ -39,8 +41,11 @@ interface ProfileClientProps {
   slug: string;
   displayName: string;
   isAdult: boolean;
-  themeId: string;
-  buttonStyle: string;
+  /** Tudo o que o template e as escolhas da criadora resolveram — cores,
+   *  formato da lista, estilo de botão. Vem pronto de `resolverVisual()`, que é
+   *  a MESMA função usada pela prévia do editor: duas resoluções à mão em dois
+   *  lugares divergem, e o que diverge é o caso que ninguém testou. */
+  visual: VisualResolvido;
   /** Presentes no HTML só quando o perfil NÃO é adulto. */
   initialLinks: LinkType[] | null;
 }
@@ -49,8 +54,7 @@ export function ProfileClient({
   slug,
   displayName,
   isAdult,
-  themeId,
-  buttonStyle,
+  visual,
   initialLinks,
 }: ProfileClientProps) {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
@@ -58,7 +62,6 @@ export function ProfileClient({
   const [ageVerified, setAgeVerified] = useState(false);
   const [links, setLinks] = useState<LinkType[]>(initialLinks ?? []);
 
-  const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
   const needsAgeGate = isAdult && !ageVerified;
 
   // Referência estável: o `useEffect` do AgeGate depende de `onVerified`, e uma
@@ -74,19 +77,19 @@ export function ProfileClient({
    */
   useEffect(() => {
     const root = document.documentElement;
-    root.style.setProperty("--theme-bg", theme.bg);
-    root.style.setProperty("--theme-accent", theme.accent);
+    root.style.setProperty("--theme-bg", visual.bg);
+    root.style.setProperty("--theme-accent", visual.accent);
 
-    const surface = theme.bg.replace(/[^,]+(?=\))/, (m) =>
+    const surface = visual.bg.replace(/[^,]+(?=\))/, (m) =>
       String(Math.min(255, parseInt(m) + 20)),
     );
     root.style.setProperty("--theme-surface", surface);
-    document.body.style.backgroundColor = theme.bg;
+    document.body.style.backgroundColor = visual.bg;
 
     return () => {
       document.body.style.backgroundColor = "";
     };
-  }, [theme]);
+  }, [visual.bg, visual.accent]);
 
   /**
    * Busca antecipada dos links do perfil adulto.
@@ -156,14 +159,21 @@ export function ProfileClient({
             RENDER não — senão os links entram no DOM antes da confirmação e a
             barreira vira enfeite, contornável com um inspecionar elemento. */}
         {!needsAgeGate && (
-        <div className="max-w-sm mx-auto px-4 mt-6 space-y-3">
+        <div
+          className={cn(
+            "max-w-sm mx-auto px-4 mt-6",
+            // Grade de dois com espaçamento menor; lista com o de sempre.
+            visual.lista === "grade" ? "grid grid-cols-2 gap-3" : "space-y-3",
+          )}
+        >
           {links.map((link, index) => (
             <LinkButton
               key={link.id}
               link={link}
               icon={getPlatformIcon(link.platform)}
-              buttonStyle={buttonStyle}
-              accentColor={theme.accent}
+              buttonStyle={visual.botao}
+              accentColor={visual.accent}
+              detalhes={visual.detalhes}
               index={index}
               onClick={() => onLinkClick(link.shortCode, link.cloakEnabled)}
             />
