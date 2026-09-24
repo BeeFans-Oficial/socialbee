@@ -60,6 +60,8 @@ export interface ApiProfile {
   themeId: string;
   buttonStyle: string;
   isAdult: boolean;
+  /** `false` = fora do ar: escondida do público, com tudo preservado. */
+  published: boolean;
   joinedAt: string;
   template: ApiTemplate;
   iab: ApiIabLanding;
@@ -190,6 +192,7 @@ export interface ProfileInput {
   themeId?: string;
   buttonStyle?: string;
   isAdult?: boolean;
+  published?: boolean;
   // Template e ajustes finos. Planos pelo mesmo motivo do bloco abaixo.
   templateId?: string;
   bgColor?: string | null;
