@@ -83,6 +83,11 @@ export class UpdateProfileDto {
   // `CHECK` da migration de propósito: o DTO devolve mensagem legível, o
   // `CHECK` protege o dado de qualquer outro caminho de escrita.
 
+  /** Tira a página do ar (ou devolve). Reversível, e não apaga nada. */
+  @IsOptional()
+  @IsBoolean()
+  published?: boolean;
+
   @IsOptional()
   @IsBoolean()
   iabEnabled?: boolean;

@@ -109,6 +109,11 @@ export default function AparenciaPage() {
     coverOverlay: 55,
   });
 
+  /** Id e estado de publicação da página em edição. O editor precisa do id
+   *  para apagá-la, e do slug para pedir a confirmação digitada. */
+  const [profileId, setProfileId] = useState("");
+  const [published, setPublished] = useState(true);
+
   /** Muda quando o perfil chega da API, para o editor remontar já preenchido.
    *  Sem isso ele nasceria com os valores padrão e sobrescreveria o que está
    *  gravado no primeiro salvamento. */
@@ -147,6 +152,8 @@ export default function AparenciaPage() {
         setSelectedTheme(perfil.themeId);
         setButtonStyle(perfil.buttonStyle);
         setIsAdult(perfil.isAdult);
+        setProfileId(perfil.id);
+        setPublished(perfil.published);
         setTemplateInicial(perfil.template);
         setPerfilCarregadoEm(Date.now());
         setLinks(apiLinks.map(paraLinkDaUi));
@@ -341,6 +348,9 @@ export default function AparenciaPage() {
               // está gravado e guarda o próprio estado a partir daí.
               key={perfilCarregadoEm}
               inicial={{
+                profileId,
+                slug: slugAtual,
+                published,
                 templateId: templateInicial.templateId,
                 themeId: selectedTheme,
                 buttonStyle,
@@ -438,7 +448,12 @@ export default function AparenciaPage() {
                         border: coverPreview
                           ? "2px solid rgba(255, 60, 110, 0.3)"
                           : "2px dashed rgba(255, 60, 110, 0.3)",
-                        background: coverPreview
+                        // `backgroundImage` e não `background`: o atalho anula
+                        // `backgroundSize` e `backgroundPosition` declarados
+                        // junto — e também o `backgroundColor` acima. O React
+                        // avisava disso no console desde o primeiro commit, e o
+                        // efeito era a miniatura da capa sair fora de escala.
+                        backgroundImage: coverPreview
                           ? `url(${coverPreview})`
                           : "linear-gradient(135deg, #1e1e1e, #151515)",
                         backgroundSize: "cover",

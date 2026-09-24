@@ -42,6 +42,7 @@ export interface OwnProfileView {
   themeId: string;
   buttonStyle: string;
   isAdult: boolean;
+  published: boolean;
   joinedAt: string;
   template: TemplateView;
   iab: IabLandingView;
@@ -165,6 +166,41 @@ export class ProfilesService {
   }
 
   /**
+   * Apaga uma página, para sempre.
+   *
+   * Leva junto os links, os contadores e os eventos de clique — as três tabelas
+   * têm `ON DELETE CASCADE` no perfil. Não há como desfazer, e o histórico
+   * apagado é o número que a criadora usa para negociar valor com marcas.
+   *
+   * Duas travas, e nenhuma é decorativa:
+   *
+   * **A página tem que ser dela.** Verificado aqui e não só no guard — este
+   * método pode ser chamado de um script ou de um módulo futuro que não passa
+   * por HTTP.
+   *
+   * **A última página não se apaga.** Uma conta sem página é um estado que o
+   * resto do sistema não sabe tratar: o token carrega um `pid` que deixaria de
+   * existir, o painel não teria o que editar e `/auth/me` quebraria. Quem quer
+   * sumir do ar tira a página do ar (`published = false`), que é reversível e
+   * preserva tudo.
+   */
+  async deleteForUser(userId: string, profileId: string): Promise<void> {
+    const profile = await this.profiles.findOne({ where: { id: profileId, userId } });
+    if (!profile) throw new NotFoundException("Página não encontrada.");
+
+    const total = await this.profiles.count({ where: { userId } });
+    if (total <= 1) {
+      throw new ConflictException({
+        code: "ultima_pagina",
+        message:
+          "Esta é sua única página e não pode ser apagada. Para sumir do ar, tire-a do ar — assim nada é perdido.",
+      });
+    }
+
+    await this.profiles.delete({ id: profileId, userId });
+  }
+
+  /**
    * A página pertence à conta?
    *
    * É o que sustenta o cabeçalho `x-profile-id` ser aceitável: o cliente diz
@@ -200,6 +236,7 @@ export class ProfilesService {
     if (dto.themeId !== undefined) profile.themeId = dto.themeId;
     if (dto.buttonStyle !== undefined) profile.buttonStyle = dto.buttonStyle;
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
+    if (dto.published !== undefined) profile.published = dto.published;
     if (dto.templateId !== undefined) profile.templateId = dto.templateId;
     if (dto.bgColor !== undefined) profile.bgColor = dto.bgColor;
     if (dto.accentColor !== undefined) profile.accentColor = dto.accentColor;
@@ -301,7 +338,10 @@ export class ProfilesService {
     const profile = await this.profiles.findOne({
       where: { slug: slug.trim().toLowerCase() },
     });
-    if (!profile) throw new NotFoundException("Perfil não encontrado.");
+    // Fora do ar responde igual a inexistente, de propósito: distinguir os dois
+    // contaria a um curioso quais endereços existem e estão suspensos — e a
+    // criadora que tirou a página do ar não quer que ela seja encontrada.
+    if (!profile || !profile.published) throw new NotFoundException("Perfil não encontrado.");
 
     const links = await this.links.find({
       where: { profileId: profile.id, isActive: true },
@@ -359,6 +399,7 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
     themeId: profile.themeId,
     buttonStyle: profile.buttonStyle,
     isAdult: profile.isAdult,
+    published: profile.published,
     joinedAt: profile.createdAt.toISOString(),
     template: {
       templateId: profile.templateId,

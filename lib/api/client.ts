@@ -159,6 +159,11 @@ export const api = {
   createProfile: (input: CreateProfileInput) =>
     request<ApiProfile>("/me/profiles", { method: "POST", body: JSON.stringify(input) }),
 
+  /** Apaga uma página e, por cascata, os links e os cliques dela. Irreversível.
+   *  A API recusa apagar a única página da conta. */
+  deleteProfile: (profileId: string) =>
+    request<void>(`/me/profiles/${profileId}`, { method: "DELETE" }),
+
   slugAvailable: (slug: string) =>
     request<{ slug: string; available: boolean }>(
       `/public/slug-available?slug=${encodeURIComponent(slug)}`,

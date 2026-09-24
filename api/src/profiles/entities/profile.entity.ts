@@ -93,6 +93,19 @@ export class Profile {
   @Column({ name: "cover_overlay", type: "smallint", default: 55 })
   coverOverlay: number;
 
+  /**
+   * A página está no ar?
+   *
+   * `false` esconde do público e preserva tudo — links, códigos curtos,
+   * relatório. É o gesto reversível que faltava: até existir, suspender uma
+   * página só era possível apagando, e apagar destrói o histórico de cliques.
+   *
+   * Não afeta o redirecionador: `/r/<código>` continua resolvendo, porque
+   * aqueles códigos estão impressos em prints e bios que seguem circulando.
+   */
+  @Column({ name: "published", type: "boolean", default: true })
+  published: boolean;
+
   /** Liga a barreira de idade no perfil público. */
   @Column({ name: "is_adult", type: "boolean", default: false })
   isAdult: boolean;

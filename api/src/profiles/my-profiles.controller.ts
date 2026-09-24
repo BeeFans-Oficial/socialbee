@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from "@nestjs/common";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
 import { CreateProfileDto } from "./dto/create-profile.dto";
@@ -16,11 +16,12 @@ import { ProfilesService } from "./profiles.service";
  * saber qual delas está sendo editada. A segunda parte é o cabeçalho
  * `x-profile-id`, resolvido em `JwtAuthGuard`.
  *
- * Não há `DELETE` aqui, e a ausência é deliberada: apagar uma página apaga
- * junto os links e todo o histórico de cliques dela — dado que a criadora usa
- * para negociar valor e que nenhum backup automático cobre hoje. Enquanto não
- * houver arquivamento (esconder sem destruir) e confirmação à altura, a rota
- * não existe.
+ * O `DELETE` existe, mas é o gesto excepcional. O comum é tirar do ar
+ * (`PATCH /me/profile` com `published: false`), que esconde a página e preserva
+ * links, códigos curtos e relatório. Apagar destrói o histórico de cliques por
+ * cascata e nenhum backup automático cobre isso hoje — por isso a interface
+ * pede o endereço digitado antes de chamar esta rota, e a API recusa apagar a
+ * única página da conta.
  */
 @Controller("me/profiles")
 export class MyProfilesController {
@@ -34,5 +35,21 @@ export class MyProfilesController {
   @Post()
   async create(@CurrentUser() auth: AuthContext, @Body() dto: CreateProfileDto) {
     return this.profilesService.createForUser(auth.userId, dto);
+  }
+
+  /**
+   * Apaga uma página. Irreversível, e leva os cliques junto.
+   *
+   * O id vai no caminho e não é o da sessão: apagar a página ativa é o caso
+   * comum, mas apagar outra da lista também precisa funcionar — e as duas
+   * passam pela mesma verificação de posse no serviço.
+   */
+  @Delete(":id")
+  @HttpCode(204)
+  async remove(
+    @CurrentUser() auth: AuthContext,
+    @Param("id", ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.profilesService.deleteForUser(auth.userId, id);
   }
 }

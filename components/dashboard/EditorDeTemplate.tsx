@@ -2,10 +2,10 @@
 
 import React, { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ImagePlus, Plus, RotateCcw, Trash2 } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff, ImagePlus, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { PreviaDaPagina } from "@/components/shared/PreviaDaPagina";
-import { api, ApiError } from "@/lib/api/client";
+import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
 import { invalidateSession } from "@/lib/api/use-session";
 import { THEMES, type Link as LinkType } from "@/lib/catalog";
 import { FONTES, TEMPLATES, resolverVisual } from "@/lib/templates";
@@ -42,6 +42,10 @@ const ESTILOS_DE_BOTAO = [
 ] as const;
 
 export interface EstadoInicialDoEditor {
+  /** Id da página em edição — necessário para apagá-la. */
+  profileId: string;
+  slug: string;
+  published: boolean;
   templateId: string;
   themeId: string;
   buttonStyle: string;
@@ -84,6 +88,13 @@ export function EditorDeTemplate({
   const [coverOverlay, setCoverOverlay] = useState(inicial.coverOverlay);
   const [displayName, setDisplayName] = useState(inicial.displayName);
   const [bio, setBio] = useState(inicial.bio);
+  const [noAr, setNoAr] = useState(inicial.published);
+
+  // Exclusão: a criadora digita o endereço para confirmar. Um "tem certeza?"
+  // se responde no reflexo; digitar o endereço obriga a olhar QUAL página está
+  // prestes a sumir — e é a página errada que dói, não a confirmação rápida.
+  const [confirmacao, setConfirmacao] = useState("");
+  const [apagando, setApagando] = useState(false);
 
   const [salvando, setSalvando] = useState(false);
   const [novoTitulo, setNovoTitulo] = useState("");
@@ -108,6 +119,34 @@ export function EditorDeTemplate({
       }),
     [templateId, themeId, buttonStyle, bgColor, accentColor, fontId, coverUrl, coverPosX, coverPosY, coverOverlay],
   );
+
+  const apagarPagina = async () => {
+    if (confirmacao.trim() !== inicial.slug) {
+      toast.error("Digite o endereço da página para confirmar.");
+      return;
+    }
+    setApagando(true);
+    try {
+      await api.deleteProfile(inicial.profileId);
+      // A página ativa deixou de existir: limpar a escolha faz a API cair na
+      // padrão da conta no próximo carregamento, em vez de mandar um id morto.
+      definirPaginaAtiva(null);
+      invalidateSession();
+      window.location.reload();
+    } catch (caught) {
+      tratarErro(caught, "Não foi possível apagar a página.");
+      setApagando(false);
+    }
+  };
+
+  const alternarLink = async (id: string, ativo: boolean) => {
+    try {
+      await api.updateLink(id, { isActive: !ativo });
+      onLinksMudaram();
+    } catch (caught) {
+      tratarErro(caught, "Não foi possível mudar o link.");
+    }
+  };
 
   /**
    * Escolher um template aplica o visual dele por inteiro.
@@ -150,6 +189,7 @@ export function EditorDeTemplate({
     setSalvando(true);
     try {
       await api.updateProfile({
+        published: noAr,
         templateId,
         themeId,
         buttonStyle,
@@ -414,6 +454,27 @@ export function EditorDeTemplate({
           />
         </Secao>
 
+        <Secao titulo="Publicação">
+          <label className="flex items-start gap-3 p-3 rounded-xl border border-white/10 cursor-pointer hover:border-white/20 transition-all">
+            <input
+              type="checkbox"
+              checked={noAr}
+              onChange={(e) => setNoAr(e.target.checked)}
+              className="mt-0.5 accent-bee-pink"
+            />
+            <span>
+              <span className="block text-sm font-medium text-white">
+                {noAr ? "No ar" : "Fora do ar"}
+              </span>
+              <span className="block text-[11px] text-white/35 leading-relaxed mt-0.5">
+                Fora do ar, o endereço responde como se a página não existisse. Seus
+                links, códigos e o relatório ficam preservados — e voltar é uma tecla.
+                Os links já divulgados (<code>/r/…</code>) continuam levando ao destino.
+              </span>
+            </span>
+          </label>
+        </Secao>
+
         <Secao
           titulo="Botões da página"
           nota="Para mudar destino, ícone ou cor de um botão, use a tela de Links."
@@ -428,10 +489,20 @@ export function EditorDeTemplate({
                 {!l.isActive && (
                   <span className="text-[10px] uppercase tracking-wide text-white/25">oculto</span>
                 )}
+                {/* Ocultar vem antes de apagar, e é o gesto que resolve quase
+                    sempre: o link sai da página e o código curto continua
+                    valendo — prints e bios que já circulam não quebram. */}
+                <button
+                  onClick={() => alternarLink(l.id, l.isActive)}
+                  className="p-1.5 rounded-lg text-white/30 hover:text-white transition-colors"
+                  title={l.isActive ? "Tirar do ar" : "Colocar no ar"}
+                >
+                  {l.isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
                 <button
                   onClick={() => apagarLink(l.id)}
                   className="p-1.5 rounded-lg text-white/30 hover:text-red-400 transition-colors"
-                  title="Remover"
+                  title="Apagar para sempre"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -442,7 +513,7 @@ export function EditorDeTemplate({
             )}
           </div>
 
-          <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+          <div className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-8">
             <input
               value={novoTitulo}
               onChange={(e) => setNovoTitulo(e.target.value)}
@@ -465,6 +536,38 @@ export function EditorDeTemplate({
             </button>
           </div>
         </Secao>
+
+        {/* Apagar fica por último, separado, e pede o endereço digitado. É a
+            única ação desta tela que não tem volta. */}
+        <section className="rounded-xl border border-red-500/20 bg-red-500/[0.04] p-4">
+          <div className="flex items-start gap-2 mb-3">
+            <AlertTriangle className="w-4 h-4 text-red-400/80 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="text-sm font-semibold text-red-200/90">Apagar esta página</h3>
+              <p className="text-[11px] text-white/40 leading-relaxed mt-1">
+                Some com a página, os links e <span className="text-white/70">todo o histórico
+                de cliques</span> dela. Não dá para desfazer, e não há backup automático. Se a
+                intenção é só sumir do ar, use a chave de publicação acima.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2">
+            <input
+              value={confirmacao}
+              onChange={(e) => setConfirmacao(e.target.value)}
+              placeholder={`Digite ${inicial.slug} para confirmar`}
+              className="flex-1 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-white placeholder:text-white/20 focus:outline-none focus:border-red-500/40"
+            />
+            <button
+              onClick={apagarPagina}
+              disabled={apagando || confirmacao.trim() !== inicial.slug}
+              className="px-4 rounded-xl bg-red-500/15 border border-red-500/30 text-sm font-medium text-red-300 hover:bg-red-500/25 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              {apagando ? "Apagando…" : "Apagar"}
+            </button>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { TrackingEvent } from "../tracking/entities/tracking-event.entity";
 import { InitialSchema1788912000000 } from "./migrations/1788912000000-InitialSchema";
 import { IabLandingNoPerfil1790121600000 } from "./migrations/1790121600000-IabLandingNoPerfil";
 import { EditorDeTemplate1790200000000 } from "./migrations/1790200000000-EditorDeTemplate";
+import { PaginaNoAr1790300000000 } from "./migrations/1790300000000-PaginaNoAr";
 
 /**
  * Conexão e lista de migrations.
@@ -60,6 +61,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       InitialSchema1788912000000,
       IabLandingNoPerfil1790121600000,
       EditorDeTemplate1790200000000,
+      PaginaNoAr1790300000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,
