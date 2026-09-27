@@ -103,6 +103,18 @@ export async function recordClick(
     "x-internal-secret": secret,
   };
 
+  // O domínio por onde a fã chegou. Vai explícito, e não só dentro da `url` do
+  // corpo, porque este caminho não passa pelo proxy — aqui o servidor do Next
+  // fala direto com a API, e o `host` daquela requisição seria o da rede
+  // interna.
+  //
+  // Sai do cabeçalho `host` e NÃO de `new URL(request.url).host`: no Route
+  // Handler o Next normaliza `request.url` para o endereço em que o servidor
+  // escuta, então ele devolve o mesmo valor para todos os domínios do pool.
+  // Medido: com `Host: teste.local`, a URL continuava dizendo `localhost:3000`.
+  const hostDeChegada = request.headers.get("host") ?? new URL(request.url).host;
+  if (hostDeChegada) forwarded["x-arrival-host"] = hostDeChegada.toLowerCase();
+
   const response = await fetch(`${INTERNAL_BASE}/v1/public/tracking/click`, {
     method: "POST",
     headers: forwarded,

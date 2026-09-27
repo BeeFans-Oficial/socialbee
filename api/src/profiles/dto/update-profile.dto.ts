@@ -5,6 +5,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Matches,
   Max,
   MaxLength,
@@ -82,6 +83,18 @@ export class UpdateProfileDto {
   // navegador embutido de um aplicativo. Os limites de tamanho repetem os
   // `CHECK` da migration de propósito: o DTO devolve mensagem legível, o
   // `CHECK` protege o dado de qualquer outro caminho de escrita.
+
+  /**
+   * Domínio do pool em que a página é servida. `null` volta ao padrão.
+   *
+   * Só o id: o host vem do catálogo. Aceitar o host digitado deixaria a
+   * criadora apontar a página para um endereço que não tem DNS nem
+   * certificado — e o erro só apareceria para a fã.
+   */
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsUUID()
+  domainId?: string | null;
 
   /** Tira a página do ar (ou devolve). Reversível, e não apaga nada. */
   @IsOptional()

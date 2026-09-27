@@ -24,7 +24,6 @@ import { PhoneMockup } from "@/components/shared/PhoneMockup";
 import { toast, Toaster } from "sonner";
 import { validateSlug, slugify } from "@/lib/utils";
 import { cn } from "@/lib/utils";
-import { siteHost } from "@/lib/site";
 import { api, ApiError } from "@/lib/api/client";
 
 export default function CadastroPage() {
@@ -421,8 +420,16 @@ export default function CadastroPage() {
                         Seu link único
                       </label>
                       <div className="flex items-center gap-2">
+                        {/* Sem domínio aqui, só a barra.
+                            A página ainda não existe, e o endereço dela é
+                            SORTEADO entre os domínios ativos na hora da criação
+                            (ver `sortearDomainId`). Mostrar o domínio padrão
+                            neste campo seria prometer um endereço que pode não
+                            ser o dela — e o primeiro link que ela copiasse
+                            estaria errado. O endereço completo aparece no
+                            painel, assim que a página nasce. */}
                         <span className="px-3 py-2 rounded-lg bg-bee-surface2 text-bee-muted text-sm border border-white/[0.08]">
-                          {siteHost()}/
+                          /
                         </span>
                         <div className="flex-1 relative">
                           <Input
@@ -465,7 +472,8 @@ export default function CadastroPage() {
                       )}
                       {slug && slugStatus === "valid" && (
                         <p className="text-xs text-bee-muted mt-1.5">
-                          Sua URL: {siteHost()}/{slug}
+                          Seu endereço termina em <span className="text-white/70">/{slug}</span>
+                          {" "}— o domínio aparece no painel depois de criar a conta.
                         </p>
                       )}
                     </div>

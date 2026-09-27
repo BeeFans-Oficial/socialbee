@@ -34,6 +34,8 @@ export interface ClickInput {
   requestUrl: URL;
   headers: HeaderBag;
   method: string;
+  /** Domínio do pool por onde a visita entrou. Ver `arrivalHost` na entidade. */
+  arrivalHost?: string;
 }
 
 export interface ClickOutcome {
@@ -47,6 +49,7 @@ export interface ViewInput {
   profileId: string;
   requestUrl: URL;
   headers: HeaderBag;
+  arrivalHost?: string;
 }
 
 @Injectable()
@@ -71,6 +74,7 @@ export class TrackingService {
       linkId: input.link.linkId,
       channel: input.link.channel,
       destinationHost: hostOf(input.link.destinationUrl),
+      arrivalHost: input.arrivalHost,
       occurredAt,
       attribution: parseAttribution(input.requestUrl, header(input.headers, "referer")),
       client: buildClientContext({
@@ -99,6 +103,7 @@ export class TrackingService {
     await this.store.append({
       type: "view",
       profileId: input.profileId,
+      arrivalHost: input.arrivalHost,
       occurredAt: new Date(),
       attribution: parseAttribution(input.requestUrl, header(input.headers, "referer")),
       client: buildClientContext({

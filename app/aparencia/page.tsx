@@ -19,7 +19,6 @@ import { validateSlug, slugify, getPlatformColor, getPlatformIcon } from "@/lib/
 import { api, ApiError } from "@/lib/api/client";
 import type { ApiLink } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
-import { siteHost } from "@/lib/site";
 import { useRouter } from "next/navigation";
 
 type PageTab = "modelo" | "perfil" | "links";
@@ -113,6 +112,12 @@ export default function AparenciaPage() {
    *  para apagá-la, e do slug para pedir a confirmação digitada. */
   const [profileId, setProfileId] = useState("");
   const [published, setPublished] = useState(true);
+  /** Domínio desta página, resolvido pela API. Não sai de `siteHost()` porque
+   *  cada página pode viver num domínio diferente do pool. */
+  const [host, setHost] = useState("");
+  /** O domínio ESCOLHIDO (id do catálogo), que é o que o editor grava. Nulo
+   *  quando a página usa o padrão da instalação. */
+  const [domainId, setDomainId] = useState<string | null>(null);
 
   /** Muda quando o perfil chega da API, para o editor remontar já preenchido.
    *  Sem isso ele nasceria com os valores padrão e sobrescreveria o que está
@@ -154,6 +159,8 @@ export default function AparenciaPage() {
         setIsAdult(perfil.isAdult);
         setProfileId(perfil.id);
         setPublished(perfil.published);
+        setHost(perfil.host);
+        setDomainId(perfil.domainId);
         setTemplateInicial(perfil.template);
         setPerfilCarregadoEm(Date.now());
         setLinks(apiLinks.map(paraLinkDaUi));
@@ -351,6 +358,8 @@ export default function AparenciaPage() {
                 profileId,
                 slug: slugAtual,
                 published,
+                domainId,
+                host,
                 templateId: templateInicial.templateId,
                 themeId: selectedTheme,
                 buttonStyle,
@@ -494,7 +503,7 @@ export default function AparenciaPage() {
                   </label>
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-2 rounded-lg bg-bee-surface2 text-bee-muted text-sm border border-bee-border">
-                      {siteHost()}/
+                      {host || "…"}/
                     </span>
                     <div className="flex-1 relative">
                       <Input
@@ -818,7 +827,7 @@ export default function AparenciaPage() {
         initialTab={modalTab}
         appearanceOnly
         allLinks={links}
-        profileData={{ displayName, slug, bio, avatarUrl: avatarPreview, coverUrl: coverPreview }}
+        profileData={{ displayName, slug, bio, avatarUrl: avatarPreview, coverUrl: coverPreview, host }}
         onSave={async (linkData) => {
           if (!linkData.id) return;
 

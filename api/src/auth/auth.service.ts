@@ -113,12 +113,19 @@ export class AuthService {
         }),
       );
 
+      // O domínio da página nova sai de sorteio entre os ativos. Dentro da
+      // mesma transação para a página nunca existir sem a escolha feita; com o
+      // catálogo vazio devolve `null`, e nulo é o endereço padrão — o cadastro
+      // não pode quebrar por causa de catálogo.
+      const domainId = await this.profilesService.sortearDomainId(manager);
+
       const createdProfile = await manager.getRepository(Profile).save(
         manager.getRepository(Profile).create({
           userId: created.id,
           slug: dto.slug,
           displayName: dto.displayName,
           isAdult: dto.isAdult ?? false,
+          domainId,
         }),
       );
 

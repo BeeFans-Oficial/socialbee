@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AlertTriangle, Eye, EyeOff, ImagePlus, Plus, RotateCcw, Trash2 } from "lucide-react";
 
@@ -9,6 +9,7 @@ import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
 import { invalidateSession } from "@/lib/api/use-session";
 import { THEMES, type Link as LinkType } from "@/lib/catalog";
 import { FONTES, TEMPLATES, resolverVisual } from "@/lib/templates";
+import type { ApiDomain } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
 /**
@@ -46,6 +47,10 @@ export interface EstadoInicialDoEditor {
   profileId: string;
   slug: string;
   published: boolean;
+  /** Domínio escolhido no pool; `null` = o padrão da instalação. */
+  domainId: string | null;
+  /** O host resolvido, para montar o endereço na tela. */
+  host: string;
   templateId: string;
   themeId: string;
   buttonStyle: string;
@@ -89,6 +94,8 @@ export function EditorDeTemplate({
   const [displayName, setDisplayName] = useState(inicial.displayName);
   const [bio, setBio] = useState(inicial.bio);
   const [noAr, setNoAr] = useState(inicial.published);
+  const [domainId, setDomainId] = useState<string | null>(inicial.domainId);
+  const [dominios, setDominios] = useState<ApiDomain[]>([]);
 
   // Exclusão: a criadora digita o endereço para confirmar. Um "tem certeza?"
   // se responde no reflexo; digitar o endereço obriga a olhar QUAL página está
@@ -169,6 +176,29 @@ export function EditorDeTemplate({
     if (escolhido) setButtonStyle(escolhido.botaoPadrao);
   };
 
+  /**
+   * O catálogo de domínios.
+   *
+   * Carregado uma vez, no mount. Catálogo vazio — o estado de hoje — some com a
+   * seção inteira: oferecer uma lista de um item só ("padrão") não ajuda
+   * ninguém a decidir nada.
+   */
+  useEffect(() => {
+    let cancelado = false;
+    api
+      .domains()
+      .then((lista) => {
+        if (!cancelado) setDominios(lista);
+      })
+      .catch(() => {
+        // Falha aqui não pode derrubar o editor: ela continua editando cores,
+        // textos e links, e só a troca de endereço fica indisponível.
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
   const tratarErro = (caught: unknown, fallback: string) => {
     if (caught instanceof ApiError && caught.isUnauthorized) {
       onNaoAutorizado();
@@ -190,6 +220,7 @@ export function EditorDeTemplate({
     try {
       await api.updateProfile({
         published: noAr,
+        domainId,
         templateId,
         themeId,
         buttonStyle,
@@ -453,6 +484,47 @@ export function EditorDeTemplate({
             className="w-full px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-white resize-none focus:outline-none focus:border-bee-pink/40"
           />
         </Secao>
+
+        {dominios.length > 0 && (
+          <Secao titulo="Endereço da página">
+            <select
+              value={domainId ?? ""}
+              onChange={(e) => setDomainId(e.target.value || null)}
+              className="w-full px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-white focus:outline-none focus:border-bee-pink/40"
+            >
+              {/* O padrão da instalação continua sendo uma escolha válida, e
+                  precisa estar na lista para dar meia-volta.
+                  Sem o host no rótulo, de propósito: `inicial.host` é o
+                  endereço ATUAL da página, não o padrão. Numa página que já
+                  escolheu outro domínio, escrever "Padrão (teste.local)"
+                  prometeria continuar onde está e levaria para outro lugar.
+                  Quem conhece o padrão é a API, e ele não vale uma rota nova
+                  só para preencher um rótulo. */}
+              <option value="" className="bg-bee-surface">
+                Padrão da plataforma
+              </option>
+              {dominios.map((d) => (
+                <option key={d.id} value={d.id} className="bg-bee-surface">
+                  {d.label ? `${d.label} — ${d.host}` : d.host}
+                </option>
+              ))}
+            </select>
+
+            {/* O aviso fica na própria tela, e não num tooltip.
+                Trocar de endereço é a única ação daqui que quebra algo FORA do
+                produto: o link que ela já colou na bio, nos stories e nos
+                grupos para de levar à página. Sem ler isto antes, ela troca por
+                curiosidade e perde tráfego sem entender por quê. */}
+            <div className="flex gap-2 mt-3">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-400/70 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-white/35 leading-relaxed">
+                Trocar o endereço <span className="text-white/70">quebra o link que você já
+                divulgou</span>. Quem clicar no antigo não chega mais na sua página — você
+                precisa atualizar a bio e onde mais tiver colado.
+              </p>
+            </div>
+          </Secao>
+        )}
 
         <Secao titulo="Publicação">
           <label className="flex items-start gap-3 p-3 rounded-xl border border-white/10 cursor-pointer hover:border-white/20 transition-all">

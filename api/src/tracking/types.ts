@@ -77,6 +77,8 @@ export interface TrackingEventRecord {
   linkId?: string;
   channel?: string;
   destinationHost?: string;
+  /** Domínio do pool por onde a visita entrou. Ver a coluna na entidade. */
+  arrivalHost?: string;
   occurredAt: Date;
   attribution: Attribution;
   client: ClientContext;

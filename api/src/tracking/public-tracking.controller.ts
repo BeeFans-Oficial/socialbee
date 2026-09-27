@@ -74,6 +74,7 @@ export class PublicTrackingController {
         profileId,
         requestUrl: originalUrl(request),
         headers: request.headers,
+        arrivalHost: arrivalHost(request),
       });
     } catch (error) {
       // Falha de rastreamento nunca afeta a experiência do visitante.
@@ -95,11 +96,15 @@ export class PublicTrackingController {
     let counted = false;
     let reason = "";
     try {
+      const requestUrl = dto.url ? parseUrlOr(dto.url, request) : originalUrl(request);
       const outcome = await this.tracking.recordClick({
         link,
-        requestUrl: dto.url ? parseUrlOr(dto.url, request) : originalUrl(request),
+        requestUrl,
         headers: request.headers,
         method: dto.method ?? "GET",
+        // A URL do redirecionador já carrega o domínio por onde a fã entrou —
+        // serve de segunda fonte quando o cabeçalho não veio.
+        arrivalHost: arrivalHost(request, requestUrl),
       });
       counted = outcome.counted;
       reason = outcome.reason;
@@ -115,6 +120,38 @@ export class PublicTrackingController {
     // um falso positivo apaga clique humano em silêncio.
     return { destinationUrl: destination.toString(), counted, reason };
   }
+}
+
+/**
+ * Por qual endereço a visita chegou.
+ *
+ * **Nunca sai de `request.headers.host`**: quem fala com esta API é sempre o
+ * servidor do Next, então esse cabeçalho descreve a conexão interna
+ * (`api:3333`) e não o domínio que a fã digitou. Quem conhece o domínio real é
+ * a camada do Next, que o informa em `x-arrival-host` — o proxy o injeta porque
+ * descarta o `host` original de propósito (ver `app/api/v1/[...path]/route.ts`).
+ *
+ * `fallback` existe para o clique: a URL do redirecionador já vem com o domínio
+ * dentro, e usá-la evita perder o dado se o cabeçalho faltar.
+ *
+ * Valor ausente vira `undefined` e o evento é gravado assim mesmo. Campo de
+ * análise não derruba registro de clique.
+ *
+ * **O valor é falsificável, e isso é aceito.** O registro de visualização é
+ * rota pública: quem chamar a API direto pode inventar um `x-arrival-host` e
+ * sujar a contagem por domínio. É a mesma natureza do `x-forwarded-for` (ver a
+ * nota em `deploy/nginx/api.beesocial.bio.conf`) e a mesma consequência: este
+ * campo alimenta ANÁLISE, nunca autorização nem roteamento.
+ *
+ * Importa saber disso na Fase D: o sinal de "queda de tráfego neste domínio"
+ * pode, em tese, ser mascarado por tráfego forjado. Por isso o veredito de
+ * bloqueio é humano e cruza mais de um sinal, em vez de confiar num número só.
+ */
+function arrivalHost(request: Request, fallback?: URL): string | undefined {
+  const bruto = request.headers["x-arrival-host"];
+  const cabecalho = (Array.isArray(bruto) ? bruto[0] : bruto)?.trim();
+  const host = cabecalho || fallback?.host;
+  return host ? host.toLowerCase() : undefined;
 }
 
 function originalUrl(request: Request): URL {

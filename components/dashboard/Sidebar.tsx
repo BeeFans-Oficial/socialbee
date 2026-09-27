@@ -52,6 +52,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
   // `/bella` dentro do próprio painel.
   const displayName = session?.profile.displayName ?? "";
   const slug = session?.profile.slug ?? "";
+  const host = session?.profile.host ?? "";
   const avatarUrl = session?.profile.avatarUrl ?? null;
 
   /**
@@ -119,7 +120,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
             </div>
             {/* O endereço vira o seletor de páginas: é onde a criadora
                 descobre que tem mais de uma e troca entre elas. */}
-            <SeletorDePagina slugAtual={slug} />
+            <SeletorDePagina slugAtual={slug} hostAtual={host} />
           </div>
         </div>
 
