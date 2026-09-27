@@ -17,7 +17,7 @@ import {
 
 import { api, ApiError } from "@/lib/api/client";
 import { invalidateSession, useSession } from "@/lib/api/use-session";
-import { clientOrigin, siteHost } from "@/lib/site";
+import { urlDaPagina } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -58,7 +58,10 @@ export default function PreviaPage() {
 
   const slug = session?.profile.slug ?? "";
   const nome = session?.profile.displayName ?? "";
-  const host = siteHost();
+  // O domínio DESTA página, resolvido pela API. O cartão de compartilhamento
+  // abaixo mostra o endereço que a fã vai ver — e com o pool de domínios ele
+  // não é mais o mesmo para todas as páginas.
+  const host = session?.profile.host ?? "";
 
   // O formulário nasce do que está gravado. `session` chega uma vez por
   // carregamento (ver `use-session`), então isto não sobrescreve digitação.
@@ -88,7 +91,9 @@ export default function PreviaPage() {
   const url = (lado: Lado) =>
     `/${slug}${lado === "chegada" ? "?preview=iab" : ""}${recarga ? `#r=${recarga}` : ""}`;
 
-  const enderecoPublico = slug ? `${clientOrigin()}/${slug}` : "";
+  // Copiar entrega o endereço no domínio da página, não a origem de onde o
+  // painel foi servido: ela edita num domínio e publica em outro.
+  const enderecoPublico = slug && host ? urlDaPagina(host, slug) : "";
 
   const copiarEndereco = async () => {
     if (!enderecoPublico) return;

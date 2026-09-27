@@ -39,6 +39,7 @@ export class PostgresTrackingStore implements TrackingStore {
       linkId: event.linkId ?? null,
       channel: event.channel ?? null,
       destinationHost: event.destinationHost ?? null,
+      arrivalHost: event.arrivalHost ?? null,
       occurredAt: event.occurredAt,
       attribution: event.attribution,
       client: event.client,

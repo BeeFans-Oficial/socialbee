@@ -6,6 +6,7 @@ import { User } from "../auth/entities/user.entity";
 import { Link } from "../links/entities/link.entity";
 import { SafePage } from "../links/entities/safe-page.entity";
 import { SafePageSocialLink } from "../links/entities/safe-page-social-link.entity";
+import { Domain } from "../profiles/entities/domain.entity";
 import { Profile } from "../profiles/entities/profile.entity";
 import { LinkCounter } from "../tracking/entities/link-counter.entity";
 import { TrackingEvent } from "../tracking/entities/tracking-event.entity";
@@ -13,6 +14,8 @@ import { InitialSchema1788912000000 } from "./migrations/1788912000000-InitialSc
 import { IabLandingNoPerfil1790121600000 } from "./migrations/1790121600000-IabLandingNoPerfil";
 import { EditorDeTemplate1790200000000 } from "./migrations/1790200000000-EditorDeTemplate";
 import { PaginaNoAr1790300000000 } from "./migrations/1790300000000-PaginaNoAr";
+import { PoolDeDominios1790400000000 } from "./migrations/1790400000000-PoolDeDominios";
+import { HostDeChegadaNoEvento1790500000000 } from "./migrations/1790500000000-HostDeChegadaNoEvento";
 
 /**
  * Conexão e lista de migrations.
@@ -51,6 +54,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       User,
       Session,
       Profile,
+      Domain,
       Link,
       SafePage,
       SafePageSocialLink,
@@ -62,6 +66,8 @@ export function buildDataSourceOptions(): DataSourceOptions {
       IabLandingNoPerfil1790121600000,
       EditorDeTemplate1790200000000,
       PaginaNoAr1790300000000,
+      PoolDeDominios1790400000000,
+      HostDeChegadaNoEvento1790500000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { recordClick } from "@/lib/api/server";
-import { siteOrigin } from "@/lib/site";
+import { esquemaDe, siteOrigin } from "@/lib/site";
 
 /**
  * Redirecionador de link.
@@ -36,13 +36,31 @@ const HOP_HEADERS = {
   "x-robots-tag": "noindex, nofollow",
 } as const;
 
-function notFound(): NextResponse {
+function notFound(request: NextRequest): NextResponse {
   // Redireciona para a home em vez de mostrar erro: quem chega aqui com código
   // inválido é visitante de um link velho, não desenvolvedor depurando.
-  return NextResponse.redirect(new URL("/", siteOrigin()), {
+  //
+  // A home do MESMO domínio por onde ela entrou, e não a de `siteOrigin()`:
+  // com o pool, a constante de build atravessaria a fã do domínio em que ela
+  // clicou para outro — revelando um endereço do pool que ela não pediu, e
+  // possivelmente tirando-a de um domínio que funciona para um que está
+  // bloqueado no aplicativo dela.
+  return NextResponse.redirect(new URL("/", origemDaRequisicao(request)), {
     status: 302,
     headers: HOP_HEADERS,
   });
+}
+
+/** A origem por onde a visitante chegou, a partir do `Host`.
+ *
+ *  Não sai de `request.url`: no Route Handler o Next normaliza essa URL para o
+ *  endereço em que o servidor escuta, devolvendo o mesmo valor para todos os
+ *  domínios do pool. Medido com `Host: teste.local` — a URL continuava dizendo
+ *  `localhost:3000`. */
+function origemDaRequisicao(request: NextRequest): string {
+  const host = request.headers.get("host");
+  if (!host) return siteOrigin();
+  return `${esquemaDe(host)}://${host}`;
 }
 
 /** IP do visitante a partir dos cabeçalhos de borda.
@@ -80,10 +98,10 @@ export async function GET(
     // erro... mas sem ela também não há como saber o destino. A home é o menos
     // pior: a pessoa vê o produto em vez de um 500.
     console.error("[r] falha ao resolver o link", error);
-    return notFound();
+    return notFound(request);
   }
 
-  if (!destination) return notFound();
+  if (!destination) return notFound(request);
 
   // 302, não 301: um permanente fica no cache do navegador e todos os cliques
   // seguintes daquele visitante deixariam de passar por aqui.

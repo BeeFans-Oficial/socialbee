@@ -2,6 +2,7 @@ import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, OneToMany, Pri
 
 import { User } from "../../auth/entities/user.entity";
 import { Link } from "../../links/entities/link.entity";
+import { Domain } from "./domain.entity";
 
 /**
  * Identidade pública da criadora — o que `/[slug]` mostra.
@@ -92,6 +93,23 @@ export class Profile {
    *  clara fica ilegível — e a criadora só descobre pelo print de uma fã. */
   @Column({ name: "cover_overlay", type: "smallint", default: 55 })
   coverOverlay: number;
+
+  /**
+   * Em qual domínio do pool esta página é servida.
+   *
+   * `null` significa o domínio PADRÃO da instalação (`PUBLIC_SITE_URL`), que é
+   * o comportamento de sempre — nenhuma página existente muda de endereço por
+   * causa desta coluna.
+   *
+   * `ON DELETE SET NULL` no banco: apagar um domínio devolve as páginas ao
+   * padrão, nunca as apaga.
+   */
+  @Column({ name: "domain_id", type: "uuid", nullable: true })
+  domainId: string | null;
+
+  @ManyToOne(() => Domain, (domain) => domain.profiles, { onDelete: "SET NULL", nullable: true })
+  @JoinColumn({ name: "domain_id" })
+  domain: Domain | null;
 
   /**
    * A página está no ar?

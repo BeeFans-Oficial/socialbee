@@ -278,7 +278,7 @@ function AppearanceTab({
   icon: string;
   allLinks?: Link[];
   editLinkId?: string;
-  profileData?: { displayName: string; slug: string; bio: string; avatarUrl: string | null; coverUrl: string | null };
+  profileData?: { displayName: string; slug: string; bio: string; avatarUrl: string | null; coverUrl: string | null; host?: string };
 }) {
   const hexInputRef = useRef<HTMLInputElement>(null);
   const [customHex, setCustomHex] = useState(appearance.color);
@@ -1000,6 +1000,9 @@ interface LinkModalProps {
     coverUrl: string | null;
     themeId?: string;
     buttonStyle?: string;
+    /** Domínio desta página (`profile.host`). Sem ele o modal mostraria o
+     *  endereço de build — que, com o pool de domínios, não é o da página. */
+    host?: string;
   };
 }
 
@@ -1740,7 +1743,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                   <div className="flex items-center gap-2">
                     <span className="px-3 py-2.5 rounded-xl text-xs text-white/25 flex-shrink-0"
                       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      {siteHost()}/
+                      {profileData?.host ?? siteHost()}/
                     </span>
                     <div className="flex-1 relative">
                       <input
@@ -1928,7 +1931,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                 className="text-[9px] font-mono flex-1 truncate"
                 style={{ color: "rgba(255,255,255,0.3)" }}
               >
-                {siteHost()}/{previewProfile.slug}
+                {profileData?.host ?? siteHost()}/{previewProfile.slug}
               </span>
               <a
                 href={`/${previewProfile.slug}`}

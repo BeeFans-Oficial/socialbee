@@ -63,7 +63,34 @@ export function siteHost(): string {
  * para o escape de navegador embutido funcionar.
  */
 
-/** URL pública de um perfil. */
+/** URL pública de um perfil, na origem de onde o painel foi servido.
+ *
+ *  Continua existindo para o caminho em que o host da página ainda não é
+ *  conhecido. Quando ele for — e com o pool de domínios ele quase sempre é —
+ *  use `urlDaPagina`, que respeita o domínio escolhido. */
 export function profileUrl(slug: string): string {
   return `${clientOrigin()}/${slug}`;
+}
+
+/**
+ * URL pública de uma página, NO DOMÍNIO DELA.
+ *
+ * Com um domínio só, montar o endereço a partir de `siteHost()` funcionava: o
+ * valor de build era o único endereço que existia. Com o pool, ele passa a
+ * estar errado para toda página que escolheu outro — e o erro só aparece
+ * depois, quando a criadora cola na bio um link que não é o dela.
+ *
+ * O `host` vem resolvido pela API (`profile.host`), que é quem sabe qual
+ * domínio a página usa.
+ *
+ * O esquema é deduzido do próprio host: endereço local fala http, domínio de
+ * verdade fala https. Guardar o esquema junto do host no banco seria convidar a
+ * concatenação errada, e em produção ele nunca varia.
+ */
+export function urlDaPagina(host: string, slug: string): string {
+  return `${esquemaDe(host)}://${host}/${slug}`;
+}
+
+export function esquemaDe(host: string): "http" | "https" {
+  return /^(localhost|127\.0\.0\.1|\[::1\])(:|$)/.test(host) ? "http" : "https";
 }

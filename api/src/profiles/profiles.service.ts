@@ -1,14 +1,23 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Not, Repository } from "typeorm";
+import { EntityManager, Not, Repository } from "typeorm";
 
+import { loadEnv } from "../config/env";
 import { Link } from "../links/entities/link.entity";
+import { Domain } from "./entities/domain.entity";
 import { Profile } from "./entities/profile.entity";
 import { isReservedSlug } from "./reserved-slugs";
 import type { CreateProfileDto } from "./dto/create-profile.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
 /** Perfil como o dono dele vê (dashboard). */
+/** Um domínio do pool, como o painel o oferece. */
+export interface DomainView {
+  id: string;
+  host: string;
+  label: string | null;
+}
+
 /** A página de chegada (IAB) como o dono do perfil a edita. */
 export interface IabLandingView {
   enabled: boolean;
@@ -43,6 +52,17 @@ export interface OwnProfileView {
   buttonStyle: string;
   isAdult: boolean;
   published: boolean;
+  /** Domínio escolhido. `null` = o padrão da instalação. */
+  domainId: string | null;
+  /**
+   * O host em que esta página é servida, já resolvido.
+   *
+   * Existe para o painel e a página pública pararem de depender de
+   * `NEXT_PUBLIC_SITE_URL`, que é embutido no BUILD. Com um domínio só isso era
+   * uma vantagem; com um pool, é o que faria o botão de copiar entregar o
+   * endereço de outro domínio — o bug das PRs #5 e #6 por outra porta.
+   */
+  host: string;
   joinedAt: string;
   template: TemplateView;
   iab: IabLandingView;
@@ -76,6 +96,7 @@ export interface PublicProfileView {
 export class ProfilesService {
   constructor(
     @InjectRepository(Profile) private readonly profiles: Repository<Profile>,
+    @InjectRepository(Domain) private readonly domains: Repository<Domain>,
     @InjectRepository(Link) private readonly links: Repository<Link>,
   ) {}
 
@@ -108,16 +129,82 @@ export class ProfilesService {
     }
   }
 
+  /**
+   * Os domínios que a criadora pode escolher.
+   *
+   * Só os ativos: um domínio bloqueado sai da lista na hora, sem deploy, e as
+   * páginas que já estão nele continuam no ar até serem movidas.
+   */
+  async listActiveDomains(): Promise<DomainView[]> {
+    const dominios = await this.domains.find({
+      where: { active: true },
+      order: { position: "ASC", host: "ASC" },
+    });
+    return dominios.map(toDomainView);
+  }
+
+  /**
+   * Sorteia um domínio ativo para uma página nova.
+   *
+   * Conta nova não cai sempre no domínio padrão: concentrar toda a base num
+   * endereço só faz um bloqueio derrubar todo mundo de uma vez. O sorteio
+   * espalha o risco sem pedir nada à criadora, que nesse momento não tem
+   * contexto nenhum para escolher.
+   *
+   * Devolve `null` com o catálogo vazio — que é o estado de hoje. O cadastro
+   * **nunca** pode falhar por falta de catálogo: sem domínio, a página nasce no
+   * endereço padrão da instalação, exatamente como antes deste recurso existir.
+   *
+   * `ORDER BY random()` e não rodízio: distribui bem o suficiente e não exige
+   * guardar estado entre cadastros. Balancear por quantidade de páginas é
+   * otimização para quando a distribuição se mostrar torta — e aí já haverá
+   * dado para decidir.
+   */
+  async sortearDomainId(manager?: EntityManager): Promise<string | null> {
+    const repo = manager ? manager.getRepository(Domain) : this.domains;
+    const sorteado = await repo
+      .createQueryBuilder("d")
+      .select("d.id", "id")
+      .where("d.active = true")
+      .orderBy("random()")
+      .limit(1)
+      .getRawOne<{ id: string }>();
+    return sorteado?.id ?? null;
+  }
+
+  /**
+   * Valida a escolha de domínio antes de gravá-la.
+   *
+   * Recusar um domínio inativo importa: ele saiu de circulação por algum
+   * motivo — foi bloqueado, expirou, perdeu o certificado — e deixar uma página
+   * nova cair nele entregaria à criadora um endereço que não responde.
+   */
+  private async assertDomainEscolhivel(domainId: string): Promise<void> {
+    const existe = await this.domains.exists({ where: { id: domainId, active: true } });
+    if (!existe) {
+      throw new ConflictException({
+        code: "dominio_indisponivel",
+        message: "Esse domínio não está disponível. Escolha outro da lista.",
+      });
+    }
+  }
+
   /** A página por id. Lança 404 quando não existe — quem chama já passou pelo
    *  guard, então "não existe" aqui é id inválido, não falta de permissão. */
   async findById(profileId: string): Promise<Profile> {
-    const profile = await this.profiles.findOne({ where: { id: profileId } });
+    const profile = await this.profiles.findOne({
+      where: { id: profileId },
+      relations: { domain: true },
+    });
     if (!profile) throw new NotFoundException("Página não encontrada.");
     return profile;
   }
 
   async findByUserId(userId: string): Promise<Profile> {
-    const profile = await this.profiles.findOne({ where: { userId } });
+    const profile = await this.profiles.findOne({
+      where: { userId },
+      relations: { domain: true },
+    });
     if (!profile) throw new NotFoundException("Perfil não encontrado.");
     return profile;
   }
@@ -131,6 +218,7 @@ export class ProfilesService {
   async listByUser(userId: string): Promise<OwnProfileView[]> {
     const perfis = await this.profiles.find({
       where: { userId },
+      relations: { domain: true },
       order: { createdAt: "ASC" },
     });
     return perfis.map(toOwnProfileView);
@@ -213,14 +301,11 @@ export class ProfilesService {
   }
 
   async ownProfile(profileId: string): Promise<OwnProfileView> {
-    const profile = await this.profiles.findOne({ where: { id: profileId } });
-    if (!profile) throw new NotFoundException("Perfil não encontrado.");
-    return toOwnProfileView(profile);
+    return toOwnProfileView(await this.findById(profileId));
   }
 
   async update(profileId: string, dto: UpdateProfileDto): Promise<OwnProfileView> {
-    const profile = await this.profiles.findOne({ where: { id: profileId } });
-    if (!profile) throw new NotFoundException("Perfil não encontrado.");
+    const profile = await this.findById(profileId);
 
     // Só valida o slug quando ele realmente muda: revalidar o próprio slug a
     // cada salvamento de bio devolveria "já está em uso" para o dono dele.
@@ -236,6 +321,15 @@ export class ProfilesService {
     if (dto.themeId !== undefined) profile.themeId = dto.themeId;
     if (dto.buttonStyle !== undefined) profile.buttonStyle = dto.buttonStyle;
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
+    if (dto.domainId !== undefined) {
+      if (dto.domainId !== null) await this.assertDomainEscolhivel(dto.domainId);
+      profile.domainId = dto.domainId;
+      // A relação carregada ficaria velha e a view devolveria o host anterior —
+      // quem acabou de trocar de domínio veria o endereço antigo na tela.
+      profile.domain = dto.domainId
+        ? await this.domains.findOne({ where: { id: dto.domainId } })
+        : null;
+    }
     if (dto.published !== undefined) profile.published = dto.published;
     if (dto.templateId !== undefined) profile.templateId = dto.templateId;
     if (dto.bgColor !== undefined) profile.bgColor = dto.bgColor;
@@ -337,6 +431,7 @@ export class ProfilesService {
   async publicProfile(slug: string): Promise<PublicProfileView> {
     const profile = await this.profiles.findOne({
       where: { slug: slug.trim().toLowerCase() },
+      relations: { domain: true },
     });
     // Fora do ar responde igual a inexistente, de propósito: distinguir os dois
     // contaria a um curioso quais endereços existem e estão suspensos — e a
@@ -388,6 +483,30 @@ function decodeDataUrl(value: string): { contentType: string; bytes: Buffer } | 
   return { contentType: match[1], bytes: Buffer.from(match[2], "base64") };
 }
 
+/**
+ * O host padrão da instalação, a partir de `PUBLIC_SITE_URL`.
+ *
+ * Essa variável existia na config desde o início e **nunca era lida** por
+ * ninguém. Agora ela tem trabalho: é o endereço das páginas que não escolheram
+ * domínio do pool — ou seja, todas, até alguém escolher.
+ *
+ * Só o host interessa: o esquema é sempre https em produção, e guardar
+ * `https://` no mesmo campo que alimenta o `server_name` do nginx seria
+ * convidar a concatenação errada.
+ */
+export function hostPadrao(): string {
+  return loadEnv().publicSiteUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+}
+
+export function toDomainView(domain: Domain): DomainView {
+  return { id: domain.id, host: domain.host, label: domain.label };
+}
+
+/**
+ * @param profile precisa vir com a relação `domain` carregada quando ela
+ *   existir — sem ela, uma página com domínio escolhido seria descrita com o
+ *   host padrão, e o link copiado apontaria para o endereço errado.
+ */
 export function toOwnProfileView(profile: Profile): OwnProfileView {
   return {
     id: profile.id,
@@ -400,6 +519,8 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
     buttonStyle: profile.buttonStyle,
     isAdult: profile.isAdult,
     published: profile.published,
+    domainId: profile.domainId ?? null,
+    host: profile.domain?.host ?? hostPadrao(),
     joinedAt: profile.createdAt.toISOString(),
     template: {
       templateId: profile.templateId,

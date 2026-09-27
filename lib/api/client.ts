@@ -18,6 +18,7 @@
 import type {
   ApiErrorBody,
   ApiLink,
+  ApiDomain,
   ApiProfile,
   ApiPublicProfile,
   ApiSession,
@@ -151,6 +152,9 @@ export const api = {
 
   updateProfile: (input: ProfileInput) =>
     request<ApiProfile>("/me/profile", { method: "PATCH", body: JSON.stringify(input) }),
+
+  /** Os domínios que uma página pode usar. Só os ativos. */
+  domains: () => request<{ domains: ApiDomain[] }>("/me/domains").then((d) => d.domains),
 
   /** As páginas da conta. */
   profiles: () =>

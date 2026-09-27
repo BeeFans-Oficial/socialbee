@@ -10,7 +10,7 @@ import { resolverVisual } from "@/lib/templates";
 import { getPlatformIcon } from "@/lib/utils";
 import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/server";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
-import { siteHost } from "@/lib/site";
+import { urlDaPagina } from "@/lib/site";
 import type { Link as LinkType, User } from "@/lib/catalog";
 import { BotProfile } from "./BotProfile";
 import { IabLanding } from "./IabLanding";
@@ -115,7 +115,13 @@ export async function generateMetadata({
       title: titulo,
       description: descricao,
       type: "profile",
-      url: `https://${siteHost()}/${view.profile.slug}`,
+      // O endereço no domínio DESTA página, não o de build.
+      //
+      // É a URL que aparece no cartão compartilhado no WhatsApp, no Telegram e
+      // no Instagram. Errada aqui, a fã vê um domínio no cartão e é levada a
+      // outro — e o domínio que ela vê pode ser justamente o que está
+      // bloqueado.
+      url: urlDaPagina(view.profile.host, view.profile.slug),
       siteName: "BeeSocial",
     },
     twitter: { card: "summary", title: titulo, description: descricao },

@@ -8,7 +8,6 @@ import { api, ApiError, definirPaginaAtiva, paginaAtiva } from "@/lib/api/client
 import { invalidateSession } from "@/lib/api/use-session";
 import { TEMPLATES } from "@/lib/templates";
 import { slugify } from "@/lib/utils";
-import { siteHost } from "@/lib/site";
 import type { ApiProfile } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -31,9 +30,13 @@ import { cn } from "@/lib/utils";
 interface SeletorDePaginaProps {
   /** Slug da página ativa, como a Sidebar já conhece. */
   slugAtual: string;
+  /** Domínio da página ativa, resolvido pela API (`profile.host`). Cada página
+   *  pode viver num domínio diferente do pool, então isto não pode sair de uma
+   *  constante de build. */
+  hostAtual: string;
 }
 
-export function SeletorDePagina({ slugAtual }: SeletorDePaginaProps) {
+export function SeletorDePagina({ slugAtual, hostAtual }: SeletorDePaginaProps) {
   const [aberto, setAberto] = useState(false);
   const [paginas, setPaginas] = useState<ApiProfile[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -117,7 +120,7 @@ export function SeletorDePagina({ slugAtual }: SeletorDePaginaProps) {
         title="Trocar de página"
       >
         <span className="text-xs text-bee-pink truncate">
-          {siteHost()}/{slugAtual}
+          {hostAtual}/{slugAtual}
         </span>
         <ChevronsUpDown className="w-3 h-3 text-white/25 group-hover:text-white/50 flex-shrink-0" />
       </button>
@@ -150,8 +153,13 @@ export function SeletorDePagina({ slugAtual }: SeletorDePaginaProps) {
                 className="w-full px-2.5 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-bee-pink/40"
               />
 
+              {/* Sem prefixo de domínio aqui, de propósito: a página nova
+                  recebe um domínio SORTEADO entre os ativos (ver A4 do plano),
+                  e nesse instante ele ainda não existe. Mostrar um endereço que
+                  pode não ser o dela seria mentir na tela mais importante. O
+                  domínio real aparece assim que a página é criada. */}
               <div className="flex items-center gap-1 px-2.5 py-2 rounded-lg bg-white/[0.04] border border-white/10">
-                <span className="text-[11px] text-white/30 flex-shrink-0">{siteHost()}/</span>
+                <span className="text-[11px] text-white/30 flex-shrink-0">/</span>
                 <input
                   value={slug}
                   onChange={(e) => setSlug(slugify(e.target.value))}
@@ -200,7 +208,10 @@ export function SeletorDePagina({ slugAtual }: SeletorDePaginaProps) {
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-white truncate">{p.displayName}</div>
                         <div className="text-[11px] text-white/35 truncate">
-                          /{p.slug} · {TEMPLATES.find((t) => t.id === p.template?.templateId)?.label ?? "Clássico"}
+                          {/* O domínio de CADA página, não o da ativa: é o que
+                              faz a lista mostrar que elas vivem em endereços
+                              diferentes. */}
+                          {p.host}/{p.slug} · {TEMPLATES.find((t) => t.id === p.template?.templateId)?.label ?? "Clássico"}
                         </div>
                       </div>
                       {ativa && <Check className="w-3.5 h-3.5 text-bee-pink flex-shrink-0" />}

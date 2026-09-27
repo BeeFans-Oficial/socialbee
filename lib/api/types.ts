@@ -49,6 +49,13 @@ export interface ApiTemplate {
   coverOverlay: number;
 }
 
+/** Um domínio do pool — uma opção de endereço para a página. */
+export interface ApiDomain {
+  id: string;
+  host: string;
+  label: string | null;
+}
+
 /** Perfil como o dono dele vê. */
 export interface ApiProfile {
   id: string;
@@ -62,6 +69,17 @@ export interface ApiProfile {
   isAdult: boolean;
   /** `false` = fora do ar: escondida do público, com tudo preservado. */
   published: boolean;
+  /** Domínio escolhido no pool. `null` = o padrão da instalação. */
+  domainId: string | null;
+  /**
+   * O host em que esta página é servida, JÁ RESOLVIDO pelo servidor.
+   *
+   * É a fonte da verdade para montar a URL pública — e não `siteHost()`, que
+   * vem de `NEXT_PUBLIC_SITE_URL` embutido no build. Com um pool de domínios a
+   * constante de build passa a estar errada para toda página que escolheu
+   * outro endereço.
+   */
+  host: string;
   joinedAt: string;
   template: ApiTemplate;
   iab: ApiIabLanding;
@@ -193,6 +211,8 @@ export interface ProfileInput {
   buttonStyle?: string;
   isAdult?: boolean;
   published?: boolean;
+  /** Id do domínio do pool; `null` volta ao padrão. */
+  domainId?: string | null;
   // Template e ajustes finos. Planos pelo mesmo motivo do bloco abaixo.
   templateId?: string;
   bgColor?: string | null;

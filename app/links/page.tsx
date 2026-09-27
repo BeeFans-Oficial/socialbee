@@ -135,6 +135,9 @@ export default function LinksPage() {
     // prévia mostrava o tema do perfil de mentira em cima dos links reais.
     themeId: "neon-pink",
     buttonStyle: "soft",
+    /** Domínio desta página, resolvido pela API. É o que o botão de copiar
+     *  entrega — ver `LinkCard`. Vazio até o perfil chegar. */
+    host: "",
   });
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -174,6 +177,7 @@ export default function LinksPage() {
           coverUrl: apiProfile.coverUrl,
           themeId: apiProfile.themeId,
           buttonStyle: apiProfile.buttonStyle,
+          host: apiProfile.host,
         });
       } catch (caught) {
         if (!cancelado) handleError(caught, "Não foi possível carregar seus links.");
@@ -360,6 +364,7 @@ export default function LinksPage() {
         coverUrl: salvo.coverUrl,
         themeId: salvo.themeId,
         buttonStyle: salvo.buttonStyle,
+        host: salvo.host,
       });
       // O nome e o slug aparecem na Sidebar, que tem cache próprio da sessão.
       invalidateSession();
@@ -434,6 +439,7 @@ export default function LinksPage() {
                     key={link.id}
                     link={link}
                     profileSlug={profile.slug}
+                    profileHost={profile.host}
                     onOpenModal={() => openModal("link")}
                     onEditAppearance={() => openModal("aparencia")}
                     onDelete={handleDeleteLink}

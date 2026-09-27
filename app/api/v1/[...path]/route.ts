@@ -66,6 +66,16 @@ async function encaminhar(request: NextRequest, caminho: string[]): Promise<Next
     if (ip) headers.set("x-forwarded-for", ip);
   }
 
+  // Por qual domínio do pool a visitante entrou.
+  //
+  // O `host` original é descartado logo acima, e com razão — ele quebraria o
+  // roteamento da API. Mas com vários domínios servindo as mesmas páginas, esse
+  // é o único ponto do caminho que ainda sabe qual endereço a fã digitou. Sem
+  // reinjetá-lo aqui, o rastreamento nasce cego para domínio e a linha de base
+  // da Fase D não existe.
+  const hostDeChegada = request.headers.get("host");
+  if (hostDeChegada) headers.set("x-arrival-host", hostDeChegada);
+
   const temCorpo = !["GET", "HEAD"].includes(request.method);
 
   let resposta: Response;

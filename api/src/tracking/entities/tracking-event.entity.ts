@@ -23,6 +23,7 @@ import type { Attribution, ClientContext } from "../types";
 @Entity({ name: "tracking_events" })
 @Index("idx_tracking_events_profile_occurred", ["profileId", "occurredAt"])
 @Index("idx_tracking_events_link", ["linkId"])
+@Index("idx_tracking_events_arrival_occurred", ["arrivalHost", "occurredAt"])
 export class TrackingEvent {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -53,6 +54,21 @@ export class TrackingEvent {
    *  completa (que pode carregar token de afiliado). */
   @Column({ name: "destination_host", type: "text", nullable: true })
   destinationHost: string | null;
+
+  /**
+   * Por qual endereço a visita CHEGOU — o domínio do pool que ela usou.
+   *
+   * Gravado no momento do evento, e não deduzido do perfil depois. A dedução
+   * devolveria o domínio de agora: quando uma criadora migra de um domínio
+   * bloqueado para outro, todo o histórico dela mudaria de dono e a queda que
+   * provava o bloqueio desapareceria do domínio antigo.
+   *
+   * Nulo nos eventos anteriores à coluna existir, e nulo quando quem chamou não
+   * soube informar — nunca vale a pena derrubar um registro de clique por causa
+   * de um campo de análise.
+   */
+  @Column({ name: "arrival_host", type: "text", nullable: true })
+  arrivalHost: string | null;
 
   @Column({ name: "occurred_at", type: "timestamptz" })
   occurredAt: Date;
