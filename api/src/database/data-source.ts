@@ -15,6 +15,7 @@ import { IabLandingNoPerfil1790121600000 } from "./migrations/1790121600000-IabL
 import { EditorDeTemplate1790200000000 } from "./migrations/1790200000000-EditorDeTemplate";
 import { PaginaNoAr1790300000000 } from "./migrations/1790300000000-PaginaNoAr";
 import { PoolDeDominios1790400000000 } from "./migrations/1790400000000-PoolDeDominios";
+import { SairDoAppPorPadrao1790600000000 } from "./migrations/1790600000000-SairDoAppPorPadrao";
 import { HostDeChegadaNoEvento1790500000000 } from "./migrations/1790500000000-HostDeChegadaNoEvento";
 
 /**
@@ -68,6 +69,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       PaginaNoAr1790300000000,
       PoolDeDominios1790400000000,
       HostDeChegadaNoEvento1790500000000,
+      SairDoAppPorPadrao1790600000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,
