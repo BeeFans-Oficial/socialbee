@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { cache } from "react";
@@ -125,6 +126,20 @@ export async function generateMetadata({
       siteName: "BeeSocial",
     },
     twitter: { card: "summary", title: titulo, description: descricao },
+    /**
+     * O endereço de verdade desta página.
+     *
+     * A mesma página é alcançável por qualquer domínio do pool — quem entra
+     * pelo errado é redirecionado, mas o buscador precisa saber qual é o
+     * canônico para não tratar sete endereços como sete páginas iguais e
+     * escolher sozinho qual indexar.
+     *
+     * É a ferramenta certa para isso, e por isso o redirecionamento pode ser
+     * temporário: canonizar é trabalho da tag, não do cache do navegador.
+     */
+    alternates: {
+      canonical: urlDaPagina(view.profile.host, view.profile.slug),
+    },
   };
 }
 
@@ -140,6 +155,59 @@ export default async function ProfilePage({
 
   if (!view) return <PerfilNaoEncontrado slug={slug} />;
 
+  /**
+   * Cada página responde pelo domínio DELA.
+   *
+   * Com o pool, a mesma página era alcançável por qualquer um dos endereços —
+   * `vemaqui.site/ana` e `olhaaqui.site/ana` serviam o mesmo conteúdo, ainda
+   * que a Ana tivesse escolhido um só. Isso confunde a fã (o endereço na barra
+   * não é o que a criadora divulga), dilui a indexação em sete cópias e
+   * atrapalha justamente o que o pool existe para fazer: saber qual domínio
+   * carrega qual tráfego.
+   *
+   * Quem chega pelo domínio errado é **levado ao certo**, e não recusado. A
+   * recusa quebraria na hora todo link já espalhado na bio quando a criadora
+   * troca de endereço — o oposto da razão de manter o endereço antigo
+   * respondendo.
+   *
+   * **Temporário (307), não permanente.** Permanente fica no cache do
+   * navegador indefinidamente: se a página mudar de domínio depois, a fã com o
+   * cache velho passa a saltar por um endereço a mais — e se aquele estiver
+   * bloqueado no aplicativo dela, ela não chega. Quem canoniza para o buscador
+   * é a tag `canonical` em `generateMetadata`, que não congela nada.
+   */
+  const { preview, fora } = await searchParams;
+  const temSessao = (await cookies()).has(SESSION_COOKIE);
+
+  const hostDaRequisicao = (await headers()).get("host");
+  const canonico = view.profile.host;
+  const dominioErrado =
+    Boolean(hostDaRequisicao) && semWww(hostDaRequisicao!) !== semWww(canonico);
+
+  /**
+   * A prévia do painel é a exceção, e precisa ser.
+   *
+   * Ela carrega esta rota num `<iframe>` a partir do domínio do PAINEL. Se o
+   * redirecionamento levasse para o domínio da página, o cookie de sessão —
+   * que é escopado por domínio — não viajaria junto, `?preview=iab` deixaria de
+   * ser autorizado e a criadora veria a página comum no lugar da prévia. Sem
+   * erro, sem pista: só a tela errada.
+   *
+   * A exceção exige sessão, então não é um jeito de contornar o canônico pela
+   * URL: sem cookie, `?preview=` não muda nada e o redirecionamento acontece
+   * como para qualquer visitante.
+   */
+  const ehPreviaAutenticada = Boolean(preview) && temSessao;
+
+  if (dominioErrado && !ehPreviaAutenticada) {
+    const busca = new URLSearchParams(
+      Object.entries(await searchParams).filter(
+        (par): par is [string, string] => typeof par[1] === "string",
+      ),
+    ).toString();
+    redirect(`${urlDaPagina(canonico, slug)}${busca ? `?${busca}` : ""}`);
+  }
+
   const user = paraUser(view);
 
   /**
@@ -153,8 +221,6 @@ export default async function ProfilePage({
    * a presença do cookie basta, porque forçar o ramo do robô só entrega MENOS
    * conteúdo, nunca mais.
    */
-  const { preview, fora } = await searchParams;
-  const temSessao = (await cookies()).has(SESSION_COOKIE);
   const forcarRoboNaPrevia = preview === "bot" && temSessao;
   const forcarChegadaNaPrevia = preview === "iab" && temSessao;
 
@@ -291,6 +357,13 @@ export default async function ProfilePage({
       </div>
     </div>
   );
+}
+
+/** `www.exemplo.com` e `exemplo.com` são o mesmo endereço para esta regra —
+ *  os dois apontam para cá e o certificado cobre os dois. Sem normalizar, quem
+ *  digitasse o `www` seria redirecionado em círculo. */
+function semWww(host: string): string {
+  return host.trim().toLowerCase().replace(/^www\./, "");
 }
 
 function PerfilNaoEncontrado({ slug }: { slug: string }) {
