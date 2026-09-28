@@ -139,7 +139,11 @@ export class Profile {
    * upload de arquivo ainda. Quem a serve como imagem de verdade é
    * `AvatarController`, para o data URL não entrar no HTML.
    */
-  @Column({ name: "iab_enabled", type: "boolean", default: false })
+  /** Padrão LIGADO desde a migration `1790600000000`. O default precisa estar
+   *  aqui também, e não só no banco: o TypeORM inclui o valor da entidade em
+   *  todo `INSERT`, então um `false` neste lugar sobrescreveria o default da
+   *  coluna e todo perfil novo nasceria sem sair do aplicativo. */
+  @Column({ name: "iab_enabled", type: "boolean", default: true })
   iabEnabled: boolean;
 
   @Column({ name: "iab_image_url", type: "text", nullable: true })

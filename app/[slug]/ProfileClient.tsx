@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { ArrowUpRight, MoreHorizontal } from "lucide-react";
 import { AgeGate } from "@/components/profile/AgeGate";
 import { LinkButton } from "@/components/profile/LinkButton";
 import { type Link as LinkType } from "@/lib/catalog";
@@ -58,7 +59,6 @@ export function ProfileClient({
   initialLinks,
 }: ProfileClientProps) {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
-  const [fallbackUrl, setFallbackUrl] = useState("");
   const [ageVerified, setAgeVerified] = useState(false);
   const [links, setLinks] = useState<LinkType[]>(initialLinks ?? []);
 
@@ -135,12 +135,10 @@ export function ProfileClient({
     api.recordView(slug);
   }, [slug, needsAgeGate]);
 
-  // Handler de clique com fallback
   const onLinkClick = (shortCode: string, cloakEnabled: boolean) => {
-    setFallbackUrl(`${window.location.origin}/r/${shortCode}`);
-
     handleLinkClick(shortCode, cloakEnabled, () => {
-      // Callback para iOS - mostrar botão manual
+      // Chamado no iOS quando a navegação não tirou a fã do aplicativo — o que
+      // lá é sempre. Mostra a instrução do menu, que é o único caminho real.
       setShowFallbackButton(true);
       setTimeout(() => setShowFallbackButton(false), 10000);
     });
@@ -181,19 +179,40 @@ export function ProfileClient({
         </div>
         )}
 
-        {/* Fallback Button (iOS) */}
+        {/*
+          Plano B do iOS.
+          
+          Era um botão "Toque aqui para abrir" que chamava `window.open` — e
+          `window.open` dentro do navegador embutido do Instagram abre outra aba
+          DO PRÓPRIO INSTAGRAM. Ou seja: prometia a saída e entregava a mesma
+          janela, com a fã achando que tinha tentado tudo.
+
+          Nenhum site consegue tirar o usuário do navegador embutido no iPhone —
+          é limitação do sistema, não do nosso código. O único caminho real é a
+          instrução do menu, a mesma que a página de chegada já usa. Mostrar o
+          caminho honesto converte mais do que um botão que não funciona.
+        */}
         {showFallbackButton && (
           <div className="fixed bottom-6 left-6 right-6 z-50 animate-in slide-in-from-bottom">
             <div className="max-w-sm mx-auto bg-bee-surface border border-bee-border rounded-xl p-4 shadow-2xl">
               <p className="text-sm text-bee-muted mb-3">
-                Não abriu automaticamente?
+                Não abriu? Abra no seu navegador:
               </p>
-              <button
-                onClick={() => window.open(fallbackUrl, "_blank")}
-                className="w-full px-4 py-2 bg-bee-pink rounded-lg font-semibold hover:opacity-90 transition-opacity"
-              >
-                Toque aqui para abrir
-              </button>
+              <ol className="space-y-2 text-[13px] text-bee-text">
+                <li className="flex items-center gap-2">
+                  <span className="text-bee-muted">1</span>
+                  Toque em
+                  <MoreHorizontal className="w-4 h-4" />
+                  no canto da tela
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-bee-muted">2</span>
+                  Escolha
+                  <span className="inline-flex items-center gap-1 font-medium">
+                    “Abrir no navegador” <ArrowUpRight className="w-3.5 h-3.5" />
+                  </span>
+                </li>
+              </ol>
             </div>
           </div>
         )}
