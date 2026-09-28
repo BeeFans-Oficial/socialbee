@@ -189,38 +189,20 @@ function SidebarContent({ onClose }: SidebarContentProps) {
         })}
       </nav>
 
-      {/* Rodapé - Upgrade & Logout */}
+      {/*
+        Rodapé.
+
+        Havia aqui um selo "Free / Plano: Gratuito" e um botão "UPGRADE PARA
+        PRO" — os dois chumbados no código, e o botão sem `onClick`: clicar não
+        fazia nada. Não existe plano no produto (nem coluna no banco, nem
+        conceito na API, nem cobrança), então o selo anunciava uma limitação
+        inexistente e o botão prometia um upgrade que não existe.
+
+        Enquanto todo mundo tem tudo, a tela deve dizer isso não dizendo nada. O
+        dia em que houver planos, eles voltam — lendo o plano de verdade, com o
+        botão levando a algum lugar.
+      */}
       <div className="mt-auto px-4 py-4 space-y-4">
-        {/* Separador */}
-        <div
-          className="h-px"
-          style={{ backgroundColor: "rgba(255, 60, 110, 0.1)" }}
-        />
-
-        {/* Badge Plano */}
-        <div className="flex items-center gap-2">
-          <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-medium uppercase tracking-wide"
-            style={{
-              backgroundColor: "rgba(136, 136, 136, 0.2)",
-              color: "#888888",
-            }}
-          >
-            Free
-          </span>
-          <span className="text-xs text-bee-muted">Plano: Gratuito</span>
-        </div>
-
-        {/* Botão Upgrade */}
-        <button
-          className="w-full px-4 py-2.5 rounded-full font-barlow font-bold uppercase text-xs tracking-wide text-white transition-all hover:glow-pink"
-          style={{
-            background: "linear-gradient(135deg, #FF3C6E, #FF1F57)",
-          }}
-        >
-          UPGRADE PARA PRO ✨
-        </button>
-
         {/* Separador */}
         <div
           className="h-px"
