@@ -282,9 +282,21 @@ export default function PreviaPage() {
                 </button>
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center gap-2 h-36 rounded-xl border border-dashed border-white/15 cursor-pointer hover:border-white/30 transition-all">
-                <ImagePlus className="w-5 h-5 text-white/30" />
-                <span className="text-xs text-white/35">Escolher imagem</span>
+              /* Sem imagem escolhida, a página NÃO fica sem imagem: entra a
+                 padrão da plataforma. Mostrar só "escolher" daria a entender
+                 que a chegada está vazia, e a criadora não saberia o que a fã
+                 está vendo. */
+              <label className="relative flex flex-col items-center justify-center gap-1.5 h-36 rounded-xl border border-dashed border-white/15 cursor-pointer hover:border-white/30 transition-all overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element -- arquivo
+                    estático do próprio app; `next/image` não acrescenta nada. */}
+                <img
+                  src="/chegada-padrao.svg"
+                  alt=""
+                  className="absolute inset-0 w-full h-full object-cover opacity-50"
+                />
+                <ImagePlus className="relative w-5 h-5 text-white/50" />
+                <span className="relative text-xs text-white/60">Trocar a imagem</span>
+                <span className="relative text-[10px] text-white/35">usando a padrão</span>
                 <input type="file" accept="image/*" onChange={escolherImagem} className="hidden" />
               </label>
             )}

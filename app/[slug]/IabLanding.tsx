@@ -40,11 +40,18 @@ import { cn } from "@/lib/utils";
  * lugar, e a fã acha que o link está quebrado.
  */
 
+/** Abstrata e de marca de propósito: é o que a fã vê ao chegar E o que o robô
+ *  da rede social vê pela mesma rota. Nenhuma pele, nenhum rosto, nada que
+ *  dispare revisão automática. */
+const IMAGEM_PADRAO = "/chegada-padrao.svg";
+
 export interface IabLandingProps {
   slug: string;
   displayName: string;
   themeId: string;
-  /** Rota da imagem escolhida pela criadora. Sem ela, o fundo é só o tema. */
+  /** Rota da imagem escolhida pela criadora. Nula, entra a padrão da
+   *  plataforma — a página de chegada sem imagem nenhuma é um retângulo de cor
+   *  com um botão, e é justamente a tela em que a fã decide se confia. */
   imageUrl: string | null;
   /** Título. Vazio cai no nome de exibição. */
   headline: string | null;
@@ -74,6 +81,17 @@ export function IabLanding({
   preview = false,
 }: IabLandingProps) {
   const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
+
+  /**
+   * A imagem da chegada, com padrão da plataforma.
+   *
+   * Servida pelo app e não gravada em cada perfil: assim vale para quem já
+   * existe e para quem se cadastrar amanhã, sem repetir a mesma imagem em toda
+   * linha da tabela. O `iab_image_url` continua nulo quando a criadora não
+   * escolheu — é a diferença entre "não escolheu" e "escolheu esta", que o
+   * editor precisa saber para mostrar o estado certo.
+   */
+  const imagem = imageUrl ?? IMAGEM_PADRAO;
   const titulo = headline?.trim() || displayName;
   const rotulo = buttonLabel?.trim() || `Continuar para ${displayName}`;
 
@@ -109,12 +127,12 @@ export function IabLanding({
 
       {/* A imagem escolhida pela criadora ocupa o topo inteiro. É o que a fã vê
           antes de qualquer texto, e é também o que um revisor automático vê. */}
-      {imageUrl && (
+      {imagem && (
         <div className="absolute inset-x-0 top-0 h-[55vh] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
               bytes de uma coluna do banco; `next/image` exige loader ou domínio
               configurado e não acrescentaria nada a uma imagem só. */}
-          <img src={imageUrl} alt="" className="w-full h-full object-cover" />
+          <img src={imagem} alt="" className="w-full h-full object-cover" />
           <div
             className="absolute inset-0"
             style={{ background: `linear-gradient(to bottom, transparent 30%, ${theme.bg} 95%)` }}
@@ -127,7 +145,7 @@ export function IabLanding({
       <div
         className={cn(
           "relative z-10 flex-1 flex flex-col px-6 pb-12",
-          imageUrl ? "justify-end pt-[45vh]" : "justify-center",
+          imagem ? "justify-end pt-[45vh]" : "justify-center",
         )}
       >
         <h1 className="font-bebas text-[40px] leading-none uppercase tracking-wide text-white text-center">
