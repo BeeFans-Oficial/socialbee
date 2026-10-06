@@ -34,7 +34,7 @@ export class MyProfilesController {
 
   @Post()
   async create(@CurrentUser() auth: AuthContext, @Body() dto: CreateProfileDto) {
-    return this.profilesService.createForUser(auth.userId, dto);
+    return this.profilesService.createForUser(auth.userId, auth.plano, dto);
   }
 
   /**

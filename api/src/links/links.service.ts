@@ -5,6 +5,8 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository, type EntityManager } from "typeorm";
 
 import { checkDestination, destinationErrorMessage } from "../common/url";
+import { PLANOS, cabeMais, exigirPro, type PlanoId } from "../plans/plans";
+import { Profile } from "../profiles/entities/profile.entity";
 import { LinkCounter } from "../tracking/entities/link-counter.entity";
 import type { ResolvedLink } from "../tracking/types";
 import { DEFAULT_LINK_APPEARANCE, Link, type LinkAppearance } from "./entities/link.entity";
@@ -91,11 +93,29 @@ export class LinksService {
     return toOwnLinkView(link, counter ?? undefined);
   }
 
-  async create(profileId: string, dto: CreateLinkDto): Promise<OwnLinkView> {
+  async create(profileId: string, plano: PlanoId, dto: CreateLinkDto): Promise<OwnLinkView> {
     const destination = this.validateDestination(dto.destinationUrl);
+    if (dto.cloakEnabled || dto.safePage) exigirPro(plano, "cloaking");
 
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Link);
+
+      const limite = PLANOS[plano].linksPorPagina;
+      if (limite !== null) {
+        // Trava a linha da PÁGINA antes de contar. Sem isso, duas criações ao
+        // mesmo tempo (clique duplo, duas abas) contam o mesmo total e as duas
+        // passam do limite. A trava é só desta página: as outras contas não
+        // esperam por ela.
+        await manager
+          .getRepository(Profile)
+          .createQueryBuilder("p")
+          .select("p.id")
+          .where("p.id = :profileId", { profileId })
+          .setLock("pessimistic_write")
+          .getOne();
+        const total = await repo.count({ where: { profileId } });
+        if (!cabeMais(limite, total)) exigirPro(plano, "links");
+      }
 
       // Link novo entra no topo, como o `handleSaveLink` do MVP já fazia — é o
       // que a criadora acabou de criar e o que ela quer ver primeiro. Os
@@ -132,8 +152,22 @@ export class LinksService {
     });
   }
 
-  async update(profileId: string, linkId: string, dto: UpdateLinkDto): Promise<OwnLinkView> {
+  async update(
+    profileId: string,
+    plano: PlanoId,
+    linkId: string,
+    dto: UpdateLinkDto,
+  ): Promise<OwnLinkView> {
     const existing = await this.findOwned(profileId, linkId);
+
+    // Só LIGAR é Pro. O painel manda o link inteiro a cada salvamento, então um
+    // link que já tinha cloaking (de quando a conta era Pro) chega aqui com
+    // `cloakEnabled: true` mesmo quando a criadora só trocou o título — recusar
+    // isso travaria a edição de tudo. Na página pública ele já não vale: quem
+    // decide é o plano do dono, não esta coluna.
+    if (!existing.cloakEnabled && (dto.cloakEnabled || dto.safePage)) {
+      exigirPro(plano, "cloaking");
+    }
 
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Link);

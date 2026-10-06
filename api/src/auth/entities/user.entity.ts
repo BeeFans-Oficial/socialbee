@@ -31,6 +31,12 @@ export class User {
   @Column({ name: "last_login_at", type: "timestamptz", nullable: true })
   lastLoginAt: Date | null;
 
+  /** Até quando a conta é Pro. `null` ou no passado, é Free — ver
+   *  `plans/plans.ts`. Cópia do maior `ends_at` em `plan_grants`; quem grava
+   *  aqui é o script de liberação (e, depois, o webhook de pagamento). */
+  @Column({ name: "pro_until", type: "timestamptz", nullable: true })
+  proUntil: Date | null;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 

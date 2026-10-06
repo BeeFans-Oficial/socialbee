@@ -22,6 +22,6 @@ export class ProfilesController {
 
   @Patch()
   async update(@CurrentUser() auth: AuthContext, @Body() dto: UpdateProfileDto) {
-    return this.profilesService.update(auth.profileId, dto);
+    return this.profilesService.update(auth.profileId, auth.plano, dto);
   }
 }

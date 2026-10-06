@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 import { api, ApiError } from "./client";
-import type { ApiProfile, ApiUser } from "./types";
+import type { ApiPlan, ApiProfile, ApiUser } from "./types";
 
 /**
  * Sessão atual, para componentes de layout.
@@ -71,4 +71,18 @@ export function useSession(): { session: Session | null; loading: boolean; error
   }, []);
 
   return { session, loading, error };
+}
+
+/**
+ * O plano da conta, para a tela antecipar o que a API vai recusar.
+ *
+ * Enquanto a sessão carrega, `ehPro` é `true`: travar tudo por meio segundo e
+ * destravar em seguida pisca a tela inteira para quem é Pro. Quem é Free e
+ * clicar nesse meio segundo recebe a recusa da própria API, com a mesma
+ * mensagem — a trava daqui é conforto, a de lá é a regra.
+ */
+export function usePlano(): { plano: ApiPlan | null; ehPro: boolean } {
+  const { session } = useSession();
+  const plano = session?.user.plan ?? null;
+  return { plano, ehPro: plano ? plano.id === "pro" : true };
 }

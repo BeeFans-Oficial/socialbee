@@ -7,6 +7,7 @@ import { compare, hash, hashSync } from "bcryptjs";
 import { DataSource, Repository } from "typeorm";
 
 import { loadEnv } from "../config/env";
+import { PLANOS, planoDe, type Limites, type PlanoId } from "../plans/plans";
 import { ipPrefix } from "../tracking/attribution";
 import { Profile } from "../profiles/entities/profile.entity";
 import { ProfilesService, toOwnProfileView, type OwnProfileView } from "../profiles/profiles.service";
@@ -27,6 +28,15 @@ export interface AuthenticatedUserView {
   email: string;
   isAdultConfirmed: boolean;
   createdAt: string;
+  plan: PlanView;
+}
+
+export interface PlanView {
+  id: PlanoId;
+  /** Até quando é Pro, em ISO. `null` para quem nunca foi; no passado para quem
+   *  já foi — o painel usa para dizer "venceu em". */
+  proUntil: string | null;
+  limits: Limites;
 }
 
 export interface AuthResult {
@@ -41,6 +51,7 @@ export interface ResolvedSession {
   profileId: string;
   sessionId: string;
   email: string;
+  plano: PlanoId;
 }
 
 /**
@@ -203,7 +214,20 @@ export class AuthService {
       throw new UnauthorizedException({ code: "invalid_token", message: "Sessão inválida." });
     }
 
-    const session = await this.sessions.findOne({ where: { id: payload.sid } });
+    // O plano vem na MESMA consulta, por junção pela chave primária: toda rota
+    // do painel passa por aqui, e uma segunda ida ao banco só para saber o
+    // plano dobraria o custo da autenticação. Da conta só sai `pro_until`.
+    const session = await this.sessions.findOne({
+      where: { id: payload.sid },
+      relations: { user: true },
+      select: {
+        id: true,
+        userId: true,
+        expiresAt: true,
+        revokedAt: true,
+        user: { id: true, proUntil: true },
+      },
+    });
     if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
       throw new UnauthorizedException({ code: "session_revoked", message: "Sessão encerrada." });
     }
@@ -219,6 +243,7 @@ export class AuthService {
       profileId: payload.pid,
       sessionId: session.id,
       email: payload.email ?? "",
+      plano: planoDe(session.user?.proUntil),
     };
   }
 
@@ -260,7 +285,13 @@ export function toUserView(user: User): AuthenticatedUserView {
     email: user.email,
     isAdultConfirmed: Boolean(user.ageConfirmedAt),
     createdAt: user.createdAt.toISOString(),
+    plan: toPlanView(user.proUntil),
   };
+}
+
+export function toPlanView(proUntil: Date | null): PlanView {
+  const id = planoDe(proUntil);
+  return { id, proUntil: proUntil?.toISOString() ?? null, limits: PLANOS[id] };
 }
 
 /** "7d", "12h", "30m", "3600s" ou segundos crus → milissegundos. */

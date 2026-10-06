@@ -1,5 +1,7 @@
 import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
 
+import type { PlanoId } from "../../plans/plans";
+
 /** Quem está autenticado na requisição. Preenchido pelo `JwtAuthGuard`. */
 export interface AuthContext {
   userId: string;
@@ -16,6 +18,9 @@ export interface AuthContext {
   profileId: string;
   sessionId: string;
   email: string;
+  /** Plano da CONTA, resolvido junto com a sessão. É da conta e não da página:
+   *  quem assina libera todas as páginas dela. */
+  plano: PlanoId;
 }
 
 /**

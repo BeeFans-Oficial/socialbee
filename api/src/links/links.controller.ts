@@ -36,7 +36,7 @@ export class LinksController {
 
   @Post()
   async create(@CurrentUser() auth: AuthContext, @Body() dto: CreateLinkDto) {
-    return this.linksService.create(auth.profileId, dto);
+    return this.linksService.create(auth.profileId, auth.plano, dto);
   }
 
   /**
@@ -64,7 +64,7 @@ export class LinksController {
     @Param("id") id: string,
     @Body() dto: UpdateLinkDto,
   ) {
-    return this.linksService.update(auth.profileId, id, dto);
+    return this.linksService.update(auth.profileId, auth.plano, id, dto);
   }
 
   @UseGuards(LinkOwnerGuard)
