@@ -45,14 +45,46 @@ export function detectIAB(): IABDetection {
   };
 }
 
+/**
+ * Android: entrega a URL ao navegador PADRÃO da pessoa.
+ *
+ * Era `package=com.android.chrome`, que forçava o Chrome mesmo para quem usa
+ * outro navegador. Sem `package`, o sistema resolve a ação VIEW de https pelo
+ * navegador padrão. `browser_fallback_url` cobre o caso de nada atender.
+ */
 export function buildIntentUrl(url: string): string {
   try {
     const parsed = new URL(url);
-    return `intent://${parsed.hostname}${parsed.pathname}${parsed.search}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(url)};end`;
+    return (
+      `intent://${parsed.host}${parsed.pathname}${parsed.search}` +
+      `#Intent;scheme=${parsed.protocol.replace(":", "")};action=android.intent.action.VIEW;` +
+      `category=android.intent.category.BROWSABLE;` +
+      `S.browser_fallback_url=${encodeURIComponent(url)};end`
+    );
   } catch (error) {
     console.error("Error building intent URL:", error);
     return url;
   }
+}
+
+/**
+ * iPhone: abre a URL no Safari, saindo do navegador embutido do aplicativo.
+ *
+ * `x-safari-https://…` é um esquema do próprio iOS (a partir do 17): o sistema
+ * entrega o endereço ao Safari mesmo de dentro do WebView do Instagram. No iOS
+ * não há esquema para "o navegador padrão" — o do Safari é o que existe em
+ * todo iPhone. Em iOS mais antigo o esquema não é reconhecido e nada acontece;
+ * por isso quem chama sempre tem um plano B (a instrução do menu •••).
+ */
+export function buildSafariUrl(url: string): string {
+  return /^https?:\/\//i.test(url) ? `x-safari-${url}` : url;
+}
+
+/** O endereço que tira a pessoa do aplicativo, conforme o sistema. */
+export function urlDeSaida(url: string, plataforma: "ios" | "android" | "other"): string {
+  if (plataforma === "ios") return buildSafariUrl(url);
+  if (plataforma === "android") return buildIntentUrl(url);
+  return url;
 }
 
 export function escapeIAB(
@@ -60,28 +92,26 @@ export function escapeIAB(
   onFallback?: () => void
 ): void {
   const device = detectIAB();
+  const plataforma = device.isAndroid ? "android" : device.isIOS ? "ios" : "other";
 
-  if (device.isAndroid) {
-    // Android: usar intent URL para forçar Chrome
-    const intentUrl = buildIntentUrl(destinationUrl);
-    window.location.href = intentUrl;
-
-    // Fallback caso o intent não funcione
-    setTimeout(() => {
-      window.location.href = destinationUrl;
-    }, 2500);
-  } else if (device.isIOS) {
-    // iOS: tentar abrir diretamente
+  if (plataforma === "other") {
     window.location.href = destinationUrl;
-
-    // Callback para mostrar botão manual se não funcionar
-    setTimeout(() => {
-      onFallback?.();
-    }, 1500);
-  } else {
-    // Não é IAB, abrir normalmente
-    window.location.href = destinationUrl;
+    return;
   }
+
+  window.location.href = urlDeSaida(destinationUrl, plataforma);
+
+  // Se o navegador abriu, o aplicativo foi para segundo plano e esta página
+  // deixou de estar visível — não há o que fazer. Se continua visível, a
+  // saída não funcionou (iOS antigo, aplicativo que bloqueia): abre o destino
+  // aqui mesmo, para o link ao menos funcionar, e mostra a instrução do menu.
+  // Abrir SEMPRE os dois contaria o clique duas vezes.
+  setTimeout(() => {
+    if (document.visibilityState === "visible") {
+      window.location.href = destinationUrl;
+    }
+    onFallback?.();
+  }, 1800);
 }
 
 export function handleLinkClick(
