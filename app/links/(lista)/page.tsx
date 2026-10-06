@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Loader2, Plus, Link as LinkIcon } from "lucide-react";
 import { toast, Toaster } from "sonner";
+import { EscolhaDePagina } from "@/components/dashboard/EscolhaDePagina";
 import { LinkCard } from "@/components/dashboard/LinkCard";
 import { MetricasDoLink } from "@/components/dashboard/MetricasDoLink";
 import { avisarPro } from "@/components/shared/SeloPro";
@@ -211,13 +212,17 @@ export default function LinksPage() {
               : `${links.length} ${links.length === 1 ? "link" : "links"} · arraste para reordenar`}
           </p>
         </div>
-        <button
-          onClick={() => router.push("/links/novo")}
-          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Novo link
-        </button>
+        <div className="self-start sm:self-auto flex items-center gap-2">
+          {/* De qual página são estes links — e a troca, aqui mesmo. */}
+          <EscolhaDePagina />
+          <button
+            onClick={() => router.push("/links/novo")}
+            className="flex items-center gap-2 h-10 px-4 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Novo link
+          </button>
+        </div>
       </div>
 
       {/* Lista */}
