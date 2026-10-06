@@ -2,7 +2,7 @@
 
 export interface IABDetection {
   isIAB: boolean;
-  source: "instagram" | "facebook" | "other" | null;
+  source: "instagram" | "threads" | "facebook" | "other" | null;
   isAndroid: boolean;
   isIOS: boolean;
 }
@@ -19,14 +19,20 @@ export function detectIAB(): IABDetection {
   const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
 
   // Detectar in-app browsers
+  // Threads antes do Instagram: o navegador do Threads também se apresenta com
+  // pedaços do Instagram, e a saída de cada um é um esquema diferente.
+  const isThreads = /Barcelona|Threads/i.test(userAgent);
   const isInstagram = /Instagram/i.test(userAgent);
   const isFacebook = /FBAN|FBAV/i.test(userAgent);
   const isOtherIAB = /Line|Twitter|Snapchat|TikTok/i.test(userAgent);
 
-  let source: "instagram" | "facebook" | "other" | null = null;
+  let source: IABDetection["source"] = null;
   let isIAB = false;
 
-  if (isInstagram) {
+  if (isThreads) {
+    isIAB = true;
+    source = "threads";
+  } else if (isInstagram) {
     isIAB = true;
     source = "instagram";
   } else if (isFacebook) {
@@ -68,22 +74,50 @@ export function buildIntentUrl(url: string): string {
 }
 
 /**
- * iPhone: abre a URL no Safari, saindo do navegador embutido do aplicativo.
+ * iPhone, fora do Instagram e do Threads: abre a URL no Safari.
  *
- * `x-safari-https://…` é um esquema do próprio iOS (a partir do 17): o sistema
- * entrega o endereço ao Safari mesmo de dentro do WebView do Instagram. No iOS
- * não há esquema para "o navegador padrão" — o do Safari é o que existe em
- * todo iPhone. Em iOS mais antigo o esquema não é reconhecido e nada acontece;
- * por isso quem chama sempre tem um plano B (a instrução do menu •••).
+ * `x-safari-https://…` é um esquema do iOS (a partir do 17) que entrega o
+ * endereço ao Safari a partir do WebView de apps como Facebook, WhatsApp e
+ * TikTok. O Instagram IGNORA este esquema — por isso ele tem saída própria,
+ * abaixo. Em iOS mais antigo nada acontece; quem chama tem o plano B (a
+ * instrução do menu •••).
  */
 export function buildSafariUrl(url: string): string {
   return /^https?:\/\//i.test(url) ? `x-safari-${url}` : url;
 }
 
-/** O endereço que tira a pessoa do aplicativo, conforme o sistema. */
-export function urlDeSaida(url: string, plataforma: "ios" | "android" | "other"): string {
-  if (plataforma === "ios") return buildSafariUrl(url);
+/**
+ * Instagram e Threads: o esquema do PRÓPRIO app que abre no navegador externo.
+ *
+ * `instagram://extbrowser/?url=…` pede ao Instagram que entregue o endereço ao
+ * navegador padrão do aparelho; ele mostra o aviso "This web page is trying to
+ * open an app outside of Instagram", e "Open" leva para fora. O Threads tem o
+ * equivalente em `barcelona://` (nome interno do app).
+ */
+export function buildExtBrowserUrl(url: string, app: "instagram" | "threads"): string {
+  const esquema = app === "threads" ? "barcelona" : "instagram";
+  return `${esquema}://extbrowser/?url=${encodeURIComponent(url)}`;
+}
+
+/**
+ * O endereço que tira a pessoa do aplicativo.
+ *
+ * - Android: `intent://`, para o navegador padrão (vale para todos os apps).
+ * - iPhone no Instagram ou no Threads: o `extbrowser` do próprio app.
+ * - iPhone em outros apps: o Safari, por `x-safari-https://`.
+ *
+ * `app` vem do user-agent do navegador (`detectIAB().source`).
+ */
+export function urlDeSaida(
+  url: string,
+  plataforma: "ios" | "android" | "other",
+  app: IABDetection["source"] = null,
+): string {
   if (plataforma === "android") return buildIntentUrl(url);
+  if (plataforma === "ios") {
+    if (app === "instagram" || app === "threads") return buildExtBrowserUrl(url, app);
+    return buildSafariUrl(url);
+  }
   return url;
 }
 
@@ -99,7 +133,7 @@ export function escapeIAB(
     return;
   }
 
-  window.location.href = urlDeSaida(destinationUrl, plataforma);
+  window.location.href = urlDeSaida(destinationUrl, plataforma, device.source);
 
   // Se o navegador abriu, o aplicativo foi para segundo plano e esta página
   // deixou de estar visível — não há o que fazer. Se continua visível, a

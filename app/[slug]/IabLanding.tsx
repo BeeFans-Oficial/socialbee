@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, MoreHorizontal } from "lucide-react";
 
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
-import { urlDeSaida } from "@/lib/cloak";
+import { detectIAB, urlDeSaida } from "@/lib/cloak";
 import { THEMES } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
@@ -30,11 +30,10 @@ import { cn } from "@/lib/utils";
  *
  * ## O escape
  *
- * No Android, `intent://` entrega a URL ao navegador PADRÃO da pessoa, com
- * `browser_fallback_url` para o caso de nada atender. No iPhone, o esquema
- * `x-safari-https://` (iOS 17+) entrega ao Safari — não há esquema para "o
- * navegador padrão" no iOS, e o Safari existe em todo iPhone. Ver
- * `lib/cloak.ts`.
+ * No Android, `intent://` entrega a URL ao navegador PADRÃO da pessoa. No
+ * iPhone, dentro do Instagram, `instagram://extbrowser/` pede ao próprio app
+ * que abra no navegador externo (o Instagram ignora o `x-safari-https://`);
+ * em outros apps, `x-safari-https://` abre no Safari. Ver `lib/cloak.ts`.
  *
  * A tentativa automática acontece UMA vez, ao carregar, nos dois sistemas; o
  * botão repete a mesma saída. Se depois de um instante a página continua
@@ -115,7 +114,8 @@ export function IabLanding({
     // Uma tentativa, e só. Se a saída funcionar, o aplicativo vai para segundo
     // plano e o navegador abre a página; se não, o timer revela a instrução.
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    window.location.href = urlDeSaida(destino, platform);
+    // `replace`, e não `href`: se a pessoa voltar, não cai de novo aqui.
+    window.location.replace(urlDeSaida(destino, platform, detectIAB().source));
 
     const timer = setTimeout(() => setMostrarInstrucao(true), 2500);
     return () => clearTimeout(timer);
@@ -124,7 +124,7 @@ export function IabLanding({
   const abrir = () => {
     if (preview) return;
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    window.location.href = urlDeSaida(destino, platform);
+    window.location.href = urlDeSaida(destino, platform, detectIAB().source);
     setMostrarInstrucao(true);
   };
 
