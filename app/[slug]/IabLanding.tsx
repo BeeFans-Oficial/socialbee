@@ -124,7 +124,10 @@ export function IabLanding({
   const abrir = () => {
     if (preview) return;
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    window.location.href = urlDeSaida(destino, platform, detectIAB().source);
+    // `replace`, como na tentativa automática: a página de chegada é só uma
+    // ponte, e não pode ficar no histórico — senão "voltar" cai nela de novo,
+    // ela pede a saída outra vez, e a fã fica num laço.
+    window.location.replace(urlDeSaida(destino, platform, detectIAB().source));
     setMostrarInstrucao(true);
   };
 
