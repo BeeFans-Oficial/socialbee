@@ -105,6 +105,28 @@ export class PostgresTrackingStore implements TrackingStore {
    * mesma decisão do domínio original. O índice
    * `(profile_id, occurred_at)` existe para esta consulta.
    */
+  /**
+   * Cliques de UM link na janela. Escopado também pelo perfil, pelo mesmo
+   * contrato de `query`: id de link de outra página devolve vazio, nunca dado
+   * alheio. Usa o índice `idx_tracking_events_link`.
+   */
+  async queryLinkClicks(profileId: string, linkId: string, range: DateRange): Promise<TrackingEventRecord[]> {
+    const rows = await this.events.find({
+      where: { profileId, linkId, type: "click", occurredAt: Between(range.from, range.to) },
+      order: { occurredAt: "ASC" },
+    });
+    return rows.map((row) => ({
+      type: row.type,
+      profileId: row.profileId,
+      linkId: row.linkId ?? undefined,
+      channel: row.channel ?? undefined,
+      destinationHost: row.destinationHost ?? undefined,
+      occurredAt: row.occurredAt,
+      attribution: row.attribution,
+      client: row.client,
+    }));
+  }
+
   async query(profileId: string, range: DateRange): Promise<TrackingEventRecord[]> {
     const rows = await this.events.find({
       where: { profileId, occurredAt: Between(range.from, range.to) },

@@ -1,13 +1,12 @@
 "use client";
 
 import React from "react";
-import { motion } from "framer-motion";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Palette, Copy, Trash2, ExternalLink } from "lucide-react";
+import { GripVertical, Palette, Copy, Trash2, Shield } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "@/lib/catalog";
-import { getPlatformColor, getPlatformIcon } from "@/lib/utils";
+import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
+import { PLATFORMS, type Link } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { urlDaPagina } from "@/lib/site";
 
@@ -17,23 +16,21 @@ function MiniToggle({ checked, onChange }: { checked: boolean; onChange: (v: boo
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={checked ? "Link ativo" : "Link desativado"}
       onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
-      className="relative flex-shrink-0 focus:outline-none"
-      style={{
-        width: 36, height: 20, borderRadius: 999,
-        background: checked ? "rgba(74,222,128,0.2)" : "rgba(255,255,255,0.07)",
-        border: checked ? "1px solid rgba(74,222,128,0.35)" : "1px solid rgba(255,255,255,0.1)",
-        transition: "background 0.25s, border-color 0.25s",
-      }}
+      className={cn(
+        "relative flex-shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none",
+        checked ? "bg-white" : "bg-white/10",
+      )}
     >
-      <motion.div layout transition={{ type: "spring", stiffness: 600, damping: 35 }}
-        className="absolute top-0.5"
-        style={{
-          left: checked ? "calc(100% - 17px)" : 2,
-          width: 14, height: 14, borderRadius: "50%",
-          background: checked ? "#4ade80" : "#555",
-          boxShadow: checked ? "0 0 8px rgba(74,222,128,0.6)" : "none",
-        }} />
+      <span
+        className={cn(
+          "absolute top-0.5 w-4 h-4 rounded-full transition-all",
+          checked ? "left-[18px] bg-bee-bg" : "left-0.5 bg-white/50",
+        )}
+      />
     </button>
   );
 }
@@ -52,17 +49,17 @@ interface LinkCardProps {
    *  justamente para quem escolheu outro endereço. Errar aqui é a criadora
    *  colar na bio um link que não leva à página dela. */
   profileHost: string;
-  onOpenModal: (link: Link) => void;
-  onEditAppearance: (link: Link) => void;
+  /** Clique nos números: abre as métricas deste link. */
+  onVerMetricas: (link: Link) => void;
+  /** Paleta: abre o editor do link (aparência, destino, proteção). */
+  onEditar: (link: Link) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, isActive: boolean) => void;
 }
 
-export function LinkCard({ link, profileSlug, profileHost, onOpenModal, onEditAppearance, onDelete, onToggleActive }: LinkCardProps) {
+export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEditar, onDelete, onToggleActive }: LinkCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.id });
 
-  const platformColor = getPlatformColor(link.platform);
-  const platformIcon = getPlatformIcon(link.platform);
   /**
    * O endereço que a criadora vê e copia.
    *
@@ -83,101 +80,79 @@ export function LinkCard({ link, profileSlug, profileHost, onOpenModal, onEditAp
     catch { return link.destinationUrl.replace(/^https?:\/\/(www\.)?/, "").split("/")[0] || null; }
   })();
 
-  const appearanceColor = link.appearance?.color ?? platformColor;
+  const nomeDaPlataforma = PLATFORMS.find((p) => p.id === link.platform)?.label ?? link.platform;
 
   return (
-    <motion.div
+    <div
       ref={setNodeRef}
-      whileHover={!isDragging ? { y: -1 } : {}}
-      className={cn("group relative rounded-2xl transition-colors duration-200", !link.isActive && "opacity-45", isDragging && "z-50")}
+      className={cn(
+        "group relative rounded-xl border bg-bee-surface transition-colors",
+        isDragging ? "z-50 border-white/25 shadow-2xl" : "border-white/[0.06] hover:border-white/15",
+        !link.isActive && "opacity-50",
+      )}
       style={{
         transform: CSS.Transform.toString(transform),
         transition: isDragging ? undefined : (transition ?? undefined),
-        background: isDragging ? "rgba(255,60,110,0.07)" : "rgba(255,255,255,0.025)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        border: isDragging ? "1px solid rgba(255,60,110,0.45)" : "1px solid rgba(255,255,255,0.07)",
-        boxShadow: isDragging ? "0 24px 60px rgba(0,0,0,0.55)" : "0 2px 16px rgba(0,0,0,0.18)",
       }}
     >
-      {/* Appearance accent strip */}
-      {link.appearance && (
-        <div className="absolute top-0 left-6 right-6 h-px rounded-full opacity-60"
-          style={{ background: link.appearance.useGradient ? `linear-gradient(90deg,${link.appearance.color},${link.appearance.gradientTo})` : link.appearance.color }} />
-      )}
-
-      <div className="relative flex items-center gap-3 px-4 py-3.5">
-        {/* Drag Handle */}
-        <button {...attributes} {...listeners}
-          className="text-white/10 hover:text-white/40 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0 focus:outline-none">
+      <div className="flex items-center gap-3 px-3 sm:px-4 py-3">
+        <button
+          {...attributes}
+          {...listeners}
+          aria-label="Arrastar para reordenar"
+          className="text-white/15 hover:text-white/45 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0 focus:outline-none"
+        >
           <GripVertical className="w-4 h-4" />
         </button>
 
-        {/* Thumbnail or Icon */}
-        <div className="w-10 h-10 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center text-base"
-          style={{ background: `${platformColor}18`, border: `1px solid ${platformColor}35` }}>
-          {link.thumbnailUrl
-            ? <img src={link.thumbnailUrl} alt={link.title} className="w-full h-full object-cover" />
-            : platformIcon}
+        <div className="w-9 h-9 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center bg-white/[0.04] border border-white/[0.06]">
+          {link.thumbnailUrl ? (
+            <img src={link.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <IconeDePlataforma plataforma={link.platform} className="w-4 h-4 text-white/55" />
+          )}
         </div>
 
-        {/* Info */}
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpenModal(link)}>
-          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium"
-              style={{ backgroundColor: `${platformColor}18`, color: platformColor, border: `1px solid ${platformColor}30` }}>
-              {link.platform}
-            </span>
+        {/* A linha em si não é clicável: as ações são os controles à direita. */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-medium text-white truncate">{link.title}</span>
             {link.cloakEnabled && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-bee-pink/10 text-bee-pink border border-bee-pink/20">
-                🔐 Cloaking
-              </span>
-            )}
-            {link.appearance && link.appearance.style !== "soft" && (
-              <span className="text-[10px] px-2 py-0.5 rounded-full"
-                style={{ background: `${appearanceColor}15`, color: appearanceColor, border: `1px solid ${appearanceColor}28` }}>
-                ● {link.appearance.style}
-              </span>
-            )}
-          </div>
-          <div className="font-semibold text-sm text-white leading-tight truncate">{link.title}</div>
-          {link.subtitle && <div className="text-[11px] text-white/35 truncate">{link.subtitle}</div>}
-          <div className="flex items-center gap-2 mt-0.5">
-            {enderecoPublico && (
-              <span className="text-[11px] text-white/20 truncate font-mono">{enderecoPublico}</span>
-            )}
-            {destinationDomain && (
-              <span className="flex items-center gap-0.5 flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full"
-                style={{ color: `${platformColor}cc`, background: `${platformColor}12`, border: `1px solid ${platformColor}25` }}>
-                <ExternalLink style={{ width: 8, height: 8, flexShrink: 0 }} />
-                {destinationDomain}
+              <span
+                title="Cloaking ligado"
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-white/10 text-[10px] text-white/50 flex-shrink-0"
+              >
+                <Shield className="w-3 h-3" />
+                Cloaking
               </span>
             )}
           </div>
+          <div className="mt-0.5 text-xs text-bee-muted truncate">
+            {nomeDaPlataforma}
+            {destinationDomain && <span className="text-white/25"> · </span>}
+            {destinationDomain}
+          </div>
         </div>
 
-        {/* Clicks */}
-        <div className="text-right flex-shrink-0 hidden sm:block">
-          <div className="text-sm font-semibold text-white/70">{link.clicks.toLocaleString()}</div>
-          <div className="text-[10px] text-white/25">clicks</div>
-        </div>
+        <button
+          type="button"
+          onClick={() => onVerMetricas(link)}
+          title="Ver as métricas deste link"
+          className="text-right flex-shrink-0 hidden sm:block w-16 px-2 py-1 rounded-lg hover:bg-white/[0.05] transition-colors focus:outline-none"
+        >
+          <div className="text-sm font-medium text-white/80 tabular-nums">{link.clicks.toLocaleString("pt-BR")}</div>
+          <div className="text-[10px] text-bee-muted underline decoration-dotted underline-offset-2">cliques</div>
+        </button>
 
-        {/* Toggle */}
         <MiniToggle checked={link.isActive} onChange={(v) => onToggleActive(link.id, v)} />
 
-        <div className="w-px h-6 bg-white/[0.06] flex-shrink-0" />
-
-        {/* Actions */}
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center flex-shrink-0">
           <button
-            onClick={(e) => { e.stopPropagation(); onEditAppearance(link); }}
-            className="p-2 rounded-lg transition-all focus:outline-none"
-            title="Personalizar aparência"
-            style={{ color: link.appearance ? appearanceColor : "rgba(255,255,255,0.25)" }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = `${appearanceColor}18`; (e.currentTarget as HTMLElement).style.color = appearanceColor; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = link.appearance ? appearanceColor : "rgba(255,255,255,0.25)"; }}
+            onClick={(e) => { e.stopPropagation(); onEditar(link); }}
+            title="Editar link"
+            className="p-2 rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none"
           >
-            <Palette className="w-3.5 h-3.5" />
+            <Palette className="w-4 h-4" />
           </button>
           <button
             onClick={(e) => {
@@ -187,20 +162,23 @@ export function LinkCard({ link, profileSlug, profileHost, onOpenModal, onEditAp
               // painel foi servido: ela edita em beesocial.bio e a página dela
               // pode viver em outro domínio do pool.
               navigator.clipboard.writeText(urlDaPagina(profileHost, profileSlug));
-              toast.success("Link do seu perfil copiado!");
+              toast.success("Link da página copiado.");
             }}
             disabled={!profileSlug || !profileHost}
-            title={enderecoPublico ? `Copiar ${enderecoPublico}` : "Carregando seu perfil..."}
-            className="p-2 text-white/25 hover:text-bee-pink rounded-lg hover:bg-bee-pink/[0.08] transition-all focus:outline-none disabled:opacity-40 disabled:cursor-default disabled:hover:text-white/25 disabled:hover:bg-transparent">
-            <Copy className="w-3.5 h-3.5" />
+            title={enderecoPublico ? `Copiar ${enderecoPublico}` : "Carregando..."}
+            className="p-2 rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none disabled:opacity-40"
+          >
+            <Copy className="w-4 h-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); if (window.confirm("Deletar este link?")) { onDelete(link.id); toast.success("Link deletado!"); } }}
-            className="p-2 text-white/25 hover:text-red-400 rounded-lg hover:bg-red-500/[0.08] transition-all focus:outline-none">
-            <Trash2 className="w-3.5 h-3.5" />
+            onClick={(e) => { e.stopPropagation(); if (window.confirm("Apagar este link?")) { onDelete(link.id); toast.success("Link apagado."); } }}
+            title="Apagar"
+            className="p-2 rounded-lg text-white/35 hover:text-red-400 hover:bg-red-500/[0.06] transition-colors focus:outline-none"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -17,6 +17,8 @@ import { PaginaNoAr1790300000000 } from "./migrations/1790300000000-PaginaNoAr";
 import { PoolDeDominios1790400000000 } from "./migrations/1790400000000-PoolDeDominios";
 import { SairDoAppPorPadrao1790600000000 } from "./migrations/1790600000000-SairDoAppPorPadrao";
 import { HostDeChegadaNoEvento1790500000000 } from "./migrations/1790500000000-HostDeChegadaNoEvento";
+import { PlanoPro1790700000000 } from "./migrations/1790700000000-PlanoPro";
+import { DominioProprio1790800000000 } from "./migrations/1790800000000-DominioProprio";
 
 /**
  * Conexão e lista de migrations.
@@ -70,6 +72,8 @@ export function buildDataSourceOptions(): DataSourceOptions {
       PoolDeDominios1790400000000,
       HostDeChegadaNoEvento1790500000000,
       SairDoAppPorPadrao1790600000000,
+      PlanoPro1790700000000,
+      DominioProprio1790800000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,

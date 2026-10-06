@@ -5,10 +5,11 @@ import { toast } from "sonner";
 import { AlertTriangle, Eye, EyeOff, ImagePlus, Plus, RotateCcw, Trash2 } from "lucide-react";
 
 import { PreviaDaPagina } from "@/components/shared/PreviaDaPagina";
+import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
-import { invalidateSession } from "@/lib/api/use-session";
+import { invalidateSession, usePlano } from "@/lib/api/use-session";
 import { THEMES, type Link as LinkType } from "@/lib/catalog";
-import { FONTES, TEMPLATES, resolverVisual } from "@/lib/templates";
+import { FONTES, TEMPLATES, TEMPLATE_DO_FREE, resolverVisual } from "@/lib/templates";
 import type { ApiDomain } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +22,7 @@ import { cn } from "@/lib/utils";
  *
  * ## Por que a prévia não é um iframe
  *
- * A tela de Prévia (`/previa`) usa iframes da rota real, e está certo lá: ela
+ * O editor de página (`/paginas/[id]`) usa iframes da rota real, e está certo lá: ele
  * responde "o que está no ar agora?". Aqui a pergunta é outra — "como vai
  * ficar o que estou mexendo?" — e essa só se responde renderizando o estado
  * não salvo. A fidelidade vem de a prévia usar os MESMOS componentes e a MESMA
@@ -96,6 +97,7 @@ export function EditorDeTemplate({
   const [noAr, setNoAr] = useState(inicial.published);
   const [domainId, setDomainId] = useState<string | null>(inicial.domainId);
   const [dominios, setDominios] = useState<ApiDomain[]>([]);
+  const { ehPro } = usePlano();
 
   // Exclusão: a criadora digita o endereço para confirmar. Um "tem certeza?"
   // se responde no reflexo; digitar o endereço obriga a olhar QUAL página está
@@ -171,6 +173,12 @@ export function EditorDeTemplate({
    * do template sozinho.
    */
   const escolherTemplate = (id: string) => {
+    // O Free tem só o Clássico. Voltar ao Clássico, ou ficar no modelo que já
+    // estava gravado de quando a conta era Pro, continua livre.
+    if (!ehPro && id !== TEMPLATE_DO_FREE && id !== templateId) {
+      avisarPro("Este modelo");
+      return;
+    }
     setTemplateId(id);
     const escolhido = TEMPLATES.find((t) => t.id === id);
     if (escolhido) setButtonStyle(escolhido.botaoPadrao);
@@ -313,7 +321,10 @@ export function EditorDeTemplate({
                     : "border-white/10 hover:border-white/25",
                 )}
               >
-                <div className="text-sm font-semibold text-white">{t.label}</div>
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-white">
+                  {t.label}
+                  {!ehPro && t.id !== TEMPLATE_DO_FREE && <SeloPro />}
+                </div>
                 <div className="text-[11px] text-white/35 leading-snug mt-0.5">{t.descricao}</div>
               </button>
             ))}
@@ -416,6 +427,7 @@ export function EditorDeTemplate({
             <SeletorDeCor
               rotulo="Fundo"
               valor={visual.bg}
+              bloqueado={!ehPro}
               personalizada={Boolean(bgColor)}
               onChange={setBgColor}
               onLimpar={() => setBgColor(null)}
@@ -423,6 +435,7 @@ export function EditorDeTemplate({
             <SeletorDeCor
               rotulo="Destaque"
               valor={visual.accent}
+              bloqueado={!ehPro}
               personalizada={Boolean(accentColor)}
               onChange={setAccentColor}
               onLimpar={() => setAccentColor(null)}
@@ -430,12 +443,20 @@ export function EditorDeTemplate({
           </div>
         </Secao>
 
-        <Secao titulo="Tipografia e botões">
+        <Secao titulo="Tipografia e botões" nota={ehPro ? undefined : "Trocar a fonte é do plano Pro."}>
           <div className="grid grid-cols-3 gap-2 mb-4">
             {FONTES.map((f) => (
               <button
                 key={f.id}
-                onClick={() => setFontId(f.id)}
+                onClick={() => {
+                  // `fontId` gravado, mesmo igual ao padrão do modelo, é escolha
+                  // de fonte — e o Free não tem. Clicar na que já está é nada.
+                  if (!ehPro) {
+                    if ((fontId ?? visual.fontePadrao) !== f.id) avisarPro("Trocar a fonte");
+                    return;
+                  }
+                  setFontId(f.id);
+                }}
                 className={cn(
                   f.classe,
                   "py-2.5 rounded-xl border text-sm transition-all",
@@ -486,11 +507,15 @@ export function EditorDeTemplate({
         </Secao>
 
         {dominios.length > 0 && (
-          <Secao titulo="Endereço da página">
+          <Secao
+            titulo="Endereço da página"
+            nota={ehPro ? undefined : "Escolher o endereço é do plano Pro."}
+          >
             <select
               value={domainId ?? ""}
               onChange={(e) => setDomainId(e.target.value || null)}
-              className="w-full px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-white focus:outline-none focus:border-bee-pink/40"
+              disabled={!ehPro}
+              className="disabled:opacity-40 disabled:cursor-not-allowed w-full px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-sm text-white focus:outline-none focus:border-bee-pink/40"
             >
               {/* O padrão da instalação continua sendo uma escolha válida, e
                   precisa estar na lista para dar meia-volta.
@@ -506,6 +531,7 @@ export function EditorDeTemplate({
               {dominios.map((d) => (
                 <option key={d.id} value={d.id} className="bg-bee-surface">
                   {d.label ? `${d.label} — ${d.host}` : d.host}
+                  {d.proprio ? " · seu domínio" : ""}
                 </option>
               ))}
             </select>
@@ -703,12 +729,16 @@ function Deslizante({
 function SeletorDeCor({
   rotulo,
   valor,
+  bloqueado,
   personalizada,
   onChange,
   onLimpar,
 }: {
   rotulo: string;
   valor: string;
+  /** Free: a cor própria é do Pro. "Voltar ao tema" continua livre, para quem
+   *  ficou com uma cor gravada de quando era Pro. */
+  bloqueado: boolean;
   personalizada: boolean;
   onChange: (v: string) => void;
   onLimpar: () => void;
@@ -716,7 +746,10 @@ function SeletorDeCor({
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs text-white/40">{rotulo}</span>
+        <span className="flex items-center gap-1.5 text-xs text-white/40">
+          {rotulo}
+          {bloqueado && <SeloPro />}
+        </span>
         {personalizada && (
           <button
             onClick={onLimpar}
@@ -729,12 +762,22 @@ function SeletorDeCor({
         )}
       </div>
       <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={valor}
-          onChange={(e) => onChange(e.target.value)}
-          className="w-10 h-10 rounded-lg bg-transparent border border-white/10 cursor-pointer"
-        />
+        {bloqueado ? (
+          <button
+            type="button"
+            onClick={() => avisarPro("Cor própria")}
+            title="Cor própria é do plano Pro"
+            className="w-10 h-10 rounded-lg border border-white/10 opacity-40 cursor-not-allowed"
+            style={{ background: valor }}
+          />
+        ) : (
+          <input
+            type="color"
+            value={valor}
+            onChange={(e) => onChange(e.target.value)}
+            className="w-10 h-10 rounded-lg bg-transparent border border-white/10 cursor-pointer"
+          />
+        )}
         <code className="text-xs text-white/50 font-mono uppercase">{valor}</code>
       </div>
     </div>

@@ -20,6 +20,23 @@ export interface ApiUser {
   email: string;
   isAdultConfirmed: boolean;
   createdAt: string;
+  plan: ApiPlan;
+}
+
+/**
+ * Plano da conta. Os limites vêm da API, e não de uma tabela copiada aqui: a
+ * API é quem recusa, e a tela só antecipa o que ela vai dizer.
+ */
+export interface ApiPlan {
+  id: "free" | "pro";
+  /** Até quando é Pro (ISO). No passado, a conta já foi Pro e venceu. */
+  proUntil: string | null;
+  limits: {
+    paginas: number | null;
+    linksPorPagina: number | null;
+    relatorio: boolean;
+    dominiosProprios: number;
+  };
 }
 
 /**
@@ -54,6 +71,24 @@ export interface ApiDomain {
   id: string;
   host: string;
   label: string | null;
+  /** Domínio próprio da conta (e não do pool). */
+  proprio: boolean;
+}
+
+/** Domínio próprio, como a dona o acompanha. */
+export interface ApiCustomDomain {
+  id: string;
+  host: string;
+  /** `pending` até a equipe configurar e ativar. */
+  status: "pending" | "active";
+  paginas: number;
+  createdAt: string;
+}
+
+export interface ApiDnsCheck {
+  ok: boolean;
+  encontrados: string[];
+  esperado: string | null;
 }
 
 /** Perfil como o dono dele vê. */
@@ -168,6 +203,23 @@ export interface TrackingReport {
   byCampaign: Breakdown[];
   byLink: Array<Breakdown & { linkId: string; channel?: string }>;
   daily: Array<{ date: string; views: number; clicks: number }>;
+}
+
+/** Métricas de UM link (`GET /me/tracking/links/:id`). */
+export interface ApiLinkReport {
+  linkId: string;
+  from: string;
+  to: string;
+  clicks: number;
+  inAppClicks: number;
+  bySource: Breakdown[];
+  byCampaign: Breakdown[];
+  byDevice: Breakdown[];
+  byCountry: Breakdown[];
+  daily: Array<{ date: string; clicks: number }>;
+  totalClicks: number;
+  botHits: number;
+  lastClickAt: string | null;
 }
 
 export interface ReportResponse {

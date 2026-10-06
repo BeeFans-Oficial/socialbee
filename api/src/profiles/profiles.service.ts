@@ -1,9 +1,10 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { EntityManager, Not, Repository } from "typeorm";
+import { EntityManager, IsNull, Not, Repository } from "typeorm";
 
 import { loadEnv } from "../config/env";
 import { Link } from "../links/entities/link.entity";
+import { PLANOS, TEMPLATE_DO_FREE, cabeMais, exigirPro, planoDe, type PlanoId } from "../plans/plans";
 import { Domain } from "./entities/domain.entity";
 import { Profile } from "./entities/profile.entity";
 import { isReservedSlug } from "./reserved-slugs";
@@ -16,6 +17,8 @@ export interface DomainView {
   id: string;
   host: string;
   label: string | null;
+  /** É domínio próprio da conta (e não do pool)? */
+  proprio: boolean;
 }
 
 /** A página de chegada (IAB) como o dono do perfil a edita. */
@@ -135,12 +138,20 @@ export class ProfilesService {
    * Só os ativos: um domínio bloqueado sai da lista na hora, sem deploy, e as
    * páginas que já estão nele continuam no ar até serem movidas.
    */
-  async listActiveDomains(): Promise<DomainView[]> {
+  /** Os domínios que a conta pode escolher: o pool inteiro e os próprios dela
+   *  que a equipe já ativou. Domínio próprio de outra conta nunca aparece. */
+  async listActiveDomains(userId: string): Promise<DomainView[]> {
     const dominios = await this.domains.find({
-      where: { active: true },
+      where: [
+        { active: true, status: "active", ownerUserId: IsNull() },
+        { active: true, status: "active", ownerUserId: userId },
+      ],
       order: { position: "ASC", host: "ASC" },
     });
-    return dominios.map(toDomainView);
+    // Os próprios primeiro: são os que ela trouxe, e o motivo de abrir a lista.
+    return dominios
+      .map(toDomainView)
+      .sort((a, b) => Number(b.proprio) - Number(a.proprio));
   }
 
   /**
@@ -166,6 +177,9 @@ export class ProfilesService {
       .createQueryBuilder("d")
       .select("d.id", "id")
       .where("d.active = true")
+      // Domínio próprio é de uma conta só: nunca entra no sorteio.
+      .andWhere("d.owner_user_id IS NULL")
+      .andWhere("d.status = 'active'")
       .orderBy("random()")
       .limit(1)
       .getRawOne<{ id: string }>();
@@ -179,8 +193,13 @@ export class ProfilesService {
    * motivo — foi bloqueado, expirou, perdeu o certificado — e deixar uma página
    * nova cair nele entregaria à criadora um endereço que não responde.
    */
-  private async assertDomainEscolhivel(domainId: string): Promise<void> {
-    const existe = await this.domains.exists({ where: { id: domainId, active: true } });
+  private async assertDomainEscolhivel(domainId: string, userId: string): Promise<void> {
+    const existe = await this.domains.exists({
+      where: [
+        { id: domainId, active: true, status: "active", ownerUserId: IsNull() },
+        { id: domainId, active: true, status: "active", ownerUserId: userId },
+      ],
+    });
     if (!existe) {
       throw new ConflictException({
         code: "dominio_indisponivel",
@@ -231,7 +250,23 @@ export class ProfilesService {
    * página adulta quase sempre quer outra adulta, e o valor errado aqui não
    * gera erro nenhum — só deixa conteúdo +18 sem barreira.
    */
-  async createForUser(userId: string, dto: CreateProfileDto): Promise<OwnProfileView> {
+  async createForUser(
+    userId: string,
+    plano: PlanoId,
+    dto: CreateProfileDto,
+  ): Promise<OwnProfileView> {
+    if (dto.templateId && dto.templateId !== TEMPLATE_DO_FREE) exigirPro(plano, "aparencia");
+
+    const limite = PLANOS[plano].paginas;
+    if (limite !== null) {
+      // Sem trava de linha, de propósito: criar página é raro e manual, e o
+      // pior caso de dois cliques simultâneos é uma página a mais — que
+      // continua no ar e só impede a próxima. Travar `users` aqui seria
+      // segurar a linha que o login também atualiza.
+      const total = await this.profiles.count({ where: { userId } });
+      if (!cabeMais(limite, total)) exigirPro(plano, "paginas");
+    }
+
     await this.assertSlugAvailable(dto.slug);
 
     const primeira = await this.profiles.findOne({
@@ -304,8 +339,9 @@ export class ProfilesService {
     return toOwnProfileView(await this.findById(profileId));
   }
 
-  async update(profileId: string, dto: UpdateProfileDto): Promise<OwnProfileView> {
+  async update(profileId: string, plano: PlanoId, dto: UpdateProfileDto): Promise<OwnProfileView> {
     const profile = await this.findById(profileId);
+    exigirProParaMudancas(plano, profile, dto);
 
     // Só valida o slug quando ele realmente muda: revalidar o próprio slug a
     // cada salvamento de bio devolveria "já está em uso" para o dono dele.
@@ -322,7 +358,7 @@ export class ProfilesService {
     if (dto.buttonStyle !== undefined) profile.buttonStyle = dto.buttonStyle;
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
     if (dto.domainId !== undefined) {
-      if (dto.domainId !== null) await this.assertDomainEscolhivel(dto.domainId);
+      if (dto.domainId !== null) await this.assertDomainEscolhivel(dto.domainId, profile.userId);
       profile.domainId = dto.domainId;
       // A relação carregada ficaria velha e a view devolveria o host anterior —
       // quem acabou de trocar de domínio veria o endereço antigo na tela.
@@ -429,10 +465,16 @@ export class ProfilesService {
    * legítimo que a página precisa saber renderizar.
    */
   async publicProfile(slug: string): Promise<PublicProfileView> {
-    const profile = await this.profiles.findOne({
-      where: { slug: slug.trim().toLowerCase() },
-      relations: { domain: true },
-    });
+    // Query builder e não `findOne` para trazer da conta SÓ o `pro_until`: com
+    // `relations: { user: true }` viriam email e hash de senha junto, numa
+    // consulta que roda a cada visita de fã.
+    const profile = await this.profiles
+      .createQueryBuilder("p")
+      .leftJoinAndSelect("p.domain", "d")
+      .leftJoin("p.user", "u")
+      .addSelect(["u.id", "u.proUntil"])
+      .where("p.slug = :slug", { slug: slug.trim().toLowerCase() })
+      .getOne();
     // Fora do ar responde igual a inexistente, de propósito: distinguir os dois
     // contaria a um curioso quais endereços existem e estão suspensos — e a
     // criadora que tirou a página do ar não quer que ela seja encontrada.
@@ -444,10 +486,23 @@ export class ProfilesService {
     });
 
     const view = toOwnProfileView(profile);
+    const ehPro = planoDe(profile.user?.proUntil) === "pro";
 
     return {
       profile: {
         ...view,
+        // Conta que voltou ao Free: o que era Pro fica gravado e para de valer
+        // aqui. Assinar de novo devolve tudo como estava. O domínio escolhido
+        // NÃO volta ao padrão — mudar o endereço quebraria o link na bio.
+        template: ehPro
+          ? view.template
+          : {
+              ...view.template,
+              templateId: TEMPLATE_DO_FREE,
+              bgColor: null,
+              accentColor: null,
+              fontId: null,
+            },
         // Troca o data URL pela rota que serve a imagem. O documento carrega
         // uma URL curta em vez de megabytes de base64 repetidos no HTML e no
         // payload de hidratação. O dono do perfil continua recebendo o data URL
@@ -471,9 +526,32 @@ export class ProfilesService {
             : null,
         },
       },
-      links: links.map(toPublicLinkView),
+      links: links
+        .map(toPublicLinkView)
+        .map((link) => (ehPro ? link : { ...link, cloakEnabled: false })),
     };
   }
+}
+
+/**
+ * Recusa o que o plano não cobre — mas só o que MUDA.
+ *
+ * O painel manda o perfil inteiro a cada salvamento. Uma conta que voltou ao
+ * Free com o modelo "Capa" gravado manda `templateId: "capa"` até quando só
+ * troca a bio; recusar isso travaria a edição de tudo. Valor igual ao gravado
+ * passa; voltar ao que o Free tem (Clássico, sem cor, sem fonte) também.
+ */
+function exigirProParaMudancas(plano: PlanoId, profile: Profile, dto: UpdateProfileDto): void {
+  const muda = <T>(novo: T | undefined, atual: T) => novo !== undefined && novo !== atual;
+
+  const mudaAparencia =
+    (muda(dto.templateId, profile.templateId) && dto.templateId !== TEMPLATE_DO_FREE) ||
+    (muda(dto.bgColor, profile.bgColor) && dto.bgColor !== null) ||
+    (muda(dto.accentColor, profile.accentColor) && dto.accentColor !== null) ||
+    (muda(dto.fontId, profile.fontId) && dto.fontId !== null);
+  if (mudaAparencia) exigirPro(plano, "aparencia");
+
+  if (muda(dto.domainId, profile.domainId)) exigirPro(plano, "dominio");
 }
 
 /** Data URL em base64 → bytes + tipo. `null` quando não é data URL. */
@@ -499,7 +577,7 @@ export function hostPadrao(): string {
 }
 
 export function toDomainView(domain: Domain): DomainView {
-  return { id: domain.id, host: domain.host, label: domain.label };
+  return { id: domain.id, host: domain.host, label: domain.label, proprio: domain.ownerUserId !== null };
 }
 
 /**

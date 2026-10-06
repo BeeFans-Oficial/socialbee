@@ -20,8 +20,9 @@ import { cn } from "@/lib/utils"
  *     escuro é quase preto sobre um trilho escuro. Contraste ruim de origem.
  *
  * A linguagem visual segue o `MiniToggle` de `components/dashboard/LinkCard.tsx`,
- * que já estava certo e é o toggle que a criadora vê no dashboard: verde para
- * ligado, cinza para desligado. Um app com dois toggles de aparência diferente
+ * que é o toggle que a criadora vê no dashboard: trilho branco para ligado,
+ * cinza para desligado — sem verde nem brilho, que deixavam o painel com cara de
+ * neon. Um app com dois toggles de aparência diferente
  * confunde mais do que qualquer ganho de fidelidade ao shadcn.
  *
  * A geometria do shadcn (44×24) foi mantida de propósito, e não a do MiniToggle
@@ -38,7 +39,7 @@ const Switch = React.forwardRef<
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink focus-visible:ring-offset-2 focus-visible:ring-offset-bee-bg",
       "disabled:cursor-not-allowed disabled:opacity-50",
       "data-[state=unchecked]:border-white/10 data-[state=unchecked]:bg-white/[0.07]",
-      "data-[state=checked]:border-[#4ade80]/35 data-[state=checked]:bg-[#4ade80]/20",
+      "data-[state=checked]:border-white data-[state=checked]:bg-white",
       className
     )}
     {...props}
@@ -48,8 +49,8 @@ const Switch = React.forwardRef<
       className={cn(
         "pointer-events-none block h-4 w-4 rounded-full shadow-lg ring-0 transition-transform",
         "translate-x-1 data-[state=checked]:translate-x-6",
-        "data-[state=unchecked]:bg-[#555]",
-        "data-[state=checked]:bg-[#4ade80] data-[state=checked]:shadow-[0_0_8px_rgba(74,222,128,0.6)]"
+        "data-[state=unchecked]:bg-white/50",
+        "data-[state=checked]:bg-bee-bg"
       )}
     />
   </SwitchPrimitives.Root>

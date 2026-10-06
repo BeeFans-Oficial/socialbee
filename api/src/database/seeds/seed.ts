@@ -136,6 +136,26 @@ export async function seed(): Promise<void> {
 
     if (!userId) throw new Error("não foi possível criar nem encontrar a conta de demonstração");
 
+    // A demonstração é Pro: os links dela usam cloaking, e uma conta Free
+    // mostraria no desenvolvimento uma página diferente da que está gravada.
+    // `NOT EXISTS` e não `ON CONFLICT`: a concessão não tem chave natural, e o
+    // seed roda a cada subida do container. Filtra pelo motivo porque num banco
+    // que já existia a conta tem a concessão de transição da migration, e ela
+    // não pode impedir esta.
+    await client.query(
+      `
+      INSERT INTO plan_grants (user_id, source, starts_at, ends_at, reason)
+      SELECT $1, 'manual', now(), now() + interval '10 years', $2
+       WHERE NOT EXISTS (SELECT 1 FROM plan_grants WHERE user_id = $1 AND reason = $2)
+      `,
+      [userId, "Conta de demonstração."],
+    );
+    await client.query(
+      `UPDATE users SET pro_until = (SELECT max(ends_at) FROM plan_grants WHERE user_id = $1)
+        WHERE id = $1`,
+      [userId],
+    );
+
     const profile = await client.query<{ id: string }>(
       `
       INSERT INTO profiles (user_id, slug, display_name, bio, theme_id, button_style, is_adult)

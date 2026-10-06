@@ -3,6 +3,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
+import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { LinkAppearance, DEFAULT_LINK_APPEARANCE } from "@/lib/catalog";
 
 interface LinkButtonProps {
@@ -18,7 +19,6 @@ interface LinkButtonProps {
     cloakEnabled: boolean;
     appearance?: LinkAppearance;
   };
-  icon: string;
   /** fallback accent from profile theme, used when link has no appearance */
   accentColor: string;
   /** fallback button style from profile settings */
@@ -26,19 +26,43 @@ interface LinkButtonProps {
   /** O template pede miniatura e subtítulo (`cartoes`). Fora dele o botão é a
    *  linha de sempre — a informação existe, mas não cabe numa lista estreita. */
   detalhes?: boolean;
-  index: number;
+  /** Botão branco, igual para todos os links, ignorando a aparência por link
+   *  (modelo "Foto"). */
+  uniforme?: boolean;
+  /** Posição na lista. Escalonava a animação de entrada, que saiu; continua
+   *  aceito para não mexer em quem chama. */
+  index?: number;
   onClick: () => void;
 }
 
 export function LinkButton({
   link,
-  icon,
   accentColor,
   buttonStyle: profileButtonStyle,
   detalhes = false,
-  index,
+  uniforme = false,
   onClick,
 }: LinkButtonProps) {
+  if (uniforme) {
+    return (
+      <motion.button
+        // Sem animação de entrada: o botão vem do servidor já visível. Com
+        // `initial={{ opacity: 0 }}` ele chegava transparente e só aparecia
+        // depois de o JavaScript carregar — dentro do Instagram, em rede
+        // móvel, a fã via a página sem nenhum botão por segundos.
+        initial={false}
+        onClick={onClick}
+        whileHover={{ y: -1 }}
+        whileTap={{ scale: 0.98, y: 0 }}
+        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+        className="relative w-full min-h-[56px] rounded-[14px] bg-white text-[#111] px-6 py-[17px] flex items-center justify-center gap-2.5 shadow-[0_1px_2px_rgba(0,0,0,0.18)] transition-[background-color,box-shadow] duration-200 hover:bg-[#f2f2f2] hover:shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+      >
+        <IconeDePlataforma plataforma={link.platform} className="w-[18px] h-[18px] flex-shrink-0 text-[#111]/70" />
+        <span className="text-[15px] font-semibold leading-tight">{link.title}</span>
+      </motion.button>
+    );
+  }
+
   // Per-link appearance takes priority over profile-wide settings
   const appearance: LinkAppearance = link.appearance ?? {
     ...DEFAULT_LINK_APPEARANCE,
@@ -56,7 +80,7 @@ export function LinkButton({
         return useGradient ? `linear-gradient(135deg, ${color}, ${gradientTo})` : color;
       case "soft":
       case "pill":
-        return useGradient ? `linear-gradient(135deg, ${color}28, ${gradientTo}28)` : `${color}22`;
+        return useGradient ? `linear-gradient(135deg, ${color}1f, ${gradientTo}1f)` : `${color}1a`;
       case "glass":
         return "rgba(255,255,255,0.06)";
       case "outlined":
@@ -67,37 +91,34 @@ export function LinkButton({
   const borderStyle = (() => {
     switch (style) {
       case "filled": return "none";
-      case "soft": case "pill": return `1px solid ${color}44`;
+      case "soft": case "pill": return `1px solid ${color}30`;
       case "glass": return "1px solid rgba(255,255,255,0.1)";
       case "outlined": return `2px solid ${color}`;
     }
   })();
 
-  const textColor = style === "filled" ? "#fff" : color;
+  // Texto branco em todos os estilos: título na cor de destaque sobre fundo
+  // tingido da mesma cor era o que deixava a página com cara de neon.
+  const textColor = "rgba(255,255,255,0.94)";
 
-  const boxShadow = glow
-    ? `0 4px 24px ${color}55, 0 0 0 1px ${color}22`
-    : style === "filled"
-    ? `0 4px 16px ${color}35`
-    : undefined;
+  // O "glow" da aparência por link não acende mais nada: brilho colorido em
+  // volta do botão é exatamente o neon que a página deixou de ter. O campo
+  // continua no banco, sem efeito.
+  void glow;
+  const boxShadow = style === "filled" ? "0 1px 2px rgba(0,0,0,0.25)" : undefined;
 
   return (
     <motion.button
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.08, duration: 0.3 }}
+      // Visível desde o HTML do servidor — ver o botão uniforme acima.
+      initial={false}
       onClick={onClick}
-      className={`relative w-full overflow-hidden cursor-pointer transition-all ${radius}`}
+      className={`relative w-full overflow-hidden cursor-pointer transition-[filter,box-shadow] duration-200 hover:brightness-125 hover:shadow-[0_8px_24px_rgba(0,0,0,0.3)] ${radius}`}
       style={{ background: bg, border: borderStyle, boxShadow, backdropFilter: style === "glass" ? "blur(12px)" : undefined }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
+      // Hover discreto: sobe 1px e clareia — sem crescer, que empurrava o
+      // vizinho na grade do modelo Cartões.
+      whileHover={{ y: -1 }}
+      whileTap={{ scale: 0.98, y: 0 }}
     >
-      {/* Cloak badge */}
-      {link.cloakEnabled && (
-        <div className="absolute top-1 right-8 z-10">
-          <span className="text-[10px] opacity-50">🔐</span>
-        </div>
-      )}
 
       {detalhes ? (
         /* Cartão: miniatura em cima, texto embaixo. O alinhamento é à esquerda
@@ -110,7 +131,7 @@ export function LinkButton({
               // vinda do banco, como o avatar.
               <img src={link.thumbnailUrl} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-3xl opacity-40">{icon}</span>
+              <IconeDePlataforma plataforma={link.platform} className="w-8 h-8 opacity-40" />
             )}
           </div>
           <div className="px-3 py-2.5">
@@ -129,7 +150,9 @@ export function LinkButton({
           style={{ gridTemplateColumns: showIcon ? "48px 1fr 24px" : "1fr 24px" }}>
           {showIcon && (
             <div className="flex items-center justify-center">
-              <div className="w-9 h-9 flex items-center justify-center text-2xl">{icon}</div>
+              <div className="w-9 h-9 flex items-center justify-center" style={{ color: textColor }}>
+                <IconeDePlataforma plataforma={link.platform} className="w-5 h-5 opacity-80" />
+              </div>
             </div>
           )}
           <div className="flex items-center justify-center">

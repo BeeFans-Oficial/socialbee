@@ -52,7 +52,9 @@ const config: Config = {
       // `font-bebas` (43 usos) e `font-barlow` (13 usos) eram classes
       // inexistentes e todo o texto caía no Inter do `body`.
       fontFamily: {
-        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        sans: ["var(--font-poppins)", "system-ui", "sans-serif"],
+        // Opção de fonte da página pública (`FONTES` em `lib/templates.ts`).
+        inter: ["var(--font-inter)", "system-ui", "sans-serif"],
         barlow: ["var(--font-barlow)", "system-ui", "sans-serif"],
         bebas: ["var(--font-bebas)", "Impact", "Haettenschweiler", "sans-serif"],
       },

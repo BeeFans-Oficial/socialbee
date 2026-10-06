@@ -102,6 +102,25 @@ export interface Breakdown {
 }
 
 /** Relatório do dashboard, já escopado num perfil. */
+/** Métricas de UM link: os cliques da janela e o total histórico dele. */
+export interface LinkReport {
+  linkId: string;
+  from: string;
+  to: string;
+  /** Cliques humanos na janela. */
+  clicks: number;
+  inAppClicks: number;
+  bySource: Breakdown[];
+  byCampaign: Breakdown[];
+  byDevice: Breakdown[];
+  byCountry: Breakdown[];
+  daily: Array<{ date: string; clicks: number }>;
+  /** Totais do contador, que não expiram com o evento cru. */
+  totalClicks: number;
+  botHits: number;
+  lastClickAt: string | null;
+}
+
 export interface TrackingReport {
   profileId: string;
   from: string;

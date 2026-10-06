@@ -1,382 +1,256 @@
 import Link from "next/link";
-import { Logo } from "@/components/shared/Logo";
-import { HexBackground } from "@/components/shared/HexBackground";
-import { 
-  ArrowRight, 
-  Shield, 
-  Link as LinkIcon, 
-  BarChart3,
-  Check,
-  Star,
-  ChevronDown
-} from "lucide-react";
-import { PLATFORMS } from "@/lib/catalog";
+import { Check, Flag } from "lucide-react";
+
+import { BuscaDeEndereco } from "@/components/landing/BuscaDeEndereco";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
+import { LogoAnimada } from "@/components/landing/LogoAnimada";
+
+/**
+ * Tela inicial.
+ *
+ * Céu escuro, título em serifa e um único botão claro de ação. O texto descreve
+ * só o que o produto faz hoje — cada item do hero tem um recurso real por trás
+ * (página de chegada, pool de domínios, página segura, plano Free).
+ */
+
+const NAV = [
+  { href: "#protecao", label: "Proteção" },
+  { href: "#recursos", label: "Recursos" },
+  { href: "#planos", label: "Planos" },
+];
+
+const DESTAQUES = ["Sai do Instagram", "Domínios de reserva", "Página segura", "Grátis para começar"];
+
+const PROTECAO = [
+  {
+    titulo: "Sai do navegador do Instagram",
+    texto:
+      "Quem toca no seu link dentro do app cai numa página de chegada que leva ao navegador do celular, onde pagamento e login funcionam de verdade.",
+  },
+  {
+    titulo: "Domínios de reserva",
+    texto:
+      "As páginas ficam espalhadas por vários endereços. Se um for bloqueado, os outros continuam no ar e a sua página pode mudar de casa.",
+  },
+  {
+    titulo: "Página segura",
+    texto:
+      "No Pro, cada link pode ter uma página limpa, só com as suas redes, para quem não deve ver o destino final.",
+  },
+];
+
+const RECURSOS = [
+  { titulo: "Modelos prontos", texto: "Escolha um layout e troque foto, textos, cores e botões." },
+  { titulo: "Várias páginas", texto: "Uma página para cada perfil ou campanha, na mesma conta." },
+  { titulo: "Cliques e visitas", texto: "Saiba de onde vem o seu público e em qual botão ele clica." },
+  { titulo: "Barreira de idade", texto: "Confirmação de 18+ antes de mostrar os seus links." },
+];
+
+const PLANOS = [
+  {
+    nome: "Free",
+    resumo: "Para começar agora.",
+    itens: ["1 página", "Até 5 links", "Modelo Clássico", "Saída do Instagram", "Domínio de reserva"],
+    destaque: false,
+  },
+  {
+    nome: "Pro",
+    resumo: "Para quem vive do link na bio.",
+    itens: [
+      "Páginas e links sem limite",
+      "Todos os modelos, cores e fontes",
+      "Página segura nos links",
+      "Escolha do domínio",
+      "Relatório de cliques e visitas",
+    ],
+    destaque: true,
+  },
+];
 
 export default function LandingPage() {
   return (
-    <div className="bg-bee-bg text-bee-text">
-      {/* NAVIGATION */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-bee-bg/85 backdrop-blur-md border-b border-bee-border min-h-[72px] flex items-center">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between w-full">
-          <Logo size="md" variant="full" className="flex-shrink-0 self-center" />
-          
-          <div className="hidden md:flex items-center gap-8">
-            <a href="#como-funciona" className="text-bee-muted hover:text-bee-text transition-colors">
-              Como funciona
-            </a>
-            <a href="#plataformas" className="text-bee-muted hover:text-bee-text transition-colors">
-              Plataformas
-            </a>
-            <a href="#recursos" className="text-bee-muted hover:text-bee-text transition-colors">
-              Recursos
-            </a>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-bee-muted hover:text-bee-text transition-colors"
-            >
-              Entrar
-            </Link>
-            <Link
-              href="/cadastro"
-              className="px-6 py-2.5 bg-bee-pink rounded-full font-semibold hover:opacity-90 transition-all glow-pink-sm"
-            >
-              Começar grátis
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* HERO SECTION */}
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-20">
-        <HexBackground density="high" />
-        
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-xl">
-            {/* Tag pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-bee-pink/10 border border-bee-pink/30 rounded-full mb-6">
-              <span className="text-sm font-semibold text-bee-pink">
-                Faça o seu #Buzz
-              </span>
-            </div>
-
-            {/* Avatares + Logo */}
-            <div className="flex items-center gap-2 mb-8">
-              <div className="flex -space-x-2">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-sm font-bold border-2 border-bee-bg">
-                  B
-                </div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-sm font-bold border-2 border-bee-bg">
-                  M
-                </div>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-sm font-bold border-2 border-bee-bg">
-                  L
-                </div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-bee-pink/20 border border-bee-pink flex items-center justify-center">
-                <Logo variant="icon" size="sm" />
-              </div>
-            </div>
-
-            {/* Headline */}
-            <h1 className="font-bebas text-7xl lg:text-8xl uppercase tracking-wide leading-none mb-6">
-              GANHOS CONSTANTES,
-              <br />
-              <span className="text-bee-pink">CRESCIMENTO</span> SEM PARAR.
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-lg text-bee-muted mb-8 max-w-lg">
-              A plataforma de links feita para criadores que levam a sério sua presença online.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-wrap items-center gap-4">
-              <Link
-                href="/cadastro"
-                className="px-8 py-4 bg-bee-pink rounded-full font-bold text-lg hover:opacity-90 transition-all glow-pink inline-flex items-center gap-2"
+    <div className="relative min-h-screen bg-bee-bg text-white font-sans overflow-x-hidden">
+      {/* ── Navegação ─────────────────────────────────────────────────── */}
+      <header className="relative z-20">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 h-[88px] flex items-center justify-between">
+          <Link href="/" className="font-semibold text-xl tracking-tight text-white/90">
+            BeeSocial
+          </Link>
+          <nav className="hidden md:flex items-center gap-6 absolute left-1/2 -translate-x-1/2">
+            {NAV.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="text-[15px] text-white/70 hover:text-white transition-colors"
               >
-                Junte-se a nós
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-              <Link
-                href="/bella"
-                className="text-bee-muted hover:text-bee-pink transition-colors inline-flex items-center gap-2"
-              >
-                Ver exemplo
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FEATURES - 3 CARDS */}
-      <section id="recursos" className="relative py-24 bg-bee-bg">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {/* Card 1 */}
-            <div className="group p-8 bg-bee-surface border border-bee-border rounded-2xl hover:border-bee-pink/60 transition-all hover:glow-pink-sm">
-              <div className="relative w-14 h-14 mb-6 flex items-center justify-center mx-auto">
-                <svg viewBox="0 0 100 100" className="w-full h-full" aria-hidden>
-                  <polygon
-                    points="50,5 85,27.5 85,72.5 50,95 15,72.5 15,27.5"
-                    stroke="#FF3C6E"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-bee-pink" />
-                </span>
-              </div>
-              <h3 className="font-barlow font-bold text-2xl mb-3">
-                Cloaking para Instagram
-              </h3>
-              <p className="text-bee-muted leading-relaxed">
-                Seus seguidores saem automaticamente do app. Zero cliques perdidos.
-              </p>
-            </div>
-
-            {/* Card 2 */}
-            <div className="group p-8 bg-bee-surface border border-bee-border rounded-2xl hover:border-bee-pink/60 transition-all hover:glow-pink-sm">
-              <div className="relative w-14 h-14 mb-6 flex items-center justify-center mx-auto">
-                <svg viewBox="0 0 100 100" className="w-full h-full" aria-hidden>
-                  <polygon
-                    points="50,5 85,27.5 85,72.5 50,95 15,72.5 15,27.5"
-                    stroke="#FF3C6E"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <LinkIcon className="w-6 h-6 text-bee-pink" />
-                </span>
-              </div>
-              <h3 className="font-barlow font-bold text-2xl mb-3">
-                Links 100% seguros
-              </h3>
-              <p className="text-bee-muted leading-relaxed">
-                Sua URL real nunca aparece. Só você sabe o destino de cada link.
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="group p-8 bg-bee-surface border border-bee-border rounded-2xl hover:border-bee-pink/60 transition-all hover:glow-pink-sm">
-              <div className="relative w-14 h-14 mb-6 flex items-center justify-center mx-auto">
-                <svg viewBox="0 0 100 100" className="w-full h-full" aria-hidden>
-                  <polygon
-                    points="50,5 85,27.5 85,72.5 50,95 15,72.5 15,27.5"
-                    stroke="#FF3C6E"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                </svg>
-                <span className="absolute inset-0 flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-bee-pink" />
-                </span>
-              </div>
-              <h3 className="font-barlow font-bold text-2xl mb-3">
-                Analytics em tempo real
-              </h3>
-              <p className="text-bee-muted leading-relaxed">
-                Veja cliques, origem, conversão e quanto veio do Instagram.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" className="relative py-24 bg-[#111111]">
-        <div className="container mx-auto px-6">
-          <h2 className="font-bebas text-5xl md:text-6xl text-center uppercase mb-16">
-            Como funciona
-          </h2>
-
-          <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="relative text-center">
-              <div className="font-bebas text-7xl text-bee-pink mb-4">01</div>
-              <h3 className="font-bold text-xl mb-3">CRIE SUA CONTA</h3>
-              <p className="text-bee-muted">
-                Cadastre em 30 segundos. Sem cartão.
-              </p>
-              <div className="hidden md:block absolute top-12 -right-8 w-16 h-0.5 bg-gradient-to-r from-bee-pink to-transparent" />
-            </div>
-
-            {/* Step 2 */}
-            <div className="relative text-center">
-              <div className="font-bebas text-7xl text-bee-pink mb-4">02</div>
-              <h3 className="font-bold text-xl mb-3">ADICIONE SEUS LINKS</h3>
-              <p className="text-bee-muted">
-                OnlyFans, Telegram, WhatsApp e mais
-              </p>
-              <div className="hidden md:block absolute top-12 -right-8 w-16 h-0.5 bg-gradient-to-r from-bee-pink to-transparent" />
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative text-center">
-              <div className="font-bebas text-7xl text-bee-pink mb-4">03</div>
-              <h3 className="font-bold text-xl mb-3">COMPARTILHE UM LINK</h3>
-              <p className="text-bee-muted">
-                beesocial.app/seunome direto no Instagram
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* PLATAFORMAS */}
-      <section id="plataformas" className="relative py-24 bg-bee-bg overflow-hidden">
-        <div className="container mx-auto px-6 mb-12">
-          <h2 className="font-bebas text-5xl md:text-6xl text-center uppercase">
-            Conecte tudo
-          </h2>
-        </div>
-
-        {/* Marquee */}
-        <div className="relative overflow-hidden">
-          <div className="flex gap-3 animate-[marquee_30s_linear_infinite]">
-            {[...PLATFORMS, ...PLATFORMS].map((platform, i) => (
-              <div
-                key={i}
-                className="flex-shrink-0 px-6 py-3 bg-bee-surface border border-bee-border rounded-full flex items-center gap-3"
-              >
-                <span className="text-2xl">{platform.icon}</span>
-                <span className="font-semibold whitespace-nowrap">{platform.label}</span>
-              </div>
+                {item.label}
+              </a>
             ))}
-          </div>
+          </nav>
+          <Link
+            href="/login"
+            className="px-6 py-2.5 rounded-md border border-bee-pink/40 text-[15px] text-white hover:bg-bee-pink/10 transition-colors"
+          >
+            Entrar
+          </Link>
         </div>
-      </section>
+      </header>
 
-      {/* PROVA SOCIAL */}
-      <section className="relative py-24 bg-bee-bg">
-        <div className="container mx-auto px-6">
-          <h2 className="font-bebas text-5xl md:text-6xl text-center uppercase mb-16">
-            Já usado por +5.000 criadores
-          </h2>
+      {/* ── Hero ──────────────────────────────────────────────────────── */}
+      <section className="relative">
+        <CeuEstrelado />
 
-          <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {/* Depoimento 1 */}
-            <div className="p-6 bg-bee-surface border border-bee-border rounded-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center font-bold">
-                  MC
-                </div>
-                <div>
-                  <div className="font-semibold">Maria Clara</div>
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-bee-pink text-bee-pink" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-bee-muted leading-relaxed">
-                "Finalmente consigo gerenciar todos os meus links em um lugar só. Meus ganhos aumentaram 40% no primeiro mês!"
-              </p>
-            </div>
+        <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 pt-6 pb-24 text-center">
+          <LogoAnimada className="mb-6 sm:mb-8" />
 
-            {/* Depoimento 2 */}
-            <div className="p-6 bg-bee-surface border border-bee-border rounded-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center font-bold">
-                  JR
-                </div>
-                <div>
-                  <div className="font-semibold">Julia Rocha</div>
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-bee-pink text-bee-pink" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-bee-muted leading-relaxed">
-                "O cloaking é game changer! Meus seguidores do Instagram agora conseguem acessar todos os meus links sem problema."
-              </p>
-            </div>
+          <h1 className="relative font-semibold text-[48px] leading-[1.02] sm:text-[88px] md:text-[104px] tracking-[-0.02em]">
+            Seu link,
+            <br />
+            sempre no ar
+          </h1>
 
-            {/* Depoimento 3 */}
-            <div className="p-6 bg-bee-surface border border-bee-border rounded-2xl">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center font-bold">
-                  AS
-                </div>
-                <div>
-                  <div className="font-semibold">Amanda Silva</div>
-                  <div className="flex gap-0.5">
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} className="w-4 h-4 fill-bee-pink text-bee-pink" />
-                    ))}
-                  </div>
-                </div>
-              </div>
-              <p className="text-bee-muted leading-relaxed">
-                "Analytics em tempo real me ajudaram a entender qual conteúdo converte mais. Essencial para quem leva isso a sério!"
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA FINAL */}
-      <section className="relative py-32 bg-bee-surface overflow-hidden">
-        <HexBackground density="low" />
-        
-        <div className="container mx-auto px-6 text-center relative z-10">
-          <h2 className="font-bebas text-6xl md:text-7xl uppercase mb-8">
-            Pronta para começar?
-          </h2>
-          <p className="text-xl text-bee-muted mb-8 max-w-2xl mx-auto">
-            Junte-se a milhares de criadores que já transformaram seus links em resultados.
+          <p className="mt-6 text-lg sm:text-xl text-white/80">
+            O link na bio feito para criadoras de conteúdo
           </p>
+
+          <ul className="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-3">
+            {DESTAQUES.map((d) => (
+              <li
+                key={d}
+                className="flex items-center gap-2 text-[13px] sm:text-sm uppercase tracking-[0.14em] text-white/65"
+              >
+                <span className="w-1 h-1 rounded-full bg-bee-pink" />
+                {d}
+              </li>
+            ))}
+          </ul>
+
           <Link
             href="/cadastro"
-            className="inline-flex items-center gap-3 px-10 py-5 bg-bee-pink rounded-full font-bold text-xl hover:opacity-90 transition-all glow-pink"
+            className="inline-block mt-10 px-8 py-3.5 rounded-md bg-bee-pink text-white text-[15px] font-semibold hover:bg-bee-pink-hot transition-colors glow-pink-sm"
           >
-            Criar conta grátis
-            <ArrowRight className="w-6 h-6" />
+            Começar grátis
           </Link>
-          <p className="text-sm text-bee-muted mt-4">
-            Sem cartão de crédito · Comece em 30 segundos
-          </p>
+
+          <p className="mt-10 text-sm text-white/50">Sem cartão de crédito. Pronto em dois minutos.</p>
+
+          {/* Busca de endereço */}
+          <div className="mt-8 mx-auto max-w-2xl rounded-2xl border border-bee-border bg-bee-surface/60 backdrop-blur-sm px-5 sm:px-6 pt-8 pb-5">
+            <h2 className="font-semibold text-3xl sm:text-[34px] leading-tight tracking-[-0.01em]">
+              Sua página. Seu nome. Seu link.
+            </h2>
+            <p className="mt-2 mb-6 text-sm text-white/60">
+              Veja na hora se o endereço que você quer está livre.
+            </p>
+            <BuscaDeEndereco />
+          </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="bg-bee-bg border-t border-bee-border py-12">
-        <div className="container mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            <div className="flex flex-col items-center md:items-start gap-2">
-              <Logo size="sm" variant="full" />
-              <p className="text-sm text-bee-muted">Seus links. Seu controle.</p>
-            </div>
+      {/* ── Proteção ──────────────────────────────────────────────────── */}
+      <section id="protecao" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
+        <Cabecalho
+          rotulo="Proteção"
+          titulo="Feito para o link não morrer"
+          texto="Três camadas trabalhando juntas para a sua fã chegar onde você quer."
+        />
+        <div className="mt-14 grid gap-4 md:grid-cols-3">
+          {PROTECAO.map((p) => (
+            <Cartao key={p.titulo} titulo={p.titulo} texto={p.texto} />
+          ))}
+        </div>
+      </section>
 
-            <div className="flex gap-6 text-sm text-bee-muted">
-              <Link href="/termos" className="hover:text-bee-pink transition-colors">
-                Termos
-              </Link>
-              <span>·</span>
-              <Link href="/privacidade" className="hover:text-bee-pink transition-colors">
-                Privacidade
-              </Link>
-              <span>·</span>
-              <Link href="/contato" className="hover:text-bee-pink transition-colors">
-                Contato
+      {/* ── Recursos ──────────────────────────────────────────────────── */}
+      <section id="recursos" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
+        <Cabecalho
+          rotulo="Recursos"
+          titulo="Tudo o que a sua bio precisa"
+          texto="Monte em minutos, ajuste quando quiser."
+        />
+        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {RECURSOS.map((r) => (
+            <Cartao key={r.titulo} titulo={r.titulo} texto={r.texto} />
+          ))}
+        </div>
+      </section>
+
+      {/* ── Planos ────────────────────────────────────────────────────── */}
+      <section id="planos" className="relative mx-auto max-w-4xl px-4 sm:px-6 py-24 scroll-mt-8">
+        <Cabecalho rotulo="Planos" titulo="Comece grátis" texto="Passe para o Pro quando precisar de mais." />
+        <div className="mt-14 grid gap-4 md:grid-cols-2">
+          {PLANOS.map((plano) => (
+            <div
+              key={plano.nome}
+              className={
+                plano.destaque
+                  ? "rounded-2xl border border-bee-pink/40 bg-bee-pink/[0.04] p-8 glow-pink-sm"
+                  : "rounded-2xl border border-bee-border bg-bee-surface/60 p-8"
+              }
+            >
+              <h3 className="font-semibold text-3xl">{plano.nome}</h3>
+              <p className="mt-1 text-sm text-white/55">{plano.resumo}</p>
+              <ul className="mt-6 space-y-3">
+                {plano.itens.map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-[15px] text-white/80">
+                    <Check className="w-4 h-4 mt-0.5 text-bee-pink flex-shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/cadastro"
+                className={
+                  plano.destaque
+                    ? "mt-8 block text-center px-6 py-3 rounded-md bg-bee-pink text-white text-[15px] font-semibold hover:bg-bee-pink-hot transition-colors glow-pink-sm"
+                    : "mt-8 block text-center px-6 py-3 rounded-md border border-bee-pink/40 text-[15px] hover:bg-bee-pink/10 transition-colors"
+                }
+              >
+                {plano.destaque ? "Começar e pedir o Pro" : "Começar grátis"}
               </Link>
             </div>
-          </div>
+          ))}
+        </div>
+      </section>
 
-          <div className="mt-8 pt-8 border-t border-bee-pink/20 text-center text-sm text-bee-muted">
-            © 2024 BeeSocial. Todos os direitos reservados.
-          </div>
+      {/* ── Rodapé ────────────────────────────────────────────────────── */}
+      <footer className="border-t border-bee-border">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-white/45">
+          <span className="font-semibold text-base text-white/70">BeeSocial</span>
+          <span>© {new Date().getFullYear()} BeeSocial</span>
         </div>
       </footer>
+
+      {/* Atalho fixo para quem chegou aqui porque o link parou de abrir. */}
+      <a
+        href="#protecao"
+        className="fixed bottom-5 right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 rounded-full border border-bee-pink/30 bg-bee-bg/80 backdrop-blur text-sm text-white/90 hover:border-bee-pink/60 transition-colors"
+      >
+        <Flag className="w-4 h-4 text-bee-pink" />
+        Link bloqueado?
+      </a>
+    </div>
+  );
+}
+
+function Cabecalho({ rotulo, titulo, texto }: { rotulo: string; titulo: string; texto: string }) {
+  return (
+    <div className="text-center">
+      <p className="flex items-center justify-center gap-2 text-[13px] uppercase tracking-[0.14em] text-white/55">
+        <span className="w-1 h-1 rounded-full bg-bee-pink" />
+        {rotulo}
+      </p>
+      <h2 className="mt-4 font-semibold text-4xl sm:text-5xl tracking-[-0.01em]">{titulo}</h2>
+      <p className="mt-4 text-white/60">{texto}</p>
+    </div>
+  );
+}
+
+function Cartao({ titulo, texto }: { titulo: string; texto: string }) {
+  return (
+    <div className="rounded-2xl border border-bee-border bg-bee-surface/60 p-6 text-left">
+      <h3 className="font-semibold text-xl">{titulo}</h3>
+      <p className="mt-2 text-[15px] leading-relaxed text-white/60">{texto}</p>
     </div>
   );
 }

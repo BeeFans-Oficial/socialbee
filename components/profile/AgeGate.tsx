@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { HexBackground } from "@/components/shared/HexBackground";
+import { Lock } from "lucide-react";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { Button } from "@/components/ui/button";
 
 interface AgeGateProps {
@@ -77,7 +78,7 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
       >
         {/* Background hexágonos */}
         <div className="absolute inset-0">
-          <HexBackground density="low" />
+          <CeuEstrelado brilho={false} />
         </div>
 
         {/* Card */}
@@ -90,8 +91,8 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
           <div
             className="bg-bee-surface rounded-[20px] p-8 shadow-2xl"
             style={{
-              border: "1px solid rgba(255, 60, 110, 0.3)",
-              boxShadow: "0 0 60px rgba(255, 60, 110, 0.1)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              boxShadow: "0 20px 60px rgba(0, 0, 0, 0.4)",
             }}
           >
             {/* Ícone 18+ */}
@@ -105,18 +106,19 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
                   viewBox="0 0 100 100"
                   className="absolute w-full h-full"
                   style={{
-                    filter: "drop-shadow(0 0 12px rgba(255, 60, 110, 0.4))",
+                    filter: "none",
                   }}
                 >
                   <polygon
                     points="50,5 85,27.5 85,72.5 50,95 15,72.5 15,27.5"
-                    stroke="#FF3C6E"
+                    stroke="rgba(255,255,255,0.25)"
                     strokeWidth="2"
-                    fill="rgba(255, 60, 110, 0.1)"
+                    fill="rgba(255,255,255,0.04)"
                   />
                 </svg>
-                {/* Emoji/Badge */}
-                <span className="relative text-4xl">🔞</span>
+                {/* Texto, não emoji: o 🔞 de cada sistema era um desenho diferente,
+                    colorido, e destoava da página. */}
+                <span className="relative text-xl font-semibold text-white">18+</span>
               </div>
             </div>
 
@@ -127,14 +129,14 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
 
             {/* Subtítulo */}
             <p className="text-sm text-bee-muted text-center mb-6 leading-relaxed">
-              A página de <span className="text-bee-pink font-semibold">{displayName}</span> é
+              A página de <span className="text-white font-semibold">{displayName}</span> é
               destinada exclusivamente a adultos.
             </p>
 
             {/* Divisor */}
             <div
               className="h-px mb-6"
-              style={{ backgroundColor: "rgba(255, 60, 110, 0.2)" }}
+              style={{ backgroundColor: "rgba(255, 255, 255, 0.1)" }}
             />
 
             {/* Texto de confirmação */}
@@ -148,7 +150,7 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
               {/* Botão Primário */}
               <button
                 onClick={handleConfirm}
-                className="w-full px-6 py-3.5 bg-bee-pink text-white font-bold rounded-full transition-all hover:opacity-90 glow-pink uppercase tracking-wide"
+                className="w-full px-6 py-3.5 bg-white text-[#111] font-semibold rounded-2xl transition-all hover:opacity-90"
               >
                 TENHO 18+ ANOS — ENTRAR
               </button>
@@ -164,7 +166,8 @@ export function AgeGate({ slug, displayName, onVerified }: AgeGateProps) {
 
             {/* Nota rodapé */}
             <p className="text-[11px] text-bee-dim text-center mt-6">
-              🔒 Nenhum dado pessoal é coletado
+              <Lock className="inline w-3 h-3 mr-1 -mt-0.5" />
+              Nenhum dado pessoal é coletado
             </p>
           </div>
         </motion.div>

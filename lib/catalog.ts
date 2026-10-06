@@ -124,47 +124,62 @@ export const PLATFORMS: Platform[] = [
   { id: "custom", label: "Personalizado", color: "#FF3C6E", icon: "⭐" },
 ];
 
+/**
+ * Temas da página pública.
+ *
+ * Os ids ficam gravados em `profiles.theme_id`, então NÃO mudam — "neon-pink"
+ * continua sendo o id do tema rosa. O que mudou foram as cores e os nomes: os
+ * destaques saturados (rosa #FF3C6E puro, roxo e verde fluorescentes) davam à
+ * página cara de neon. Agora são tons mais baixos, que convivem com foto.
+ */
 export const THEMES: Theme[] = [
   {
+    id: "noite",
+    label: "Noite",
+    bg: "#060913",
+    accent: "#c9cede",
+    preview: ["#060913", "#c9cede", "#7f8aa8"],
+  },
+  {
     id: "neon-pink",
-    label: "Neon Pink",
+    label: "Rosa",
     bg: "#0d0d0d",
-    accent: "#FF3C6E",
-    preview: ["#0d0d0d", "#FF3C6E", "#FF1F57"],
+    accent: "#e5708f",
+    preview: ["#0d0d0d", "#e5708f", "#c45a77"],
   },
   {
     id: "dark-rose",
-    label: "Dark Rose",
-    bg: "#0a0a0f",
-    accent: "#e8607a",
-    preview: ["#0a0a0f", "#e8607a", "#ff9f43"],
+    label: "Rosé",
+    bg: "#0c0a0d",
+    accent: "#d99aa5",
+    preview: ["#0c0a0d", "#d99aa5", "#b8838c"],
   },
   {
     id: "neon-purple",
-    label: "Neon Purple",
-    bg: "#08080f",
-    accent: "#9b6dff",
-    preview: ["#08080f", "#9b6dff", "#FF3C6E"],
+    label: "Lavanda",
+    bg: "#0a0a12",
+    accent: "#a99be8",
+    preview: ["#0a0a12", "#a99be8", "#8a7fc4"],
   },
   {
     id: "dark-teal",
-    label: "Dark Teal",
-    bg: "#050f0f",
-    accent: "#00d4aa",
-    preview: ["#050f0f", "#00d4aa", "#FF3C6E"],
+    label: "Sálvia",
+    bg: "#070d0c",
+    accent: "#7fbfaf",
+    preview: ["#070d0c", "#7fbfaf", "#5f9a8c"],
   },
   {
     id: "crimson",
-    label: "Crimson",
-    bg: "#0f0508",
-    accent: "#ff2d55",
-    preview: ["#0f0508", "#ff2d55", "#ff9f43"],
+    label: "Vinho",
+    bg: "#0f0709",
+    accent: "#c9606f",
+    preview: ["#0f0709", "#c9606f", "#a34c59"],
   },
   {
     id: "onyx",
-    label: "Onyx",
+    label: "Ônix",
     bg: "#080808",
-    accent: "#ffffff",
-    preview: ["#080808", "#ffffff", "#888888"],
+    accent: "#f2f2f2",
+    preview: ["#080808", "#f2f2f2", "#888888"],
   },
 ];

@@ -38,6 +38,11 @@ export interface Env {
 
   publicSiteUrl: string;
   trackingEventTtlDays: number;
+
+  /** IP público da VPS — o valor do registro `A` que a criadora cria para
+   *  conectar o domínio próprio. Opcional: sem ele, o painel não mostra a
+   *  instrução nem confere o DNS, e diz para falar com a equipe. */
+  serverPublicIp: string | null;
 }
 
 class MissingEnvError extends Error {
@@ -161,6 +166,8 @@ export function loadEnv(): Env {
 
     publicSiteUrl: (optional("PUBLIC_SITE_URL") ?? "http://localhost:3000").replace(/\/+$/, ""),
     trackingEventTtlDays: int("TRACKING_EVENT_TTL_DAYS", 90),
+
+    serverPublicIp: optional("SERVER_PUBLIC_IP") ?? null,
   });
 
   return cached;

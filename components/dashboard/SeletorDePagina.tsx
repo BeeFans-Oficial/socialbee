@@ -5,8 +5,9 @@ import { Check, ChevronsUpDown, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { api, ApiError, definirPaginaAtiva, paginaAtiva } from "@/lib/api/client";
-import { invalidateSession } from "@/lib/api/use-session";
-import { TEMPLATES } from "@/lib/templates";
+import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
+import { invalidateSession, usePlano } from "@/lib/api/use-session";
+import { TEMPLATES, TEMPLATE_DO_FREE } from "@/lib/templates";
 import { slugify } from "@/lib/utils";
 import type { ApiProfile } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
@@ -43,9 +44,12 @@ export function SeletorDePagina({ slugAtual, hostAtual }: SeletorDePaginaProps) 
   const [criando, setCriando] = useState(false);
   const [nome, setNome] = useState("");
   const [slug, setSlug] = useState("");
-  const [templateId, setTemplateId] = useState(TEMPLATES[0].id);
+  const [templateId, setTemplateId] = useState(TEMPLATE_DO_FREE);
   const [salvando, setSalvando] = useState(false);
   const caixaRef = useRef<HTMLDivElement>(null);
+  const { plano, ehPro } = usePlano();
+  const limiteDePaginas = plano?.limits.paginas ?? null;
+  const noLimite = limiteDePaginas !== null && paginas.length >= limiteDePaginas;
 
   // Carrega a lista só quando abre: a Sidebar existe em toda tela do painel, e
   // buscar as páginas em todas elas seria uma requisição por navegação.
@@ -173,11 +177,15 @@ export function SeletorDePagina({ slugAtual, hostAtual }: SeletorDePaginaProps) 
                 onChange={(e) => setTemplateId(e.target.value)}
                 className="w-full px-2.5 py-2 rounded-lg bg-white/[0.04] border border-white/10 text-sm text-white focus:outline-none focus:border-bee-pink/40"
               >
-                {TEMPLATES.map((t) => (
-                  <option key={t.id} value={t.id} className="bg-bee-surface">
-                    Modelo: {t.label}
-                  </option>
-                ))}
+                {TEMPLATES.map((t) => {
+                  const travado = !ehPro && t.id !== TEMPLATE_DO_FREE;
+                  return (
+                    <option key={t.id} value={t.id} disabled={travado} className="bg-bee-surface">
+                      Modelo: {t.label}
+                      {travado ? " (Pro)" : ""}
+                    </option>
+                  );
+                })}
               </select>
 
               <button
@@ -221,11 +229,12 @@ export function SeletorDePagina({ slugAtual, hostAtual }: SeletorDePaginaProps) 
               </div>
 
               <button
-                onClick={() => setCriando(true)}
+                onClick={() => (noLimite ? avisarPro("Mais de uma página") : setCriando(true))}
                 className="flex items-center gap-2 w-full px-3 py-2.5 border-t border-white/[0.06] text-xs text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Nova página
+                {noLimite && <SeloPro className="ml-auto" />}
               </button>
             </>
           )}

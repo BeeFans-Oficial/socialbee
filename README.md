@@ -154,6 +154,66 @@ terceiro e ninguém nos avisa quando a venda acontece lá.
 O diretório `.data/tracking/` do protótipo ficou obsoleto e **não** é migrado:
 os eventos gravados nele não vão para o banco.
 
+## Planos Free e Pro
+
+As regras ficam em `api/src/plans/plans.ts`. Uma conta é Pro enquanto
+`users.pro_until` estiver no futuro. Vencida a data, ela volta a ser Free sozinha.
+
+| | Free | Pro |
+|---|---|---|
+| Páginas por conta | 1 | sem limite |
+| Links por página | 5 | sem limite |
+| Modelo, cores e fonte | só o Clássico e os temas prontos | todos |
+| Cloaking e página segura | não | sim |
+| Escolher o domínio | não (fica com o sorteado) | sim |
+| Relatório de visitas e cliques | não | sim (7, 30 ou 90 dias) |
+
+O "sair do app" (página de chegada) e o sorteio de domínio no cadastro valem
+para todos, de propósito.
+
+Quando a conta volta ao Free, **nada é apagado**. O que era Pro fica gravado e
+deixa de valer na página pública. Links e páginas acima do limite continuam no
+ar, e só não é possível criar novos.
+
+Para liberar ou tirar o Pro manualmente (cada mudança fica registrada em
+`plan_grants`):
+
+```bash
+npm --prefix api run plano:liberar -- --email ana@x.com --dias 30 --motivo "parceria"
+npm --prefix api run plano:liberar -- --email ana@x.com --ate 2026-12-31 --motivo "cortesia"
+npm --prefix api run plano:liberar -- --email ana@x.com --rebaixar --motivo "fim da parceria"
+# produção, dentro do container da API:
+node dist/database/seeds/liberar-pro.js --email ana@x.com --dias 30 --motivo "parceria"
+```
+
+O `--rebaixar` volta a conta ao Free na hora. As concessões ativas não são
+apagadas: elas terminam naquele momento e recebem o motivo anotado.
+
+A assinatura paga (Pix) ainda não existe.
+
+## Domínio próprio
+
+Recurso do Pro, com 3 vagas por conta (`dominiosProprios` em
+`api/src/plans/plans.ts`). Fica na tabela `domains`, ao lado do pool, com dona
+(`owner_user_id`) e status (`pending` ou `active`).
+
+1. A criadora cadastra o domínio em `/dominios`, e ele fica `pending`.
+2. Ela cria um registro A apontando para a VPS e confere o DNS pelo painel.
+   O IP vem de `SERVER_PUBLIC_IP` na API; sem essa variável, o painel pede
+   para ela falar com a equipe.
+3. A equipe configura o domínio no nginx e emite o certificado, como num
+   domínio do pool (`deploy/nginx/dominios/`). Depois ativa:
+
+```bash
+npm --prefix api run dominio:ativar -- --listar
+npm --prefix api run dominio:ativar -- --host links.marca.com
+# produção, dentro do container da API:
+node dist/database/seeds/ativar-dominio.js --host links.marca.com
+```
+
+Depois de ativo, o domínio aparece no seletor "Domínio" das páginas da dona, e
+só dela. Domínio próprio nunca entra no sorteio do cadastro.
+
 ## O que ainda não existe
 
 - **Recuperação de senha.** A tela "Esqueci minha senha" não aponta para nada.

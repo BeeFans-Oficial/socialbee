@@ -302,7 +302,7 @@ export default function AparenciaPage() {
 
         {/* ── TAB HEADER ─────────────────────────────────────────────────── */}
         <div className="mb-8">
-          <h1 className="font-bebas text-3xl uppercase text-white mb-1">APARÊNCIA PERSONALIZADA</h1>
+          <h1 className="text-3xl text-white mb-1 font-semibold">APARÊNCIA PERSONALIZADA</h1>
           <p className="text-sm text-bee-muted mb-6">Personalize o visual do seu perfil e de cada link</p>
 
           {/* Tab Pills */}
@@ -389,7 +389,7 @@ export default function AparenciaPage() {
           <div className="space-y-8">
             {/* SEÇÃO 1: SEU PERFIL */}
             <section>
-              <h2 className="font-bebas text-2xl uppercase text-white mb-6">
+              <h2 className="text-2xl text-white mb-6 font-semibold">
                 SEU PERFIL
               </h2>
 
@@ -568,7 +568,7 @@ export default function AparenciaPage() {
 
             {/* SEÇÃO 2: TEMA DA PÁGINA */}
             <section>
-              <h2 className="font-bebas text-2xl uppercase text-white mb-6">
+              <h2 className="text-2xl text-white mb-6 font-semibold">
                 TEMA DA PÁGINA
               </h2>
 
@@ -618,7 +618,7 @@ export default function AparenciaPage() {
 
             {/* SEÇÃO 3: ESTILO DOS BOTÕES */}
             <section>
-              <h2 className="font-bebas text-2xl uppercase text-white mb-6">
+              <h2 className="text-2xl text-white mb-6 font-semibold">
                 ESTILO DOS BOTÕES
               </h2>
 
@@ -679,7 +679,7 @@ export default function AparenciaPage() {
               <Button
                 onClick={handleSave}
                 disabled={salvando || carregando}
-                className="w-full bg-bee-pink hover:bg-bee-pink-hot text-white rounded-full font-barlow font-bold uppercase tracking-wide glow-pink-sm"
+                className="w-full bg-bee-pink hover:bg-bee-pink-hot text-white rounded-full font-bold glow-pink-sm"
               >
                 SALVAR ALTERAÇÕES
               </Button>
@@ -716,7 +716,7 @@ export default function AparenciaPage() {
         <div className={cn("transition-opacity duration-200", pageTab !== "links" && "hidden")}>
         <section>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="font-bebas text-2xl uppercase text-white">
+                <h2 className="text-2xl text-white font-semibold">
                   APARÊNCIA DOS LINKS
                 </h2>
                 <span className="text-[11px] text-white/30 uppercase tracking-widest">

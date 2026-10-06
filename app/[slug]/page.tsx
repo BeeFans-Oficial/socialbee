@@ -4,11 +4,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { cache } from "react";
 
-import { HexBackground } from "@/components/shared/HexBackground";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { Logo } from "@/components/shared/Logo";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { resolverVisual } from "@/lib/templates";
-import { getPlatformIcon } from "@/lib/utils";
 import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/server";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { urlDaPagina } from "@/lib/site";
@@ -211,18 +210,23 @@ export default async function ProfilePage({
   const user = paraUser(view);
 
   /**
-   * Prévia de robô, para a criadora ver na tela do painel como o crawler vê o
-   * perfil dela (`/previa`).
+   * Prévia da página de chegada, no editor de página (`/paginas/[id]`).
    *
-   * `?preview=bot` força o ramo do robô — mas **só com sessão**. A trava não é
-   * decorativa: sem ela, qualquer um forçaria o ramo pela URL, e um bot esperto
-   * usaria `?preview=human` (que não existe, justamente por isso) para pedir a
-   * versão com links. Aqui só o `bot` é forçável, e só para quem está logado —
-   * a presença do cookie basta, porque forçar o ramo do robô só entrega MENOS
-   * conteúdo, nunca mais.
+   * `?preview=iab` força a chegada — mas **só com sessão**. Sem a trava,
+   * qualquer um forçaria ramos pela URL. Não existe parâmetro que force a
+   * versão COM links (`?preview=human`), justamente para um robô não conseguir
+   * pedi-la; forçar a chegada só entrega MENOS conteúdo, nunca mais.
    */
-  const forcarRoboNaPrevia = preview === "bot" && temSessao;
   const forcarChegadaNaPrevia = preview === "iab" && temSessao;
+
+  /**
+   * Prévia da página no editor (`?preview=pagina`, só com sessão): a dona vê a
+   * página como a fã vê DEPOIS da confirmação de 18+ — a barreira cobriria a
+   * foto e os controles do editor. Os links entram no HTML (é a dona quem
+   * olha), clicar neles não leva a lugar nenhum e a visita não conta no
+   * relatório.
+   */
+  const previaDaPagina = preview === "pagina" && temSessao;
 
   /**
    * A bifurcação, agora com três saídas. A ordem é o que a torna correta.
@@ -243,7 +247,7 @@ export default async function ProfilePage({
    */
   const escapou = fora === "1";
   const chegouDeApp = view.requester?.isInAppBrowser ?? false;
-  const ehRobo = forcarRoboNaPrevia || (view.requester?.isBot ?? false);
+  const ehRobo = view.requester?.isBot ?? false;
 
   const iab = view.profile.iab;
   const mostrarChegada =
@@ -258,7 +262,10 @@ export default async function ProfilePage({
         imageUrl={iab?.imageUrl ?? null}
         headline={iab?.headline ?? null}
         buttonLabel={iab?.buttonLabel ?? null}
-        platform={view.requester?.platform ?? "other"}
+        // A prévia do painel é sempre a de iPhone: é onde a página de chegada
+        // mais trabalha (lá não há escape automático, só a instrução do menu),
+        // e quem edita está num computador, que não é nem um nem outro.
+        platform={forcarChegadaNaPrevia ? "ios" : view.requester?.platform ?? "other"}
         // Na prévia do painel a página é desenhada, nunca executada: sem isto,
         // abrir a prévia tentaria escapar e levaria a criadora para fora do
         // painel dela.
@@ -324,6 +331,7 @@ export default async function ProfilePage({
           {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
               bytes de uma coluna do banco. */}
           <img
+            data-capa
             src={visual.coverUrl!}
             alt=""
             className="w-full h-full object-cover"
@@ -338,21 +346,24 @@ export default async function ProfilePage({
 
       {/* O fundo hexagonal é decoração da marca — alguns templates dispensam,
           e sobre foto ele só suja a imagem. */}
-      {visual.hex && !capaEmTela && <HexBackground density="medium" />}
+      {visual.hex && !capaEmTela && <CeuEstrelado brilho={false} />}
 
       <div className="relative z-10 pb-20">
         <ProfileHeader
           user={user}
           visual={visual}
-          activePlatforms={user.isAdult ? [] : links.map((l) => getPlatformIcon(l.platform))}
+          // Página adulta não mostra a fileira de plataformas nem depois da
+          // confirmação; a prévia mostra o mesmo que a fã vê.
+          activePlatforms={user.isAdult ? [] : [...new Set(links.map((l) => l.platform))]}
         />
 
         <ProfileClient
           slug={slug}
           displayName={user.displayName}
-          isAdult={user.isAdult}
+          isAdult={user.isAdult && !previaDaPagina}
           visual={visual}
-          initialLinks={user.isAdult ? null : links}
+          initialLinks={user.isAdult && !previaDaPagina ? null : links}
+          previa={previaDaPagina}
         />
       </div>
     </div>
@@ -369,7 +380,7 @@ function semWww(host: string): string {
 function PerfilNaoEncontrado({ slug }: { slug: string }) {
   return (
     <div className="relative min-h-screen bg-bee-bg text-bee-text overflow-hidden flex items-center justify-center">
-      <HexBackground density="low" />
+      <CeuEstrelado brilho={false} />
       <div className="relative z-10 text-center px-6">
         <Logo size="lg" variant="full" className="mb-8 justify-center" />
         <h1 className="font-bebas text-6xl uppercase mb-4">Perfil não encontrado</h1>

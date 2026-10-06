@@ -95,6 +95,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         error: {
           code,
           message: typeof rawMessage === "string" ? rawMessage : defaultMessage(status),
+          // Contexto estruturado que o front usa para reagir — hoje, qual
+          // recurso o plano não cobre. Só passa se o serviço pôs de propósito.
+          ...(record.details !== undefined ? { details: record.details } : {}),
           requestId,
         },
       };

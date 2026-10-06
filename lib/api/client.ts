@@ -16,6 +16,9 @@
  */
 
 import type {
+  ApiCustomDomain,
+  ApiLinkReport,
+  ApiDnsCheck,
   ApiErrorBody,
   ApiLink,
   ApiDomain,
@@ -156,6 +159,21 @@ export const api = {
   /** Os domínios que uma página pode usar. Só os ativos. */
   domains: () => request<{ domains: ApiDomain[] }>("/me/domains").then((d) => d.domains),
 
+  /** Domínios próprios da conta, as vagas do plano e o IP do registro A. */
+  customDomains: () =>
+    request<{ domains: ApiCustomDomain[]; vagas: number; serverIp: string | null }>(
+      "/me/custom-domains",
+    ),
+
+  addCustomDomain: (host: string) =>
+    request<ApiCustomDomain>("/me/custom-domains", { method: "POST", body: JSON.stringify({ host }) }),
+
+  checkCustomDomainDns: (id: string) =>
+    request<ApiDnsCheck>(`/me/custom-domains/${id}/dns`, { method: "POST" }),
+
+  removeCustomDomain: (id: string) =>
+    request<void>(`/me/custom-domains/${id}`, { method: "DELETE" }),
+
   /** As páginas da conta. */
   profiles: () =>
     request<{ profiles: ApiProfile[] }>("/me/profiles").then((d) => d.profiles),
@@ -209,4 +227,8 @@ export const api = {
 
   // ---------------------------------------------------------------- analytics
   report: (days: number) => request<ReportResponse>(`/me/tracking/report?days=${days}`),
+
+  /** Métricas de um link só. Do Pro, como o relatório. */
+  linkReport: (linkId: string, days: number) =>
+    request<{ days: number; report: ApiLinkReport }>(`/me/tracking/links/${linkId}?days=${days}`),
 };

@@ -14,6 +14,8 @@ import {
   THEMES,
 } from "@/lib/catalog";
 import { PhoneMockup } from "@/components/shared/PhoneMockup";
+import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
+import { usePlano } from "@/lib/api/use-session";
 import { getPlatformColor, getPlatformIcon, validateSlug, slugify } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
@@ -507,9 +509,14 @@ function AppearanceTab({
 
 // ── CloakToggle ───────────────────────────────────────────────────────────────
 
-function CloakToggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
+function CloakToggle({ checked, bloqueado, onChange }: { checked: boolean; bloqueado: boolean; onChange: (v: boolean) => void }) {
   const [ripple, setRipple] = useState(false);
-  const handleClick = () => { setRipple(true); setTimeout(() => setRipple(false), 500); onChange(!checked); };
+  // Free só não LIGA. Um link que ficou ligado de quando a conta era Pro pode
+  // ser desligado — e a API aceita, pelo mesmo motivo.
+  const handleClick = () => {
+    if (bloqueado && !checked) { avisarPro("O cloaking"); return; }
+    setRipple(true); setTimeout(() => setRipple(false), 500); onChange(!checked);
+  };
   return (
     <motion.button type="button" onClick={handleClick} whileTap={{ scale: 0.98 }}
       className="relative w-full text-left overflow-hidden rounded-2xl focus:outline-none transition-all duration-300"
@@ -532,7 +539,7 @@ function CloakToggle({ checked, onChange }: { checked: boolean; onChange: (v: bo
           {checked ? <ShieldCheck style={{ width: 18, height: 18 }} className="text-bee-pink" /> : <ShieldOff style={{ width: 18, height: 18 }} className="text-white/30" />}
         </motion.div>
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-semibold transition-colors duration-300" style={{ color: checked ? "#fff" : "rgba(255,255,255,0.5)" }}>Forçar saída do Instagram</div>
+          <div className="text-sm font-semibold transition-colors duration-300" style={{ color: checked ? "#fff" : "rgba(255,255,255,0.5)" }}>Forçar saída do Instagram {bloqueado && <SeloPro className="ml-1 align-middle" />}</div>
           <div className="text-[11px] mt-0.5 transition-colors duration-300" style={{ color: checked ? "rgba(255,60,110,0.75)" : "rgba(255,255,255,0.25)" }}>
             {checked ? "✓ Cloaking ativo — bots verão a SafePage" : "Redireciona para o browser nativo"}
           </div>
@@ -984,6 +991,9 @@ interface LinkModalProps {
   initialTab?: ModalTab;
   /** When true, only appearance is saved — skips cloaking/safepage validation */
   appearanceOnly?: boolean;
+  /** Link que abre selecionado na lista — o que a criadora clicou. Sem ele,
+   *  abre no primeiro. */
+  focoInicial?: string | null;
   /** All current links (used for the Beacons-style list AND full-profile preview) */
   allLinks?: Link[];
   /** Current profile data (used for the full-profile preview).
@@ -1006,7 +1016,7 @@ interface LinkModalProps {
   };
 }
 
-export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, editLink, initialTab = "link", appearanceOnly = false, allLinks = [], profileData }: LinkModalProps) {
+export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, editLink, initialTab = "link", appearanceOnly = false, allLinks = [], profileData, focoInicial }: LinkModalProps) {
   const [activeTab, setActiveTab] = useState<ModalTab>(initialTab);
 
   // ── List mode (Beacons-style) ─────────────────────────────────────────────
@@ -1026,6 +1036,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [cloakEnabled, setCloakEnabled] = useState(false);
   const [safePage, setSafePage] = useState<SafePage | null>(null);
+  const { ehPro } = usePlano();
   const [isActive, setIsActive] = useState(true);
   const [appearance, setAppearance] = useState<LinkAppearance>({ ...DEFAULT_LINK_APPEARANCE });
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
@@ -1053,7 +1064,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
   useEffect(() => {
     if (open) {
       setActiveTab(initialTab);
-      setFocusedLinkId(editLink?.id || (allLinks[0]?.id ?? null));
+      setFocusedLinkId(focoInicial || editLink?.id || (allLinks[0]?.id ?? null));
       setShowPicker(false);
       setNewLinkIds(new Set());
       if (editLink) {
@@ -1078,7 +1089,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
         setAppearance({ ...DEFAULT_LINK_APPEARANCE });
       }
     }
-  }, [open, editLink, initialTab]);
+  }, [open, editLink, initialTab, focoInicial]);
 
   // Sync appearance state with focused link when in list mode
   useEffect(() => {
@@ -1293,7 +1304,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
         {/* Header */}
         <div className="px-6 pt-5 pb-0 flex-shrink-0">
           <div className="flex items-start justify-between mb-4">
-            <h2 className="font-bebas text-2xl uppercase tracking-widest text-white leading-none">
+            <h2 className="text-2xl text-white leading-none font-semibold">
               {isListMode ? "GERENCIAR LINKS" : editLink ? "EDITAR LINK" : "ADICIONAR LINK"}
             </h2>
             <button
@@ -1589,7 +1600,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                   })()}
 
                       {/* Cloaking */}
-                      <CloakToggle checked={cloakEnabled} onChange={setCloakEnabled} />
+                      <CloakToggle checked={cloakEnabled} bloqueado={!ehPro} onChange={setCloakEnabled} />
 
                       {/* SafePage */}
                       <AnimatePresence>
@@ -1704,7 +1715,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
                         <img src={profileAvatar} alt="avatar" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center" style={{ background: "rgba(255,60,110,0.08)" }}>
-                          <span className="font-bebas text-base text-bee-pink">
+                          <span className="text-base text-bee-pink font-semibold">
                             {profileDisplayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2)}
                           </span>
                         </div>
@@ -1876,7 +1887,7 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
             <div className="flex items-center gap-1.5">
               <span className="text-[15px] leading-none select-none">🐝</span>
               <span
-                className="font-bebas tracking-widest leading-none"
+                className="leading-none font-semibold"
                 style={{ fontSize: 17, color: "#FF3C6E", letterSpacing: "0.14em" }}
               >
                 BEESOCIAL

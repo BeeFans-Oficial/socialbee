@@ -13,7 +13,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
+import { usePlano } from "@/lib/api/use-session";
 import type { ReportResponse } from "@/lib/api/types";
 import { cn, formatNumber, getPlatformColor, getPlatformIcon } from "@/lib/utils";
 
@@ -64,7 +66,12 @@ function shortDate(iso: string): string {
 export default function AnalyticsPage() {
   const router = useRouter();
   const [period, setPeriod] = useState<Period>("30d");
+  const { plano } = usePlano();
   const [data, setData] = useState<ReportResponse | null>(null);
+  /** O Free não tem relatório. Vem do plano quando a sessão já carregou, ou da
+   *  recusa da API quando a página abriu antes dela. */
+  const [recusadoPeloPlano, setRecusadoPeloPlano] = useState(false);
+  const semRelatorio = recusadoPeloPlano || plano?.limits.relatorio === false;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   /** Título por id de link, para a tabela "por link" não mostrar UUID cru. */
@@ -85,6 +92,10 @@ export default function AnalyticsPage() {
           router.replace("/login?de=/analytics");
           return;
         }
+        if (caught instanceof ApiError && caught.code === "plano_pro_necessario") {
+          setRecusadoPeloPlano(true);
+          return;
+        }
         setError(caught instanceof ApiError ? caught.message : "falha desconhecida");
       } finally {
         setLoading(false);
@@ -94,8 +105,9 @@ export default function AnalyticsPage() {
   );
 
   useEffect(() => {
+    if (semRelatorio) return;
     void load(PERIOD_DAYS[period]);
-  }, [period, load]);
+  }, [period, load, semRelatorio]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
@@ -114,6 +126,23 @@ export default function AnalyticsPage() {
       </div>
     );
   };
+
+  if (semRelatorio) {
+    return (
+      <div className="min-h-screen p-8">
+        <div className="max-w-md mx-auto text-center py-20">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <h1 className="text-3xl text-white font-semibold">Analytics</h1>
+            <SeloPro />
+          </div>
+          <p className="text-sm text-bee-muted">
+            O relatório de visitas e cliques é do plano Pro. Fale com a equipe para liberar
+            na sua conta.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (loading && !data) {
     return (
@@ -135,7 +164,7 @@ export default function AnalyticsPage() {
     return (
       <div className="min-h-screen p-8">
         <div className="max-w-md mx-auto text-center py-20">
-          <h1 className="font-bebas text-3xl uppercase text-white mb-2">Analytics indisponível</h1>
+          <h1 className="text-3xl text-white mb-2 font-semibold">Analytics indisponível</h1>
           <p className="text-sm text-bee-muted mb-6">
             Não foi possível carregar o relatório{error ? `: ${error}` : "."}
           </p>
@@ -212,7 +241,7 @@ export default function AnalyticsPage() {
         {/* Gráfico */}
         <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="font-bebas text-2xl uppercase text-white">
+            <h2 className="text-2xl text-white font-semibold">
               Performance {data.days} dias
             </h2>
             <div className="flex gap-2">
@@ -265,7 +294,7 @@ export default function AnalyticsPage() {
 
         {!hasTraffic && (
           <div className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
-            <h3 className="font-bebas text-2xl uppercase text-white mb-2">Nenhum clique ainda</h3>
+            <h3 className="text-2xl text-white mb-2 font-semibold">Nenhum clique ainda</h3>
             <p className="text-sm text-bee-muted max-w-md mx-auto">
               O rastreamento está ativo. Abra{" "}
               <span className="text-bee-pink">/bella</span> e toque em um link — o clique aparece
@@ -277,7 +306,7 @@ export default function AnalyticsPage() {
         {/* Top links */}
         {report.byLink.length > 0 && (
           <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
-            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Top links</h2>
+            <h2 className="text-2xl text-white mb-6 font-semibold">Top links</h2>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -345,7 +374,7 @@ export default function AnalyticsPage() {
             de uma lista fixa de plataformas. */}
         {report.bySource.length > 0 && (
           <section>
-            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Origem dos cliques</h2>
+            <h2 className="text-2xl text-white mb-6 font-semibold">Origem dos cliques</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {report.bySource.slice(0, 10).map((source) => {
                 const color = colorForKey(source.key);
@@ -356,7 +385,7 @@ export default function AnalyticsPage() {
                     className="bg-bee-surface rounded-xl p-4 border border-white/5"
                   >
                     <div className="text-2xl mb-3">{getPlatformIcon(source.key)}</div>
-                    <div className="font-bebas text-2xl text-white mb-1">
+                    <div className="text-2xl text-white mb-1 font-semibold">
                       {formatNumber(source.clicks)}
                     </div>
                     <div className="text-xs text-bee-muted mb-3 truncate" title={source.key}>
@@ -381,7 +410,7 @@ export default function AnalyticsPage() {
         {/* Campanhas — só aparece quando existe UTM medido. */}
         {report.byCampaign.length > 0 && (
           <section>
-            <h2 className="font-bebas text-2xl uppercase text-white mb-6">Campanhas</h2>
+            <h2 className="text-2xl text-white mb-6 font-semibold">Campanhas</h2>
             <div className="bg-bee-surface rounded-xl border border-white/5 divide-y divide-white/5">
               {report.byCampaign.slice(0, 10).map((campaign) => (
                 <div key={campaign.key} className="flex items-center justify-between px-5 py-3">

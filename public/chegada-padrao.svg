@@ -3,50 +3,59 @@
   Imagem padrão da página de chegada.
 
   É o que a fã vê ao cair vinda do Instagram — e, pela mesma rota, o que o robô
-  da rede social vê. Por isso é abstrata e de marca: nenhuma pele, nenhum rosto,
-  nada que dispare revisão automática. A criadora troca pela dela quando quiser,
-  e a dela sempre ganha desta.
+  da rede social vê. Por isso é abstrata: nenhuma pele, nenhum rosto, nada que
+  dispare revisão automática. A criadora troca pela dela quando quiser, e a dela
+  sempre ganha desta.
+
+  Céu escuro com estrelas e uma luz fria e baixa. Antes era um brilho rosa com
+  favos hexagonais — o mesmo neon que saiu do resto da página.
 
   Vetor e não foto: pesa 2 KB, serve qualquer densidade de tela, e o primeiro
   documento que a fã recebe chega dentro de um aplicativo, em rede móvel.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" width="1200" height="1600" preserveAspectRatio="xMidYMid slice">
   <defs>
-    <radialGradient id="brilho" cx="50%" cy="28%" r="62%">
-      <stop offset="0%"   stop-color="#FF3C6E" stop-opacity="0.42"/>
-      <stop offset="45%"  stop-color="#FF1F57" stop-opacity="0.14"/>
-      <stop offset="100%" stop-color="#0d0d0d" stop-opacity="0"/>
-    </radialGradient>
-
     <linearGradient id="base" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%"   stop-color="#151515"/>
-      <stop offset="100%" stop-color="#0d0d0d"/>
+      <stop offset="0%"   stop-color="#141821"/>
+      <stop offset="100%" stop-color="#07090f"/>
     </linearGradient>
 
-    <!-- Favo: o mesmo motivo do fundo do produto, para a chegada não parecer
-         de outro lugar. -->
-    <pattern id="favo" width="120" height="104" patternUnits="userSpaceOnUse">
-      <path d="M60 2 L112 28 L112 76 L60 102 L8 76 L8 28 Z"
-            fill="none" stroke="#FF3C6E" stroke-opacity="0.13" stroke-width="1.5"/>
-    </pattern>
+    <radialGradient id="luz" cx="50%" cy="26%" r="60%">
+      <stop offset="0%"   stop-color="#b9c2dc" stop-opacity="0.16"/>
+      <stop offset="60%"  stop-color="#b9c2dc" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#b9c2dc" stop-opacity="0"/>
+    </radialGradient>
 
     <!-- O texto é escrito por cima da metade de baixo: escurecer aqui é o que
          mantém o nome legível sem depender do ajuste da criadora. -->
     <linearGradient id="base-escura" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="45%"  stop-color="#0d0d0d" stop-opacity="0"/>
-      <stop offset="100%" stop-color="#0d0d0d" stop-opacity="0.92"/>
+      <stop offset="45%"  stop-color="#07090f" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#07090f" stop-opacity="0.92"/>
     </linearGradient>
   </defs>
 
   <rect width="1200" height="1600" fill="url(#base)"/>
-  <rect width="1200" height="1600" fill="url(#favo)"/>
-  <rect width="1200" height="1600" fill="url(#brilho)"/>
+  <rect width="1200" height="1600" fill="url(#luz)"/>
 
-  <g opacity="0.5">
-    <path d="M600 300 L744 372 L744 516 L600 588 L456 516 L456 372 Z"
-          fill="none" stroke="#FF3C6E" stroke-opacity="0.5" stroke-width="3"/>
-    <path d="M600 372 L684 414 L684 498 L600 540 L516 498 L516 414 Z"
-          fill="none" stroke="#FF3C6E" stroke-opacity="0.28" stroke-width="2"/>
+  <g fill="#ffffff">
+    <circle cx="140" cy="180" r="2" opacity="0.55"/>
+    <circle cx="320" cy="90" r="1.6" opacity="0.4"/>
+    <circle cx="510" cy="230" r="2.2" opacity="0.6"/>
+    <circle cx="760" cy="140" r="1.6" opacity="0.45"/>
+    <circle cx="980" cy="260" r="2" opacity="0.5"/>
+    <circle cx="1090" cy="80" r="1.4" opacity="0.35"/>
+    <circle cx="230" cy="420" r="1.4" opacity="0.35"/>
+    <circle cx="660" cy="380" r="1.8" opacity="0.5"/>
+    <circle cx="900" cy="470" r="1.4" opacity="0.3"/>
+    <circle cx="80" cy="610" r="1.8" opacity="0.4"/>
+    <circle cx="420" cy="560" r="1.4" opacity="0.3"/>
+    <circle cx="1120" cy="560" r="2" opacity="0.45"/>
+    <circle cx="300" cy="760" r="1.6" opacity="0.3"/>
+    <circle cx="820" cy="700" r="1.6" opacity="0.35"/>
+    <circle cx="560" cy="860" r="1.4" opacity="0.25"/>
+    <circle cx="1010" cy="880" r="1.6" opacity="0.25"/>
+    <circle cx="160" cy="980" r="1.4" opacity="0.2"/>
+    <circle cx="700" cy="1020" r="1.4" opacity="0.2"/>
   </g>
 
   <rect width="1200" height="1600" fill="url(#base-escura)"/>

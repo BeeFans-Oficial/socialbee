@@ -8,25 +8,37 @@ import {
   Link2,
   Palette,
   BarChart2,
-  Eye,
   Settings,
   LogOut,
   Menu,
   X,
   ExternalLink,
+  LayoutGrid,
+  Globe,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { cn } from "@/lib/utils";
 import { SeletorDePagina } from "@/components/dashboard/SeletorDePagina";
+import { SeloPro } from "@/components/shared/SeloPro";
 import { api } from "@/lib/api/client";
 import { invalidateSession, useSession } from "@/lib/api/use-session";
 
-const menuItems = [
-  { icon: Link2, label: "Links", href: "/links" },
-  { icon: Palette, label: "Aparência", href: "/aparencia" },
-  { icon: Eye, label: "Prévia", href: "/previa" },
-  { icon: BarChart2, label: "Analytics", href: "/analytics" },
-  { icon: Settings, label: "Configurações", href: "/configuracoes" },
+/** Itens do menu, em seções. `pro` marca o que o Free não tem. */
+const SECOES = [
+  {
+    titulo: "LINK NA BIO",
+    itens: [
+      { icon: LayoutGrid, label: "Páginas", href: "/paginas" },
+      { icon: Link2, label: "Links", href: "/links" },
+      { icon: Palette, label: "Aparência", href: "/aparencia" },
+      { icon: BarChart2, label: "Analytics", href: "/analytics", pro: true },
+      { icon: Globe, label: "Domínio próprio", href: "/dominios", pro: true },
+    ],
+  },
+  {
+    titulo: "CONTA",
+    itens: [{ icon: Settings, label: "Configurações", href: "/configuracoes" }],
+  },
 ];
 
 function getInitials(name: string): string {
@@ -54,6 +66,7 @@ function SidebarContent({ onClose }: SidebarContentProps) {
   const slug = session?.profile.slug ?? "";
   const host = session?.profile.host ?? "";
   const avatarUrl = session?.profile.avatarUrl ?? null;
+  const plan = session?.user.plan ?? null;
 
   /**
    * Sair de verdade.
@@ -80,142 +93,82 @@ function SidebarContent({ onClose }: SidebarContentProps) {
   };
 
   return (
-    <div className="flex flex-col h-full bg-bee-bg border-r border-opacity-10 border-bee-pink">
-      {/* Topo - Logo */}
-      <div className="p-5">
-        <Logo variant="full" size="md" />
-        <div
-          className="mt-5 h-px"
-          style={{ backgroundColor: "rgba(255, 60, 110, 0.15)" }}
-        />
-      </div>
-
-      {/* Perfil */}
-      <div className="px-4 py-4">
-        {/* Avatar + Info */}
-        <div className="flex items-center gap-3 mb-4">
-          {/* Avatar */}
-          <div
-            className="w-10 h-10 rounded-full flex items-center justify-center font-bebas text-sm"
-            style={{
-              border: "2px solid #FF3C6E",
-              background: "linear-gradient(135deg, #FF3C6E, #FF1F57)",
-            }}
-          >
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="w-full h-full rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-white">{getInitials(displayName)}</span>
-            )}
-          </div>
-
-          {/* Info */}
-          <div className="flex-1 min-w-0">
-            <div className="font-barlow font-semibold text-sm text-white truncate">
-              {displayName || "..."}
-            </div>
-            {/* O endereço vira o seletor de páginas: é onde a criadora
-                descobre que tem mais de uma e troca entre elas. */}
-            <SeletorDePagina slugAtual={slug} hostAtual={host} />
-          </div>
-        </div>
-
-        {/* Botão Ver Página */}
-        <Link
-          href={slug ? `/${slug}` : "/links"}
-          target="_blank"
-          className="flex items-center justify-center gap-2 w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-          style={{
-            border: "1px solid rgba(255, 60, 110, 0.4)",
-            color: "#FF3C6E",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "rgba(255, 60, 110, 0.08)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "transparent";
-          }}
-        >
-          Ver minha página
-          <ExternalLink className="w-3 h-3" />
+    <div className="flex flex-col h-full bg-[#0a0a0a] border-r border-white/[0.06]">
+      {/* Logo, na altura da barra do topo para as duas linharem. */}
+      <div className="h-16 px-4 flex items-center border-b border-white/[0.06]">
+        <Link href="/paginas" onClick={onClose}>
+          <Logo variant="full" size="sm" />
         </Link>
       </div>
 
-      {/* Menu */}
-      <nav className="px-3 py-3 flex flex-col gap-1">
-        {menuItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onClose}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all relative",
-                isActive
-                  ? "text-bee-pink"
-                  : "text-bee-muted hover:text-white hover:bg-bee-surface"
-              )}
-              style={
-                isActive
-                  ? {
-                      backgroundColor: "rgba(255, 60, 110, 0.1)",
-                    }
-                  : undefined
-              }
+      {/* Página que as telas abaixo editam. O seletor troca entre elas. */}
+      <div className="px-3 pt-4">
+        <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+          <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden text-[11px] font-semibold text-white bg-gradient-to-br from-bee-pink to-bee-pink-hot">
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+            ) : (
+              getInitials(displayName)
+            )}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-medium text-white truncate">{displayName || "..."}</div>
+            <SeletorDePagina slugAtual={slug} hostAtual={host} />
+          </div>
+          {slug && (
+            <a
+              href={`/${slug}`}
+              target="_blank"
+              rel="noreferrer"
+              title="Ver minha página"
+              className="p-1 text-white/40 hover:text-white transition-colors"
             >
-              {/* Borda esquerda quando ativo */}
-              {isActive && (
-                <div
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-[60%] bg-bee-pink rounded-r"
-                />
-              )}
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+      </div>
 
-              <Icon
-                className="w-5 h-5"
-                style={{
-                  color: isActive ? "#FF3C6E" : undefined,
-                }}
-              />
-              <span className="font-medium text-sm">{item.label}</span>
-            </Link>
-          );
-        })}
+      <nav className="px-3 pt-5 flex flex-col gap-5">
+        {SECOES.map((secao) => (
+          <div key={secao.titulo}>
+            <div className="px-2 mb-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/35">
+              {secao.titulo}
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {secao.itens.map((item) => {
+                const Icon = item.icon;
+                const ativo = pathname === item.href;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onClose}
+                    className={cn(
+                      "flex items-center gap-2.5 px-2 py-2 rounded-lg text-sm transition-colors",
+                      ativo
+                        ? "bg-white/[0.07] text-white"
+                        : "text-white/60 hover:text-white hover:bg-white/[0.04]",
+                    )}
+                  >
+                    <Icon className={cn("w-4 h-4", ativo && "text-bee-pink")} />
+                    <span>{item.label}</span>
+                    {item.pro && plan?.id === "free" && <SeloPro className="ml-auto" />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      {/*
-        Rodapé.
-
-        Havia aqui um selo "Free / Plano: Gratuito" e um botão "UPGRADE PARA
-        PRO" — os dois chumbados no código, e o botão sem `onClick`: clicar não
-        fazia nada. Não existe plano no produto (nem coluna no banco, nem
-        conceito na API, nem cobrança), então o selo anunciava uma limitação
-        inexistente e o botão prometia um upgrade que não existe.
-
-        Enquanto todo mundo tem tudo, a tela deve dizer isso não dizendo nada. O
-        dia em que houver planos, eles voltam — lendo o plano de verdade, com o
-        botão levando a algum lugar.
-      */}
-      <div className="mt-auto px-4 py-4 space-y-4">
-        {/* Separador */}
-        <div
-          className="h-px"
-          style={{ backgroundColor: "rgba(255, 60, 110, 0.1)" }}
-        />
-
-        {/* Botão Sair */}
+      <div className="mt-auto px-3 py-3 border-t border-white/[0.06]">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-xs text-bee-muted hover:text-white transition-colors"
+          className="flex items-center gap-2.5 w-full px-2 py-2 rounded-lg text-sm text-white/50 hover:text-white hover:bg-white/[0.04] transition-colors"
         >
           <LogOut className="w-4 h-4" />
-          <span>Sair</span>
+          Sair
         </button>
       </div>
     </div>
