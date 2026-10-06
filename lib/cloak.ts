@@ -133,7 +133,11 @@ export function escapeIAB(
     return;
   }
 
-  window.location.href = urlDeSaida(destinationUrl, plataforma, device.source);
+  // `replace` para o esquema de saída: o pedido de "abrir fora" não vira
+  // entrada no histórico. Os demais `href` deste arquivo ficam como estão de
+  // propósito: partem do PERFIL da criadora (não de uma página-ponte), e com
+  // `replace` o "voltar" pularia o perfil em vez de retornar aos links dele.
+  window.location.replace(urlDeSaida(destinationUrl, plataforma, device.source));
 
   // Se o navegador abriu, o aplicativo foi para segundo plano e esta página
   // deixou de estar visível — não há o que fazer. Se continua visível, a
