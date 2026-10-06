@@ -85,6 +85,10 @@ services:
       # variável está AUSENTE, mas o compose de dev sempre define um valor — e
       # valor definido vence o guard. Aqui é explícito.
       SEED_DEMO: "false"
+      # IP público desta VPS: o valor do registro A que a criadora cria para
+      # conectar um domínio próprio, e o que o painel compara ao conferir o
+      # DNS. Opcional — sem ele o painel pede para ela falar com a equipe.
+      SERVER_PUBLIC_IP: ${SERVER_PUBLIC_IP:-}
     # Publicada SÓ no loopback do host.
     #
     # O `127.0.0.1:` no começo não é detalhe: sem ele o Docker faz bind em

@@ -64,10 +64,39 @@ apaga; `down -v` apaga.
 
 ---
 
-# Parte 1 — Colocar uma mudança no ar
+# Parte 0 — Deploy automático (o caminho normal)
 
-É o procedimento do dia a dia. O deploy hoje é manual e sai **do seu Mac**: a
-VPS não puxa do GitHub sozinha.
+**Todo merge na `main` vai para produção sozinho**, pelo GitHub Actions
+([`.github/workflows/ci-cd.yml`](../.github/workflows/ci-cd.yml)):
+
+1. **Testes:** API compilada e testada (unitários + ponta a ponta com Postgres)
+   e front buildado em modo de produção. Também rodam em toda PR.
+2. **Backup do banco** em `/root/backups/pre-deploy-<data>-<commit>.sql.gz`
+   (guarda os 14 últimos). Se o backup falhar, o deploy para.
+3. **Envio do commit** pelo mesmo `git archive` da Parte 1 — o `.env` de
+   produção não é tocado.
+4. **Remoção do que saiu do git:** todo caminho que já foi versionado e não
+   existe no commit é apagado na VPS (resolve o "arquivo removido não some").
+5. `docker compose up -d --build`, com as migrations no entrypoint.
+6. **Conferência:** `/api/v1/health` e a home precisam responder; se não, o job
+   falha e mostra os logs da API e do front.
+7. O commit no ar fica registrado em `/opt/beesocial/.deploy-sha`.
+
+**Voltar atrás:** Actions → CI/CD → *Run workflow*, informando o commit bom no
+campo `ref`. É o mesmo deploy, com o commit escolhido. Migration aplicada não
+volta sozinha (ver "Voltar atrás", abaixo).
+
+**Segredos do repositório** (Settings → Secrets and variables → Actions):
+`VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (chave privada exclusiva de deploy, cuja
+pública está no `authorized_keys` da VPS) e `VPS_KNOWN_HOSTS` (saída de
+`ssh-keyscan -t ed25519 <host>`, que fixa a identidade da máquina).
+
+Um deploy por vez: um merge que chega durante outro deploy espera na fila.
+
+# Parte 1 — Colocar uma mudança no ar à mão
+
+O plano B, para quando o Actions estiver fora ou para testar algo na VPS. Sai
+**do seu Mac**: a VPS não puxa do GitHub sozinha.
 
 ### 1. Enviar o código
 
@@ -304,18 +333,15 @@ gunzip -c ~/backup-2026-09-21-1430.sql.gz | \
 
 # O que este deploy ainda não resolve
 
-- **Sem backup automático.** Existe banco de produção com conta real e nenhuma
-  rotina. Os avatares em base64 fazem o dump crescer rápido. É a pendência mais
+- **Sem backup periódico.** O deploy automático faz um antes de cada subida,
+  mas fora disso não há rotina — e há banco de produção com conta real. Os
+  avatares em base64 fazem o dump crescer rápido. É a pendência mais
   séria desta lista.
-- **Deploy manual, preso a uma máquina.** Sai do Mac de quem faz. Uma deploy
-  key no GitHub deixaria a VPS dar `git pull` — o que resolveria de vez a classe
-  de problema que o `git archive` só contorna: a VPS teria o repositório, e não
-  uma cópia dos arquivos dele.
-- **Arquivo removido não some da VPS.** O `tar -x` só sobrescreve e acrescenta.
-  Está documentado na Parte 1 como lidar.
+- **O build roda na própria VPS.** Durante o `up --build`, os dois núcleos
+  ficam ocupados por alguns minutos. Buildar as imagens no Actions e só
+  baixá-las na VPS (registro de imagens) é o próximo passo, se isso pesar.
 - **Sem zero-downtime.** `up -d --build` derruba e sobe o container: há alguns
   segundos de indisponibilidade.
-- **Sem CI.** A API tem testes (`api/test/`) e nada os roda antes do deploy.
 - **Uma réplica só.** O entrypoint roda migration a cada subida, o que é correto
   para uma instância — com duas subindo juntas, são duas migrations concorrentes.
 - **A brecha do `x-forwarded-for`**, com o vhost da API publicado: um cliente

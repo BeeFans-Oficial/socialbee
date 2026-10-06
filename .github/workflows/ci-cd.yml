@@ -1,0 +1,206 @@
+# CI/CD do BeeSocial.
+#
+# - Em toda PR e todo push na main: compila e testa a API (com Postgres de
+#   verdade) e builda o front de produção.
+# - Em push na main, se tudo passou: deploy na VPS (deploy/README.md).
+# - "Run workflow" à mão, com um commit: deploy daquele commit — é o rollback.
+#
+# O deploy é o mesmo procedimento do runbook, sem o Mac no meio:
+#   backup do banco → envia o commit (git archive) → apaga o que saiu do git →
+#   docker compose up --build → confere a saúde → registra o commit no ar.
+#
+# Segredos (Settings → Secrets and variables → Actions):
+#   VPS_HOST         IP ou host da VPS
+#   VPS_USER         usuário do SSH (root, hoje)
+#   VPS_SSH_KEY      chave PRIVADA de deploy (ed25519), só para isto
+#   VPS_KNOWN_HOSTS  linha(s) de `ssh-keyscan -t ed25519 <host>` — fixa a
+#                    identidade da máquina; sem ela um SSH desconhecido seria
+#                    aceito em silêncio.
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit (ou branch/tag) a colocar no ar — para voltar atrás"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API — compila e testa
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beesocial
+          POSTGRES_PASSWORD: beesocial
+          POSTGRES_DB: beesocial
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U beesocial -d beesocial"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: api/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Testes de ponta a ponta (Postgres real)
+        run: npm run test:e2e
+        env:
+          TEST_DATABASE_URL: postgres://beesocial:beesocial@localhost:5432/beesocial
+      - run: npm run build
+
+  web:
+    name: Front — compila e builda
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.json
+      - name: Build de produção
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: https://beesocial.bio
+
+  deploy:
+    name: Deploy na VPS
+    needs: [api, web]
+    # Só a main vai para produção: push nela, ou o disparo manual.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://beesocial.bio
+    # Um deploy por vez, e um em andamento nunca é cancelado: parar no meio de
+    # um `up --build` pode deixar a API sem o front, ou migration pela metade.
+    concurrency:
+      group: producao
+      cancel-in-progress: false
+    env:
+      APP_DIR: /opt/beesocial
+      COMPOSE: docker compose -f docker-compose.prod.yml
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          # Histórico inteiro: é com ele que se descobre o que foi APAGADO
+          # desde o último deploy.
+          fetch-depth: 0
+
+      - name: Preparar o SSH
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vps
+            HostName ${{ secrets.VPS_HOST }}
+            User ${{ secrets.VPS_USER }}
+            IdentityFile ~/.ssh/deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+            BatchMode yes
+            ConnectTimeout 15
+          EOF
+          ssh vps 'echo "conectado em $(hostname)"'
+
+      - name: Commit que vai ao ar
+        id: versao
+        run: |
+          echo "nova=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "No ar agora: $(ssh vps "cat $APP_DIR/.deploy-sha 2>/dev/null || echo 'sem registro (deploy manual)'")"
+          echo "Vai ao ar:   $(git rev-parse HEAD)"
+
+      - name: Backup do banco antes de mexer
+        # Falhou o backup, o deploy para: migration sem cópia do banco é o
+        # único passo daqui que não tem volta.
+        run: |
+          ssh vps "APP_DIR=$APP_DIR SHA=${{ steps.versao.outputs.nova }} bash -s" <<'REMOTO'
+          set -euo pipefail
+          mkdir -p /root/backups
+          cd "$APP_DIR"
+          arquivo="/root/backups/pre-deploy-$(date +%F-%H%M%S)-$SHA.sql.gz"
+          docker compose -f docker-compose.prod.yml exec -T db \
+            sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$arquivo"
+          test -s "$arquivo"
+          ls -lh "$arquivo"
+          # Guarda os 14 mais recentes.
+          ls -1t /root/backups/pre-deploy-*.sql.gz | tail -n +15 | xargs -r rm --
+          REMOTO
+
+      - name: Enviar o código
+        # O commit, não um diretório: o que não está no git (como o .env de
+        # produção) não é tocado.
+        run: git archive --format=tar HEAD | ssh vps "tar -x -C $APP_DIR"
+
+      - name: Apagar o que saiu do git
+        # O `tar -x` sobrescreve e acrescenta, mas nunca remove. Apaga na VPS
+        # todo caminho que JÁ FOI versionado e não existe no commit que vai ao
+        # ar — sem depender de saber qual commit estava lá. Importa de verdade:
+        # uma página movida de lugar deixaria duas rotas para o mesmo endereço
+        # e o build do Next falharia. Arquivo que nunca esteve no git (o .env)
+        # nunca entra nesta lista.
+        run: |
+          git log --diff-filter=D --name-only --pretty=format: HEAD | sort -u \
+            | while IFS= read -r caminho; do
+                [ -n "$caminho" ] || continue
+                git cat-file -e "HEAD:$caminho" 2>/dev/null || printf '%s\n' "$caminho"
+              done > apagados.txt
+          echo "$(wc -l < apagados.txt) caminho(s) que saíram do git."
+          ssh vps "cd $APP_DIR && xargs -r -d '\n' rm -f --" < apagados.txt
+
+      - name: Buildar e subir
+        # Migrations rodam sozinhas no entrypoint da API, antes de ela abrir a
+        # porta; o front só sobe com a API saudável.
+        run: |
+          ssh vps "set -euo pipefail
+            cd $APP_DIR
+            $COMPOSE up -d --build --remove-orphans
+            $COMPOSE ps
+            # Imagens antigas acumulam a cada build e enchem o disco.
+            docker image prune -f >/dev/null"
+
+      - name: Conferir que está no ar
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS --max-time 10 https://beesocial.bio/api/v1/health \
+               && curl -fsS -o /dev/null --max-time 10 https://beesocial.bio; then
+              echo; echo "No ar."; exit 0
+            fi
+            echo "ainda não ($i/30)..."; sleep 10
+          done
+          echo "O site não respondeu saudável depois do deploy."
+          ssh vps "cd $APP_DIR && $COMPOSE ps && $COMPOSE logs --tail=80 api web"
+          exit 1
+
+      - name: Registrar o commit no ar
+        run: ssh vps "echo ${{ steps.versao.outputs.nova }} > $APP_DIR/.deploy-sha"
