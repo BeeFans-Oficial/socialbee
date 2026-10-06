@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, MoreHorizontal } from "lucide-react";
 
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
-import { buildIntentUrl } from "@/lib/cloak";
+import { urlDeSaida } from "@/lib/cloak";
 import { THEMES } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
@@ -30,14 +30,16 @@ import { cn } from "@/lib/utils";
  *
  * ## O escape
  *
- * No Android, `intent://` faz o sistema entregar a URL ao Chrome, com
- * `browser_fallback_url` para o caso de não haver app que atenda. No iOS não
- * existe equivalente: o sistema não deixa uma página tirar o usuário do
- * WebView, então o caminho honesto é o botão mais a instrução do menu `•••`.
+ * No Android, `intent://` entrega a URL ao navegador PADRÃO da pessoa, com
+ * `browser_fallback_url` para o caso de nada atender. No iPhone, o esquema
+ * `x-safari-https://` (iOS 17+) entrega ao Safari — não há esquema para "o
+ * navegador padrão" no iOS, e o Safari existe em todo iPhone. Ver
+ * `lib/cloak.ts`.
  *
- * A tentativa automática só acontece uma vez, e só no Android. Repetir em laço
- * ou tentar no iOS produz o pior resultado possível: a página pisca, não sai do
- * lugar, e a fã acha que o link está quebrado.
+ * A tentativa automática acontece UMA vez, ao carregar, nos dois sistemas; o
+ * botão repete a mesma saída. Se depois de um instante a página continua
+ * visível, a saída não funcionou (iOS antigo, aplicativo que bloqueia) e a
+ * instrução do menu `•••` aparece — é o plano B que sempre funciona.
  */
 
 /** Abstrata e de marca de propósito: é o que a fã vê ao chegar E o que o robô
@@ -96,8 +98,8 @@ export function IabLanding({
   const rotulo = buttonLabel?.trim() || `Continuar para ${displayName}`;
 
   /** Mostra a instrução manual depois de a tentativa automática não ter tirado
-   *  ninguém do lugar. No iOS ela aparece de cara, porque lá não há tentativa. */
-  const [mostrarInstrucao, setMostrarInstrucao] = useState(platform === "ios");
+   *  ninguém do lugar. Fora de Android e iPhone não há tentativa: aparece já. */
+  const [mostrarInstrucao, setMostrarInstrucao] = useState(platform === "other");
 
   // A página rola sem barra visível, como no celular — inclusive dentro da
   // moldura de iPhone das prévias do painel.
@@ -108,12 +110,12 @@ export function IabLanding({
   }, []);
 
   useEffect(() => {
-    if (preview || platform !== "android") return;
+    if (preview || platform === "other") return;
 
-    // Uma tentativa, e só. Se o intent funcionar, esta página é descartada
-    // junto com o WebView; se não funcionar, o timer revela a instrução.
+    // Uma tentativa, e só. Se a saída funcionar, o aplicativo vai para segundo
+    // plano e o navegador abre a página; se não, o timer revela a instrução.
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    window.location.href = buildIntentUrl(destino);
+    window.location.href = urlDeSaida(destino, platform);
 
     const timer = setTimeout(() => setMostrarInstrucao(true), 2500);
     return () => clearTimeout(timer);
@@ -122,7 +124,7 @@ export function IabLanding({
   const abrir = () => {
     if (preview) return;
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    window.location.href = platform === "android" ? buildIntentUrl(destino) : destino;
+    window.location.href = urlDeSaida(destino, platform);
     setMostrarInstrucao(true);
   };
 
