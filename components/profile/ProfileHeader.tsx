@@ -1,5 +1,6 @@
 import React from "react";
 
+import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { cn } from "@/lib/utils";
 import type { VisualResolvido } from "@/lib/templates";
 
@@ -34,6 +35,8 @@ interface ProfileHeaderProps {
     isAdult: boolean;
   };
   visual: VisualResolvido;
+  /** Ids das plataformas dos links (`telegram`, `onlyfans`…), sem repetição.
+   *  Viram ícones de linha — eram emojis. */
   activePlatforms: string[];
 }
 
@@ -63,9 +66,18 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
           fica em `app/[slug]/page.tsx`, atrás de tudo. */}
       {(visual.capa === "faixa" || visual.capa === "heroi") && (
         <div
+          // `data-capa-area`: o editor de página mede esta caixa dentro da
+          // prévia para posicionar os controles da foto sobre ela.
+          data-capa-area
           className={cn(
-            "relative w-full overflow-hidden",
-            visual.capa === "heroi" ? "h-[45vh] min-h-[260px]" : "h-32",
+            // A capa ocupa a COLUNA da página, não a janela: no computador,
+            // esticar uma foto vertical a 1.280 px de largura mostrava só uma
+            // faixa ampliada do meio dela.
+            "relative w-full max-w-[560px] mx-auto overflow-hidden",
+            // Proporção fixa, e não fração da altura da janela: o recorte da
+            // foto fica IGUAL no iPhone e no computador, então o enquadramento
+            // que a criadora acerta na prévia é o que a fã vê em qualquer tela.
+            visual.capa === "heroi" ? "aspect-[4/5]" : "h-32",
           )}
           style={
             temCapa
@@ -73,7 +85,7 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
               : // Sem foto, a faixa vira um gradiente da cor de destaque — é o
                 // que o template Clássico sempre fez, e sem ele o topo da
                 // página fica um retângulo vazio.
-                { background: `linear-gradient(135deg, ${visual.accent}40, ${visual.accent}80)` }
+                { background: `linear-gradient(to bottom, ${visual.accent}26, transparent)` }
           }
         >
           {temCapa && (
@@ -81,23 +93,29 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
               {/* eslint-disable-next-line @next/next/no-img-element -- a rota
                   serve bytes de uma coluna do banco; `next/image` exige loader
                   ou domínio configurado e não acrescentaria nada aqui. */}
-              <img
-                src={visual.coverUrl!}
-                alt=""
-                className="w-full h-full object-cover"
-                // O enquadramento que a criadora escolheu. Sem ele, toda foto
-                // vertical de celular é cortada no meio — que é justamente
-                // onde o rosto costuma estar.
-                style={{ objectPosition: visual.coverPos }}
-              />
-              {/* Escurecimento. Existe para o texto por cima continuar legível
-                  sobre foto clara; a criadora controla a intensidade. */}
-              <div
-                className="absolute inset-0"
-                style={{
-                  background: `linear-gradient(to bottom, rgba(0,0,0,${visual.overlay * 0.5}), ${visual.bg})`,
-                }}
-              />
+              {/* Bordas infinitas: a foto e o escurecimento somem num degradê
+                  de máscara até o transparente, e o que aparece por baixo é o
+                  próprio fundo da página. Sem linha de corte entre foto e
+                  fundo, em qualquer cor de tema. */}
+              <div className="absolute inset-0 capa-infinita">
+                {/* `data-capa`: o editor de página ajusta o enquadramento direto
+                    nesta imagem, dentro da prévia, sem recarregar a página. */}
+                <img
+                  data-capa
+                  src={visual.coverUrl!}
+                  alt=""
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: visual.coverPos }}
+                />
+                {/* Escurecimento, para o nome por cima continuar legível sobre
+                    foto clara; a criadora controla a intensidade. */}
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(to bottom, rgba(0,0,0,0) 35%, rgba(0,0,0,${visual.overlay * 0.7}) 100%)`,
+                  }}
+                />
+              </div>
             </>
           )}
 
@@ -108,7 +126,10 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
                 <h1
                   className={cn(
                     visual.fonteClasse,
-                    "text-[34px] leading-none uppercase tracking-wide text-white",
+                    "leading-none text-white",
+                    visual.nomeEmCaixaAlta
+                      ? "text-[34px] uppercase tracking-wide"
+                      : "text-[30px] font-semibold tracking-tight",
                   )}
                 >
                   {user.displayName}
@@ -165,7 +186,7 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
             <h1
               className={cn(
                 visual.fonteClasse,
-                "uppercase tracking-wide",
+                visual.nomeEmCaixaAlta ? "uppercase tracking-wide" : "font-semibold tracking-tight",
                 visual.avatar === "grande" ? "text-4xl" : "text-2xl",
                 aEsquerda ? "text-left" : "text-center",
               )}
@@ -187,16 +208,16 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
 
         {activePlatforms.length > 0 && (
           <div className="flex items-center gap-2 mt-4">
-            {activePlatforms.slice(0, 5).map((platform, i) => (
+            {activePlatforms.slice(0, 5).map((platform) => (
               <div
-                key={i}
-                className="w-8 h-8 rounded-full bg-bee-surface border border-bee-border flex items-center justify-center text-lg"
+                key={platform}
+                className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-white/70"
               >
-                {platform}
+                <IconeDePlataforma plataforma={platform} className="w-4 h-4" />
               </div>
             ))}
             {activePlatforms.length > 5 && (
-              <div className="w-8 h-8 rounded-full bg-bee-surface border border-bee-border flex items-center justify-center text-xs text-bee-muted">
+              <div className="w-8 h-8 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center text-xs text-white/50">
                 +{activePlatforms.length - 5}
               </div>
             )}

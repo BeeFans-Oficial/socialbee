@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowUpRight, MoreHorizontal } from "lucide-react";
 
-import { HexBackground } from "@/components/shared/HexBackground";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { buildIntentUrl } from "@/lib/cloak";
 import { THEMES } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
@@ -99,6 +99,14 @@ export function IabLanding({
    *  ninguém do lugar. No iOS ela aparece de cara, porque lá não há tentativa. */
   const [mostrarInstrucao, setMostrarInstrucao] = useState(platform === "ios");
 
+  // A página rola sem barra visível, como no celular — inclusive dentro da
+  // moldura de iPhone das prévias do painel.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.classList.add("sem-barra");
+    return () => raiz.classList.remove("sem-barra");
+  }, []);
+
   useEffect(() => {
     if (preview || platform !== "android") return;
 
@@ -123,7 +131,7 @@ export function IabLanding({
       className="relative min-h-screen flex flex-col text-bee-text overflow-hidden"
       style={{ backgroundColor: theme.bg }}
     >
-      <HexBackground density="low" />
+      <CeuEstrelado brilho={false} />
 
       {/* A imagem escolhida pela criadora ocupa o topo inteiro. É o que a fã vê
           antes de qualquer texto, e é também o que um revisor automático vê. */}

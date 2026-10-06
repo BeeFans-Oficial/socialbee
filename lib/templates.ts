@@ -46,7 +46,8 @@ export interface Template {
   label: string;
   descricao: string;
   capa: UsoDaCapa;
-  /** Fundo hexagonal da marca. Desligado, o fundo é cor pura ou a foto. */
+  /** Céu estrelado discreto atrás do conteúdo (era o fundo hexagonal da
+   *  marca, que ficava neon). Desligado, o fundo é cor pura ou a foto. */
   hex: boolean;
   avatar: "grande" | "medio" | "nenhum";
   alinhamento: "centro" | "esquerda";
@@ -61,9 +62,30 @@ export interface Template {
    *  criadora em `buttonStyle` continua ganhando. */
   botaoPadrao: LinkButtonStyle;
   fontePadrao: string;
+  /** Todos os botões iguais, brancos, ignorando a aparência por link. É o que
+   *  dá ao modelo "Foto" a cara limpa: a cor de cada link vinha rosa por
+   *  padrão e transformava a lista num arco-íris. */
+  botoesUniformes: boolean;
+  /** Nome em CAIXA ALTA, como nos modelos de antes. */
+  nomeEmCaixaAlta: boolean;
 }
 
 export const TEMPLATES: Template[] = [
+  {
+    id: "foto",
+    label: "Foto",
+    descricao: "Sua foto no topo, sem bordas, e botões brancos.",
+    capa: "heroi",
+    hex: true,
+    avatar: "nenhum",
+    alinhamento: "centro",
+    lista: "coluna",
+    detalhes: false,
+    botaoPadrao: "filled",
+    fontePadrao: "inter",
+    botoesUniformes: true,
+    nomeEmCaixaAlta: false,
+  },
   {
     id: "classico",
     label: "Clássico",
@@ -76,6 +98,8 @@ export const TEMPLATES: Template[] = [
     detalhes: false,
     botaoPadrao: "soft",
     fontePadrao: "bebas",
+    botoesUniformes: false,
+    nomeEmCaixaAlta: true,
   },
   {
     id: "capa",
@@ -89,6 +113,8 @@ export const TEMPLATES: Template[] = [
     detalhes: false,
     botaoPadrao: "filled",
     fontePadrao: "bebas",
+    botoesUniformes: false,
+    nomeEmCaixaAlta: true,
   },
   {
     id: "cartoes",
@@ -102,6 +128,8 @@ export const TEMPLATES: Template[] = [
     detalhes: true,
     botaoPadrao: "glass",
     fontePadrao: "barlow",
+    botoesUniformes: false,
+    nomeEmCaixaAlta: true,
   },
   {
     id: "minimal",
@@ -115,19 +143,29 @@ export const TEMPLATES: Template[] = [
     detalhes: false,
     botaoPadrao: "outlined",
     fontePadrao: "barlow",
+    botoesUniformes: false,
+    nomeEmCaixaAlta: true,
   },
 ];
 
 /** Famílias que `app/layout.tsx` já carrega e o Tailwind já conhece
- *  (`font-bebas`, `font-barlow`, `font-sans`). Lista fechada: fonte nova é
+ *  (`font-bebas`, `font-barlow`, `font-inter`). Lista fechada: fonte nova é
  *  `next/font` no layout mais uma entrada aqui, não um campo de texto. */
 export const FONTES = [
   { id: "bebas", label: "Bebas Neue", classe: "font-bebas" },
   { id: "barlow", label: "Barlow", classe: "font-barlow" },
-  { id: "inter", label: "Inter", classe: "font-sans" },
+  // `font-inter` e não `font-sans`: `sans` é a fonte do painel (Poppins), e
+  // quem escolheu Inter para a página continua vendo Inter.
+  { id: "inter", label: "Inter", classe: "font-inter" },
 ] as const;
 
-export const TEMPLATE_PADRAO = TEMPLATES[0];
+/** O padrão é o Clássico pelo id, e não "o primeiro da lista": a ordem da
+ *  lista é a da vitrine, e mudá-la não pode trocar o modelo de ninguém. */
+export const TEMPLATE_PADRAO = TEMPLATES.find((t) => t.id === "classico")!;
+
+/** O único modelo do plano Free — o mesmo `TEMPLATE_DO_FREE` da API
+ *  (`api/src/plans/plans.ts`). */
+export const TEMPLATE_DO_FREE = "classico";
 
 /** O que a criadora escolheu, já resolvido — é isto que a página recebe. */
 export interface VisualResolvido extends Template {

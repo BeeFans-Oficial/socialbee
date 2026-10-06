@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Barlow, Bebas_Neue } from "next/font/google";
+import { Inter, Barlow, Bebas_Neue, Poppins } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -12,6 +12,15 @@ const barlow = Barlow({
   subsets: ["latin"],
   weight: ["400", "600", "700"],
   variable: "--font-barlow",
+});
+
+/** A fonte da aplicação inteira: tela inicial, login, cadastro e painel. As
+ *  outras (Inter, Barlow, Bebas) ficam carregadas porque são opções de fonte
+ *  da PÁGINA PÚBLICA da criadora, escolhidas em Aparência. */
+const poppins = Poppins({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-poppins",
 });
 
 const bebasNeue = Bebas_Neue({
@@ -44,7 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${inter.variable} ${barlow.variable} ${bebasNeue.variable} font-sans bg-bee-bg text-bee-text antialiased`}
+        className={`${inter.variable} ${barlow.variable} ${bebasNeue.variable} ${poppins.variable} font-sans bg-bee-bg text-bee-text antialiased`}
       >
         {children}
       </body>

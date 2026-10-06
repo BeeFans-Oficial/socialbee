@@ -1,4 +1,5 @@
 import React from "react";
+import { BarraDoTopo } from "@/components/dashboard/BarraDoTopo";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 
 export default function DashboardLayout({
@@ -13,6 +14,7 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <main className="lg:ml-[240px] min-h-screen pt-16 lg:pt-0">
+        <BarraDoTopo />
         {children}
       </main>
     </div>

@@ -1,4 +1,4 @@
-import { HexBackground } from "@/components/shared/HexBackground";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { type User } from "@/lib/catalog";
 import { resolverVisual } from "@/lib/templates";
@@ -33,7 +33,7 @@ export function BotProfile({ user }: { user: User }) {
       className="relative min-h-screen text-bee-text overflow-hidden"
       style={{ backgroundColor: visual.bg }}
     >
-      <HexBackground density="medium" />
+      <CeuEstrelado brilho={false} />
 
       <div className="relative z-10 pb-20">
         <ProfileHeader user={user} visual={visual} activePlatforms={[]} />

@@ -12,7 +12,7 @@ export default function DashboardPage() {
     <div className="min-h-screen flex items-center justify-center p-8">
       <div className="max-w-md text-center space-y-6">
         {/* Título */}
-        <h1 className="font-bebas text-5xl uppercase text-white tracking-wide">
+        <h1 className="text-5xl text-white font-semibold">
           BEM-VINDA AO DASHBOARD
         </h1>
 
@@ -30,7 +30,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-barlow font-semibold text-white mb-1">
+                <h3 className="font-semibold text-white mb-1">
                   Gerenciar Links
                 </h3>
                 <p className="text-xs text-bee-muted">
@@ -47,7 +47,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-barlow font-semibold text-white mb-1">
+                <h3 className="font-semibold text-white mb-1">
                   Personalizar Aparência
                 </h3>
                 <p className="text-xs text-bee-muted">
@@ -64,7 +64,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-barlow font-semibold text-white mb-1">
+                <h3 className="font-semibold text-white mb-1">
                   Ver Analytics
                 </h3>
                 <p className="text-xs text-bee-muted">

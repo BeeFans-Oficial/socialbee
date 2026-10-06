@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, MoreHorizontal } from "lucide-react";
+import { ArrowUpRight, MoreHorizontal, Plus } from "lucide-react";
 import { AgeGate } from "@/components/profile/AgeGate";
 import { LinkButton } from "@/components/profile/LinkButton";
 import { type Link as LinkType } from "@/lib/catalog";
@@ -10,7 +10,6 @@ import type { VisualResolvido } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
 import { handleLinkClick } from "@/lib/cloak";
-import { getPlatformIcon } from "@/lib/utils";
 
 /**
  * A parte interativa do perfil público.
@@ -49,6 +48,8 @@ interface ProfileClientProps {
   visual: VisualResolvido;
   /** Presentes no HTML só quando o perfil NÃO é adulto. */
   initialLinks: LinkType[] | null;
+  /** Prévia do editor: não conta visita e clicar nos links não navega. */
+  previa?: boolean;
 }
 
 export function ProfileClient({
@@ -57,6 +58,7 @@ export function ProfileClient({
   isAdult,
   visual,
   initialLinks,
+  previa = false,
 }: ProfileClientProps) {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -68,6 +70,14 @@ export function ProfileClient({
   // arrow inline mudaria de identidade a cada render, reexecutando o efeito que
   // lê o localStorage.
   const handleVerified = useCallback(() => setAgeVerified(true), []);
+
+  // A página rola sem barra visível, como no celular — inclusive dentro da
+  // moldura de iPhone das prévias do painel.
+  useEffect(() => {
+    const raiz = document.documentElement;
+    raiz.classList.add("sem-barra");
+    return () => raiz.classList.remove("sem-barra");
+  }, []);
 
   /**
    * Tema, aplicado no documento.
@@ -132,10 +142,12 @@ export function ProfileClient({
     if (!slug || needsAgeGate) return;
     // Manda o SLUG, nunca o id do perfil: quem traduz é o servidor. Aceitar o
     // id do cliente deixaria qualquer um postar views em qualquer perfil.
+    if (previa) return;
     api.recordView(slug);
-  }, [slug, needsAgeGate]);
+  }, [slug, needsAgeGate, previa]);
 
   const onLinkClick = (shortCode: string, cloakEnabled: boolean) => {
+    if (previa) return;
     handleLinkClick(shortCode, cloakEnabled, () => {
       // Chamado no iOS quando a navegação não tirou a fã do aplicativo — o que
       // lá é sempre. Mostra a instrução do menu, que é o único caminho real.
@@ -159,7 +171,9 @@ export function ProfileClient({
         {!needsAgeGate && (
         <div
           className={cn(
-            "max-w-sm mx-auto px-4 mt-6",
+            // Margem lateral de 20px no celular, como a referência; a coluna
+            // segue limitada no computador.
+            "max-w-sm mx-auto px-5 mt-6",
             // Grade de dois com espaçamento menor; lista com o de sempre.
             visual.lista === "grade" ? "grid grid-cols-2 gap-3" : "space-y-3",
           )}
@@ -168,14 +182,34 @@ export function ProfileClient({
             <LinkButton
               key={link.id}
               link={link}
-              icon={getPlatformIcon(link.platform)}
               buttonStyle={visual.botao}
               accentColor={visual.accent}
               detalhes={visual.detalhes}
+              uniforme={visual.botoesUniformes}
               index={index}
               onClick={() => onLinkClick(link.shortCode, link.cloakEnabled)}
             />
           ))}
+          {/* Só na prévia do editor: atalho para criar um link nesta página.
+              `target="_top"` abre o editor de link na janela do painel, e não
+              dentro do iPhone da prévia. A fã nunca recebe este botão. */}
+          {previa && (
+            <a
+              href="/links/novo"
+              target="_top"
+              className={cn(
+                "flex items-center justify-center gap-2 w-full min-h-[52px] rounded-[14px]",
+                "border-2 border-dashed border-white/45 bg-white/[0.14] backdrop-blur-sm",
+                "text-[15px] font-semibold text-white/90",
+                "shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
+                "transition-colors duration-200 hover:bg-white/[0.2] hover:border-white/65",
+                visual.lista === "grade" && "col-span-2",
+              )}
+            >
+              <Plus className="w-4 h-4" strokeWidth={2.5} />
+              Adicionar link
+            </a>
+          )}
         </div>
         )}
 

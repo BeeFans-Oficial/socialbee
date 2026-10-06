@@ -11,16 +11,13 @@ import {
   User,
   CheckCircle2,
   XCircle,
-  Check,
 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Logo } from "@/components/shared/Logo";
-import { HexBackground } from "@/components/shared/HexBackground";
-import { PhoneMockup } from "@/components/shared/PhoneMockup";
+import { CartaoDeAuth } from "@/components/auth/CartaoDeAuth";
 import { toast, Toaster } from "sonner";
 import { validateSlug, slugify } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -47,6 +44,14 @@ export default function CadastroPage() {
   const [isAdult, setIsAdult] = useState(false);
 
   const [loading, setLoading] = useState(false);
+
+  // Endereço escolhido na busca da tela inicial (`/cadastro?slug=`). Lido no
+  // efeito, e não com `useSearchParams`, para a página não precisar de um
+  // `Suspense` só por isso. A disponibilidade é conferida de novo no passo 2.
+  useEffect(() => {
+    const vindo = new URLSearchParams(window.location.search).get("slug");
+    if (vindo && validateSlug(slugify(vindo))) setSlug(slugify(vindo));
+  }, []);
 
   // Password strength
   const getPasswordStrength = (pass: string) => {
@@ -178,25 +183,11 @@ export default function CadastroPage() {
     }
   };
 
-  // Features list
-  const features = [
-    "LINKS ILIMITADOS",
-    "CLOAKING INSTAGRAM",
-    "ANALYTICS COMPLETO",
-    "GRÁTIS PARA SEMPRE",
-  ];
-
   return (
     <>
       <Toaster position="top-center" richColors />
-      <div className="min-h-screen flex">
-        {/* Left Panel - Form */}
-        <div className="w-full lg:w-[45%] bg-bee-bg flex items-center justify-center p-8">
-          <div className="w-full max-w-md">
-            {/* Logo */}
-            <div className="mb-8">
-              <Logo variant="full" size="md" />
-            </div>
+      <CartaoDeAuth>
+          <div>
 
             {/* Progress Bar */}
             <div className="mb-8">
@@ -242,10 +233,10 @@ export default function CadastroPage() {
                   transition={{ duration: 0.3 }}
                 >
                   {/* Title */}
-                  <h1 className="font-bebas text-[36px] uppercase text-white mb-2 tracking-wide">
-                    CRIAR SUA CONTA
+                  <h1 className="font-semibold text-[28px] text-white text-center mb-1">
+                    Criar sua conta
                   </h1>
-                  <p className="text-sm text-bee-muted mb-8">
+                  <p className="text-sm text-bee-muted text-center mb-8">
                     Comece grátis em menos de 1 minuto
                   </p>
 
@@ -363,9 +354,9 @@ export default function CadastroPage() {
                     <Button
                       type="submit"
                       disabled={!canProceedStep1}
-                      className="w-full bg-bee-pink hover:bg-bee-pink-hot text-white rounded-full font-barlow font-bold uppercase tracking-wide h-12 glow-pink-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full bg-bee-pink hover:bg-bee-pink-hot text-white rounded-md font-semibold h-12 glow-pink-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      CONTINUAR →
+                      Continuar
                     </Button>
                   </form>
 
@@ -392,10 +383,10 @@ export default function CadastroPage() {
                   transition={{ duration: 0.3 }}
                 >
                   {/* Title */}
-                  <h1 className="font-bebas text-[36px] uppercase text-white mb-2 tracking-wide">
-                    SEU PERFIL
+                  <h1 className="font-semibold text-[28px] text-white text-center mb-1">
+                    Seu perfil
                   </h1>
-                  <p className="text-sm text-bee-muted mb-8">
+                  <p className="text-sm text-bee-muted text-center mb-8">
                     Personalize seu perfil BeeSocial
                   </p>
 
@@ -504,7 +495,7 @@ export default function CadastroPage() {
                       <Button
                         type="submit"
                         disabled={!canProceedStep2 || loading}
-                        className="flex-1 bg-bee-pink hover:bg-bee-pink-hot text-white rounded-full font-barlow font-bold uppercase tracking-wide h-12 glow-pink-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 bg-bee-pink hover:bg-bee-pink-hot text-white rounded-md font-semibold h-12 glow-pink-sm disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {loading ? (
                           <>
@@ -512,7 +503,7 @@ export default function CadastroPage() {
                             Criando...
                           </>
                         ) : (
-                          "CRIAR MINHA CONTA →"
+                          "Criar minha conta"
                         )}
                       </Button>
                     </div>
@@ -521,60 +512,7 @@ export default function CadastroPage() {
               )}
             </AnimatePresence>
           </div>
-        </div>
-
-        {/* Right Panel - Decorative (Desktop Only) */}
-        <div className="hidden lg:flex lg:w-[55%] bg-[#111111] relative overflow-hidden items-center justify-center p-12">
-          {/* Background */}
-          <HexBackground density="medium" />
-
-          {/* Content */}
-          <div className="relative z-10">
-            {/* Features List */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="mb-12 space-y-4"
-            >
-              {features.map((feature, index) => (
-                <motion.div
-                  key={feature}
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="flex items-center gap-3"
-                >
-                  <div className="w-8 h-8 rounded-full bg-bee-pink/20 flex items-center justify-center">
-                    <Check className="w-5 h-5 text-bee-pink" />
-                  </div>
-                  <span className="font-bebas text-xl text-white tracking-wide">
-                    {feature}
-                  </span>
-                </motion.div>
-              ))}
-            </motion.div>
-
-            {/* Phone Mockup */}
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="flex justify-center"
-            >
-              <PhoneMockup
-                themeBg="#0d0d0d"
-                themeAccent="#FF3C6E"
-                avatarUrl={null}
-                displayName={displayName || "Seu Nome"}
-                bio="Conteúdo exclusivo para quem quer mais 🔥"
-                buttonStyle="soft"
-                showAgeBadge={isAdult}
-              />
-            </motion.div>
-          </div>
-        </div>
-      </div>
+      </CartaoDeAuth>
     </>
   );
 }

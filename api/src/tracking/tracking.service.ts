@@ -7,6 +7,7 @@ import type {
   Breakdown,
   DateRange,
   HeaderBag,
+  LinkReport,
   ResolvedLink,
   TrackingEventRecord,
   TrackingReport,
@@ -149,6 +150,34 @@ export class TrackingService {
         channel: clicks.find((event) => event.linkId === row.key)?.channel,
       })),
       daily: daily(views, clicks, range),
+    };
+  }
+
+  /** Métricas de um link. Quem chama já conferiu que o link é do perfil. */
+  async linkReport(profileId: string, linkId: string, range: DateRange): Promise<LinkReport> {
+    const [clicks, counters] = await Promise.all([
+      this.store.queryLinkClicks(profileId, linkId, range),
+      this.store.counters(profileId),
+    ]);
+    const contador = counters[linkId];
+
+    return {
+      linkId,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+      clicks: clicks.length,
+      inAppClicks: clicks.filter((event) => event.client.inAppBrowser).length,
+      bySource: tally(
+        clicks,
+        (event) => event.attribution.source ?? event.attribution.referrerHost ?? "(direto)",
+      ),
+      byCampaign: tally(clicks, (event) => event.attribution.campaign),
+      byDevice: tally(clicks, (event) => event.client.device),
+      byCountry: tally(clicks, (event) => event.client.country),
+      daily: daily([], clicks, range).map(({ date, clicks: n }) => ({ date, clicks: n })),
+      totalClicks: contador?.clicks ?? 0,
+      botHits: contador?.botHits ?? 0,
+      lastClickAt: contador?.lastClickAt ?? null,
     };
   }
 

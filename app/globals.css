@@ -17,6 +17,54 @@
 }
 
 @layer utilities {
+  /* Rola, mas sem barra visível — como no celular. Usada na página pública
+     (que aparece dentro da moldura de iPhone das prévias) e nos painéis
+     laterais dos editores. */
+  /* Capa de "bordas infinitas": a foto some num degradê até o transparente e o
+     que aparece por baixo é o fundo da página. No celular a coluna é a tela
+     inteira, então só a base dissolve; em tela larga a coluna fica no meio e
+     as laterais dissolvem também, para não sobrar uma linha de corte. */
+  .capa-infinita {
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent 100%);
+  }
+  @media (min-width: 560px) {
+    .capa-infinita {
+      -webkit-mask-image:
+        linear-gradient(to bottom, #000 55%, transparent 100%),
+        linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%);
+      -webkit-mask-composite: source-in;
+      mask-image:
+        linear-gradient(to bottom, #000 55%, transparent 100%),
+        linear-gradient(to right, transparent 0%, #000 14%, #000 86%, transparent 100%);
+      mask-composite: intersect;
+    }
+  }
+
+  .sem-barra {
+    scrollbar-width: none;
+  }
+  .sem-barra::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Estrelas do fundo da tela inicial. Só opacidade: é o que o navegador anima
+     sem recalcular layout, e são dezenas delas ao mesmo tempo. */
+  @keyframes cintilar {
+    0%, 100% {
+      opacity: var(--brilho, 0.6);
+    }
+    50% {
+      opacity: 0.1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .estrela {
+      animation: none !important;
+    }
+  }
+
   @keyframes marquee {
     0% {
       transform: translateX(0);

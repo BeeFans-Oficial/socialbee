@@ -4,10 +4,9 @@ import React from "react";
 
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { LinkButton } from "@/components/profile/LinkButton";
-import { HexBackground } from "@/components/shared/HexBackground";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import type { Link as LinkType } from "@/lib/catalog";
 import type { VisualResolvido } from "@/lib/templates";
-import { getPlatformIcon } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,8 +24,8 @@ import { cn } from "@/lib/utils";
  *
  * Diferença deliberada: nada de `<iframe>`. A prévia do editor precisa refletir
  * o que está sendo DIGITADO, antes de salvar; um iframe só mostra o que já
- * está no servidor. Quem faz o papel do iframe é a tela de Prévia
- * (`/previa`), que mostra a página publicada, de verdade, byte a byte.
+ * está no servidor. Quem faz o papel do iframe é o editor de página
+ * (`/paginas/[id]`), que mostra a página publicada, de verdade, byte a byte.
  */
 
 interface PreviaDaPaginaProps {
@@ -75,7 +74,7 @@ export function PreviaDaPagina({ visual, user, links, className }: PreviaDaPagin
         </div>
       )}
 
-      {visual.hex && !capaEmTela && <HexBackground density="medium" />}
+      {visual.hex && !capaEmTela && <CeuEstrelado brilho={false} />}
 
       {/* `overflow-y-auto` porque a página real rola: sem isso o editor mostra
           só o topo e a criadora nunca vê os últimos links. */}
@@ -83,7 +82,7 @@ export function PreviaDaPagina({ visual, user, links, className }: PreviaDaPagin
         <ProfileHeader
           user={user}
           visual={visual}
-          activePlatforms={user.isAdult ? [] : ativos.map((l) => getPlatformIcon(l.platform))}
+          activePlatforms={user.isAdult ? [] : [...new Set(ativos.map((l) => l.platform))]}
         />
 
         <div
@@ -96,10 +95,10 @@ export function PreviaDaPagina({ visual, user, links, className }: PreviaDaPagin
             <LinkButton
               key={link.id}
               link={link}
-              icon={getPlatformIcon(link.platform)}
               buttonStyle={visual.botao}
               accentColor={visual.accent}
               detalhes={visual.detalhes}
+                  uniforme={visual.botoesUniformes}
               index={index}
               // A prévia não navega: clicar aqui abriria o destino e tiraria a
               // criadora do editor no meio de uma edição.

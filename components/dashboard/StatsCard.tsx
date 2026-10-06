@@ -39,7 +39,7 @@ export function StatsCard({
       </div>
 
       {/* Value */}
-      <div className="font-bebas text-[32px] leading-none text-white mb-1">
+      <div className="text-[32px] leading-none text-white mb-1 font-semibold">
         {value}
       </div>
 

@@ -185,7 +185,22 @@ describe("cadastro e sessão", () => {
   });
 });
 
+/**
+ * Põe a conta no Pro direto no banco, como o script de liberação faria.
+ *
+ * As suítes abaixo testam link, cloaking e página — recursos que agora têm
+ * limite no Free. Elas não estão testando o plano; a suíte "planos" está.
+ */
+async function tornarPro(email: string): Promise<void> {
+  await dataSource.query(
+    `UPDATE "socialbee_test"."users" SET pro_until = now() + interval '1 day' WHERE email = $1`,
+    [email],
+  );
+}
+
 describe("links", () => {
+  beforeAll(() => tornarPro("bella@teste.app"));
+
   it("cria link com código curto gerado pelo servidor", async () => {
     const { body } = await servidor
       .post("/v1/me/links")
@@ -269,6 +284,8 @@ describe("isolamento entre contas", () => {
       })
       .expect(201);
     tokenLuna = body.accessToken;
+    // O relatório é do Pro; aqui o que se testa é o escopo, não o plano.
+    await tornarPro("luna@teste.app");
   });
 
   it("não mostra os links de outra criadora", async () => {
@@ -470,11 +487,232 @@ describe("rastreamento", () => {
     expect(body.report.daily).toHaveLength(7);
   });
 
+  it("mostra as métricas de um link só, e recusa link de outra conta", async () => {
+    const { body: lista } = await servidor
+      .get("/v1/me/links")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .expect(200);
+    const link = lista.links[0];
+
+    const { body } = await servidor
+      .get(`/v1/me/tracking/links/${link.id}?days=7`)
+      .set("authorization", `Bearer ${tokenBella}`)
+      .expect(200);
+    expect(body.days).toBe(7);
+    expect(body.report.linkId).toBe(link.id);
+    expect(body.report.clicks).toBe(1);
+    expect(body.report.inAppClicks).toBe(1);
+    expect(body.report.bySource[0].key).toBe("instagram");
+    expect(body.report.totalClicks).toBe(1);
+    expect(body.report.botHits).toBe(1);
+    expect(body.report.daily).toHaveLength(7);
+
+    // Link da Bella pedido pela Luna: 404, sem nenhum número.
+    await tornarPro("luna@teste.app");
+    await servidor
+      .get(`/v1/me/tracking/links/${link.id}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .expect(404);
+  });
+
   it("responde 204 para view de perfil inexistente, sem revelar nada", async () => {
     await servidor
       .post("/v1/public/tracking/view")
       .send({ slug: "nao-existe-ninguem" })
       .expect(204);
+  });
+});
+
+describe("planos", () => {
+  // A Luna não tem link e volta ao Free logo abaixo: serve de conta Free
+  // sem cadastrar outra — o cadastro tem teto de 5 por minuto, e a suíte já
+  // usa os cinco.
+  const emailFree = "luna@teste.app";
+  const slugFree = "luna-teste";
+
+  const comoFree = (req: request.Test) => req.set("authorization", `Bearer ${tokenLuna}`);
+
+  // A suíte de isolamento pôs a Luna no Pro para ler o relatório.
+  beforeAll(() =>
+    dataSource.query(`UPDATE "socialbee_test"."users" SET pro_until = NULL WHERE email = $1`, [
+      emailFree,
+    ]),
+  );
+
+  it("conta nova nasce Free, e /auth/me diz isso com os limites", async () => {
+    const { body } = await comoFree(servidor.get("/v1/auth/me")).expect(200);
+    expect(body.user.plan.id).toBe("free");
+    expect(body.user.plan.proUntil).toBeNull();
+    expect(body.user.plan.limits).toEqual({
+      paginas: 1,
+      linksPorPagina: 5,
+      relatorio: false,
+      dominiosProprios: 0,
+    });
+  });
+
+  it("recusa ligar o cloaking no Free, dizendo qual recurso", async () => {
+    const { body } = await comoFree(servidor.post("/v1/me/links"))
+      .send({ title: "X", destinationUrl: "https://t.me/free", cloakEnabled: true })
+      .expect(403);
+    expect(body.error.code).toBe("plano_pro_necessario");
+    expect(body.error.details).toEqual({ recurso: "cloaking" });
+  });
+
+  it("aceita até 5 links no Free e recusa o sexto", async () => {
+    for (let i = 0; i < 5; i++) {
+      await comoFree(servidor.post("/v1/me/links"))
+        .send({ title: `Link ${i}`, destinationUrl: `https://t.me/free${i}` })
+        .expect(201);
+    }
+    const { body } = await comoFree(servidor.post("/v1/me/links"))
+      .send({ title: "Sexto", destinationUrl: "https://t.me/free6" })
+      .expect(403);
+    expect(body.error.details).toEqual({ recurso: "links" });
+  });
+
+  it("recusa a segunda página no Free", async () => {
+    const { body } = await comoFree(servidor.post("/v1/me/profiles"))
+      .send({ slug: "free-segunda", displayName: "Segunda" })
+      .expect(403);
+    expect(body.error.details).toEqual({ recurso: "paginas" });
+  });
+
+  it("recusa outro modelo e cor própria no Free, mas aceita o Clássico", async () => {
+    const capa = await comoFree(servidor.patch("/v1/me/profile"))
+      .send({ templateId: "capa" })
+      .expect(403);
+    expect(capa.body.error.details).toEqual({ recurso: "aparencia" });
+
+    await comoFree(servidor.patch("/v1/me/profile")).send({ bgColor: "#000000" }).expect(403);
+    await comoFree(servidor.patch("/v1/me/profile"))
+      .send({ templateId: "classico", bgColor: null })
+      .expect(200);
+  });
+
+  it("recusa o relatório no Free", async () => {
+    const { body } = await comoFree(servidor.get("/v1/me/tracking/report?days=7")).expect(403);
+    expect(body.error.details).toEqual({ recurso: "relatorio" });
+  });
+
+  it("quando o Pro vence, a página pública ignora o que era Pro sem apagar nada", async () => {
+    await tornarPro(emailFree);
+
+    const link = await comoFree(servidor.post("/v1/me/links"))
+      .send({ title: "Com cloak", destinationUrl: "https://t.me/cloak", cloakEnabled: true })
+      .expect(201);
+    await comoFree(servidor.patch("/v1/me/profile"))
+      .send({ templateId: "capa", accentColor: "#123456" })
+      .expect(200);
+
+    const noPro = await servidor.get(`/v1/public/profiles/${slugFree}`).expect(200);
+    expect(noPro.body.profile.template.templateId).toBe("capa");
+
+    await dataSource.query(
+      `UPDATE "socialbee_test"."users" SET pro_until = now() - interval '1 minute' WHERE email = $1`,
+      [emailFree],
+    );
+
+    const publico = await servidor.get(`/v1/public/profiles/${slugFree}`).expect(200);
+    expect(publico.body.profile.template.templateId).toBe("classico");
+    expect(publico.body.profile.template.accentColor).toBeNull();
+    const cloak = publico.body.links.find((l: { id: string }) => l.id === link.body.id);
+    expect(cloak.cloakEnabled).toBe(false);
+    // Não vaza nada da conta além do necessário.
+    expect(JSON.stringify(publico.body)).not.toContain("proUntil");
+
+    // O dono continua vendo o que gravou, e editar outra coisa não é recusado
+    // só porque o painel reenvia o modelo Pro que já estava lá.
+    const proprio = await comoFree(servidor.get("/v1/me/profile")).expect(200);
+    expect(proprio.body.template.templateId).toBe("capa");
+    await comoFree(servidor.patch("/v1/me/profile"))
+      .send({ bio: "nova bio", templateId: "capa", accentColor: "#123456" })
+      .expect(200);
+    await comoFree(servidor.patch(`/v1/me/links/${link.body.id}`))
+      .send({ title: "Novo título", cloakEnabled: true })
+      .expect(200);
+  });
+});
+
+describe("domínio próprio", () => {
+  const comoBella = (req: request.Test) => req.set("authorization", `Bearer ${tokenBella}`);
+  const comoLuna = (req: request.Test) => req.set("authorization", `Bearer ${tokenLuna}`);
+  let idDoDominio = "";
+
+  it("é do Pro: a conta Free é recusada", async () => {
+    const { body } = await comoLuna(servidor.post("/v1/me/custom-domains"))
+      .send({ host: "luna.com" })
+      .expect(403);
+    expect(body.error.details).toEqual({ recurso: "dominioProprio" });
+  });
+
+  it("normaliza o que a criadora digitou e nasce pendente", async () => {
+    await tornarPro("bella@teste.app");
+    const { body } = await comoBella(servidor.post("/v1/me/custom-domains"))
+      .send({ host: "https://Links.Bella-Teste.com/ana" })
+      .expect(201);
+    expect(body.host).toBe("links.bella-teste.com");
+    expect(body.status).toBe("pending");
+    idDoDominio = body.id;
+  });
+
+  it("recusa formato inválido e domínio repetido", async () => {
+    await comoBella(servidor.post("/v1/me/custom-domains")).send({ host: "sem-ponto" }).expect(400);
+    const { body } = await comoBella(servidor.post("/v1/me/custom-domains"))
+      .send({ host: "links.bella-teste.com" })
+      .expect(409);
+    expect(body.error.code).toBe("dominio_em_uso");
+  });
+
+  it("respeita as 3 vagas do Pro", async () => {
+    await comoBella(servidor.post("/v1/me/custom-domains")).send({ host: "b.bella-teste.com" }).expect(201);
+    await comoBella(servidor.post("/v1/me/custom-domains")).send({ host: "c.bella-teste.com" }).expect(201);
+    const { body } = await comoBella(servidor.post("/v1/me/custom-domains"))
+      .send({ host: "d.bella-teste.com" })
+      .expect(409);
+    expect(body.error.code).toBe("vagas_esgotadas");
+
+    const lista = await comoBella(servidor.get("/v1/me/custom-domains")).expect(200);
+    expect(lista.body.vagas).toBe(3);
+    expect(lista.body.domains).toHaveLength(3);
+  });
+
+  it("pendente não é oferecido; ativo aparece só para a dona", async () => {
+    const pendente = await comoBella(servidor.get("/v1/me/domains")).expect(200);
+    expect(pendente.body.domains.map((d: { id: string }) => d.id)).not.toContain(idDoDominio);
+
+    // O que `npm run dominio:ativar` faz.
+    await dataSource.query(
+      `UPDATE "socialbee_test"."domains" SET status = 'active' WHERE id = $1`,
+      [idDoDominio],
+    );
+
+    const ativo = await comoBella(servidor.get("/v1/me/domains")).expect(200);
+    const proprio = ativo.body.domains.find((d: { id: string }) => d.id === idDoDominio);
+    expect(proprio).toMatchObject({ host: "links.bella-teste.com", proprio: true });
+
+    const outraConta = await comoLuna(servidor.get("/v1/me/domains")).expect(200);
+    expect(outraConta.body.domains.map((d: { id: string }) => d.id)).not.toContain(idDoDominio);
+  });
+
+  it("a dona serve uma página por ele; outra conta não consegue", async () => {
+    const { body } = await comoBella(servidor.patch("/v1/me/profile"))
+      .send({ domainId: idDoDominio })
+      .expect(200);
+    expect(body.host).toBe("links.bella-teste.com");
+
+    await tornarPro("luna@teste.app");
+    const recusado = await comoLuna(servidor.patch("/v1/me/profile"))
+      .send({ domainId: idDoDominio })
+      .expect(409);
+    expect(recusado.body.error.code).toBe("dominio_indisponivel");
+  });
+
+  it("remover devolve a página ao domínio padrão; de outra conta é 404", async () => {
+    await comoLuna(servidor.delete(`/v1/me/custom-domains/${idDoDominio}`)).expect(404);
+    await comoBella(servidor.delete(`/v1/me/custom-domains/${idDoDominio}`)).expect(204);
+    const { body } = await comoBella(servidor.get("/v1/me/profile")).expect(200);
+    expect(body.domainId).toBeNull();
   });
 });
 
