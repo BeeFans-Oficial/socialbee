@@ -18,6 +18,10 @@
     "migration:run:prod": "npm run db:ensure-schema:prod && node ./node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js",
     "seed": "node -r ts-node/register/transpile-only src/database/seeds/seed.ts",
     "seed:prod": "node dist/database/seeds/seed.js",
+    "plano:liberar": "node -r ts-node/register/transpile-only src/database/seeds/liberar-pro.ts",
+    "plano:liberar:prod": "node dist/database/seeds/liberar-pro.js",
+    "dominio:ativar": "node -r ts-node/register/transpile-only src/database/seeds/ativar-dominio.ts",
+    "dominio:ativar:prod": "node dist/database/seeds/ativar-dominio.js",
     "retention": "node -r ts-node/register/transpile-only src/database/seeds/retention.ts",
     "test": "jest --config jest.config.js",
     "test:e2e": "jest --config jest.e2e.config.js --runInBand"

@@ -39,6 +39,16 @@ export class Domain {
   @Column({ name: "position", type: "int", default: 0 })
   position: number;
 
+  /** De quem é. `null` é domínio do pool, oferecido a todas; preenchido, é
+   *  domínio próprio e só a dona o vê. */
+  @Column({ name: "owner_user_id", type: "uuid", nullable: true })
+  ownerUserId: string | null;
+
+  /** `pending` até a equipe configurar nginx e certificado e rodar
+   *  `npm run dominio:ativar`. Só `active` é oferecido para as páginas. */
+  @Column({ name: "status", type: "text", default: "active" })
+  status: "pending" | "active";
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 

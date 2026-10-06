@@ -21,7 +21,7 @@ export class DomainsController {
   constructor(private readonly profilesService: ProfilesService) {}
 
   @Get()
-  async list(@CurrentUser() _auth: AuthContext) {
-    return { domains: await this.profilesService.listActiveDomains() };
+  async list(@CurrentUser() auth: AuthContext) {
+    return { domains: await this.profilesService.listActiveDomains(auth.userId) };
   }
 }
