@@ -12,6 +12,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { EscolhaDePagina } from "@/components/dashboard/EscolhaDePagina";
 import { StatsCard } from "@/components/dashboard/StatsCard";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
@@ -187,6 +188,16 @@ export default function AnalyticsPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-7xl mx-auto space-y-8">
+        {/* Cabeçalho: de qual página são estes números — e a troca, aqui mesmo,
+            como na tela de Links. Com uma página só, o seletor não aparece. */}
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1 className="text-[28px] font-semibold text-white">Analytics</h1>
+            <p className="text-sm text-bee-muted mt-1">Visitas e cliques dos últimos {data.days} dias</p>
+          </div>
+          <EscolhaDePagina className="self-start sm:self-auto" />
+        </div>
+
         {/* Métricas */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatsCard
