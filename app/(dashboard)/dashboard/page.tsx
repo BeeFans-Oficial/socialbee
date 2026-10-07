@@ -42,16 +42,16 @@ export default function DashboardPage() {
           </button>
 
           <button
-            onClick={() => router.push("/aparencia")}
+            onClick={() => router.push("/paginas")}
             className="group p-6 rounded-xl border border-bee-border bg-bee-surface hover:bg-bee-surface2 transition-all text-left"
           >
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-semibold text-white mb-1">
-                  Personalizar Aparência
+                  Personalizar a página
                 </h3>
                 <p className="text-xs text-bee-muted">
-                  Escolha temas e estilos de botão
+                  Modelo, tema, cores e foto de capa, no editor da página
                 </p>
               </div>
               <ArrowRight className="w-5 h-5 text-bee-pink group-hover:translate-x-1 transition-transform" />

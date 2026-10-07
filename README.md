@@ -99,11 +99,14 @@ Postgres 16 · TypeORM com migrations de SQL escrito à mão · JWT em cookie
 
 | Rota | Estado |
 | --- | --- |
-| `/` | Landing completa |
+| `/` | Tela inicial, com busca de endereço que leva ao cadastro |
 | `/login` · `/cadastro` | Autenticação real contra a API |
-| `/links` | Dashboard principal: drag & drop, CRUD, modal com abas Link/Aparência/Perfil |
-| `/aparencia` | Perfil, temas, estilos de botão, preview em celular |
-| `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento |
+| `/paginas` | As páginas da conta, em cartões; porta de entrada do painel |
+| `/paginas/[id]` | Editor da página: prévia em iPhone e painel com nome, foto de perfil, bio, domínio, endereço, proteção, tema, modelo, cores, fonte, botões, capa e página de chegada |
+| `/links` | Links da página ativa: arrastar para reordenar, ativar, copiar, apagar; clicar nos cliques abre as métricas do link. Seletor de página no topo |
+| `/links/[id]` · `/links/novo` | Editor de um link, com a prévia do botão |
+| `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento (Pro). Seletor de página no topo |
+| `/dominios` | Domínio próprio (Pro) |
 | `/configuracoes` | Placeholder |
 | `/api/v1/*` | Proxy para a API, no servidor do Next (é o que mantém o cookie de sessão same-origin) |
 | `/dashboard` | Existe, mas a Sidebar não aponta para lá |

@@ -271,7 +271,7 @@ function NovaPagina({
         await api.createProfile({
           displayName: nome.trim(),
           slug: limpo,
-          // O Free só tem o Clássico; o modelo se troca depois, em Aparência.
+          // O Free só tem o Clássico; o modelo se troca depois, no editor.
           templateId: TEMPLATE_DO_FREE,
         }),
       );
@@ -328,7 +328,7 @@ function NovaPagina({
 
 /**
  * Apagar é para sempre e leva links e cliques junto, então a criadora digita o
- * endereço para confirmar — o mesmo gesto da tela de Aparência.
+ * endereço para confirmar.
  */
 function ApagarPagina({
   pagina,
@@ -366,7 +366,7 @@ function ApagarPagina({
         <DialogTitle className="text-white">Apagar {pagina?.displayName}?</DialogTitle>
         <p className="text-sm text-bee-muted">
           Os links e o histórico de cliques desta página somem junto, e não dá para desfazer. Se
-          quiser só tirar do ar, use Aparência. Para confirmar, digite{" "}
+          quiser só tirar do ar, desligue "Página no ar" no editor da página. Para confirmar, digite{" "}
           <span className="font-mono text-white">{pagina?.slug}</span>.
         </p>
         <input

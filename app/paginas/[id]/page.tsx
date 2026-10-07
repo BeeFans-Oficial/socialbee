@@ -17,7 +17,6 @@ import {
   Link2,
   List,
   Loader2,
-  Palette,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -43,7 +42,13 @@ import { invalidateSession, usePlano } from "@/lib/api/use-session";
 import type { ApiDomain, ApiProfile, ProfileInput } from "@/lib/api/types";
 import { THEMES } from "@/lib/catalog";
 import { urlDaPagina } from "@/lib/site";
-import { TEMPLATES, TEMPLATE_DO_FREE, resolverVisual } from "@/lib/templates";
+import {
+  ESTILOS_DE_BOTAO,
+  FONTES,
+  TEMPLATES,
+  TEMPLATE_DO_FREE,
+  resolverVisual,
+} from "@/lib/templates";
 import { cn, slugify, validateSlug } from "@/lib/utils";
 
 type Lado = "chegada" | "pagina";
@@ -53,7 +58,7 @@ type Lado = "chegada" | "pagina";
  * direita.
  *
  * Abrir o editor torna esta página a ATIVA do painel (`x-profile-id`): é o que
- * faz o `PATCH /me/profile` cair nela, e o que deixa Links e Aparência, a um
+ * faz o `PATCH /me/profile` cair nela, e o que deixa Links e Analytics, a um
  * clique daqui, editando a mesma página.
  *
  * Cada ajuste salva sozinho — ao sair do campo, ao trocar uma opção — e a
@@ -455,13 +460,6 @@ export default function EditorDePagina() {
             >
               <Link2 className="w-4 h-4" />
             </Link>
-            <Link
-              href="/aparencia"
-              title="Aparência"
-              className="w-11 h-11 rounded-xl border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:border-white/25 transition-colors"
-            >
-              <Palette className="w-4 h-4" />
-            </Link>
           </div>
         </div>
 
@@ -472,6 +470,12 @@ export default function EditorDePagina() {
             maxLength={60}
             onSalvar={(v) => (v.trim() ? salvar({ displayName: v.trim() }) : Promise.resolve(false))}
           />
+          <CampoDeAvatar
+            imagem={pagina.avatarUrl}
+            nome={pagina.displayName}
+            onTrocar={(arquivo) => trocarImagem("avatar", arquivo)}
+          />
+          <CampoDeBio valor={pagina.bio} onSalvar={(bio) => salvar({ bio })} />
           <Linha rotulo="Domínio">
             <SeletorDeDominio
               pagina={pagina}
@@ -562,7 +566,7 @@ export default function EditorDePagina() {
                     onClick={() => {
                       if (ativo) return;
                       if (travado) return avisarPro("Este modelo");
-                      // O estilo de botão acompanha o modelo, como na Aparência.
+                      // O estilo de botão acompanha o modelo escolhido.
                       void salvar({ templateId: t.id, buttonStyle: t.botaoPadrao });
                     }}
                     className={cn(
@@ -579,6 +583,94 @@ export default function EditorDePagina() {
               })}
             </div>
           </Grupo>
+
+          <Grupo
+            titulo="Cores"
+            info="Cores escolhidas a dedo, por cima do tema. 'Tema' volta à cor dele."
+            nota={ehPro ? undefined : "Cores próprias são do plano Pro."}
+          >
+            <CampoDeCor
+              rotulo="Fundo"
+              valor={visual.bg}
+              propria={Boolean(pagina.template?.bgColor)}
+              travado={!ehPro}
+              onSalvar={(bgColor) => salvar({ bgColor })}
+            />
+            <CampoDeCor
+              rotulo="Destaque"
+              valor={visual.accent}
+              propria={Boolean(pagina.template?.accentColor)}
+              travado={!ehPro}
+              onSalvar={(accentColor) => salvar({ accentColor })}
+            />
+          </Grupo>
+
+          <Grupo titulo="Fonte" nota={ehPro ? undefined : "Trocar a fonte é do plano Pro."}>
+            <div className="grid grid-cols-3 gap-2 px-1">
+              {FONTES.map((f) => {
+                const ativa = (pagina.template?.fontId ?? visual.fontePadrao) === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => {
+                      if (ativa) return;
+                      if (!ehPro) return avisarPro("Trocar a fonte");
+                      void salvar({ fontId: f.id });
+                    }}
+                    className={cn(
+                      f.classe,
+                      "flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl border text-[14px] transition-colors",
+                      ativa
+                        ? "border-white/15 bg-black/35 text-white"
+                        : "border-white/[0.07] text-white/60 hover:text-white hover:border-white/20",
+                    )}
+                  >
+                    {f.label}
+                    {!ehPro && !ativa && <SeloPro />}
+                  </button>
+                );
+              })}
+            </div>
+          </Grupo>
+
+          {!visual.botoesUniformes && (
+            <Grupo
+              titulo="Botões"
+              info="Vale para os botões sem aparência própria. A aparência de cada link se ajusta no editor dele."
+            >
+              <div className="flex flex-wrap gap-2 px-1">
+                {ESTILOS_DE_BOTAO.map((e) => {
+                  const ativo = (pagina.buttonStyle || visual.botaoPadrao) === e.id;
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => !ativo && salvar({ buttonStyle: e.id })}
+                      className={cn(
+                        "px-3 py-2 rounded-xl border text-[13px] transition-colors",
+                        ativo
+                          ? "border-white/15 bg-black/35 text-white"
+                          : "border-white/[0.07] text-white/60 hover:text-white hover:border-white/20",
+                      )}
+                    >
+                      {e.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </Grupo>
+          )}
+
+          {visual.capa !== "nenhuma" && pagina.coverUrl && (
+            <Grupo
+              titulo="Escurecer a capa"
+              info="Uma camada escura sobre a foto, para o nome continuar legível sobre foto clara."
+            >
+              <CampoDeEscurecimento
+                valor={pagina.template?.coverOverlay ?? 55}
+                onSalvar={(coverOverlay) => salvar({ coverOverlay })}
+              />
+            </Grupo>
+          )}
 
           <Grupo
             titulo="Visibilidade"
@@ -836,6 +928,209 @@ function CampoDeImagem({
       </div>
       {nota && <p className="mt-2 text-xs text-bee-muted">{nota}</p>}
       {aviso && <Aviso>{aviso}</Aviso>}
+    </div>
+  );
+}
+
+/** Foto de perfil: círculo com a atual (ou a inicial), trocar e remover.
+ *
+ *  O arquivo sobe em multipart pela mesma rota das outras imagens da página
+ *  (`trocarImagem`); enquanto sobe, o círculo mostra a foto escolhida. */
+function CampoDeAvatar({
+  imagem,
+  nome,
+  onTrocar,
+}: {
+  imagem: string | null;
+  nome: string;
+  /** Arquivo para subir, ou `null` para remover. */
+  onTrocar: (arquivo: File | null) => Promise<boolean>;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [previa, setPrevia] = useState<string | null>(null);
+  useEffect(() => () => { if (previa) URL.revokeObjectURL(previa); }, [previa]);
+
+  const escolher = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arquivo = arquivoDoInput(e);
+    if (!arquivo) return;
+    setPrevia(URL.createObjectURL(arquivo));
+    setEnviando(true);
+    try {
+      await onTrocar(arquivo);
+    } finally {
+      setEnviando(false);
+      setPrevia(null);
+    }
+  };
+
+  const mostrada = previa ?? imagem;
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-2 py-3">
+      <span className="text-[15px] text-white/85">Foto de perfil</span>
+      <div className="flex items-center gap-2">
+        <span className="w-9 h-9 rounded-full overflow-hidden bg-white/10 flex items-center justify-center text-sm font-semibold text-white">
+          {mostrada ? (
+            // eslint-disable-next-line @next/next/no-img-element -- URL do próprio perfil
+            <img src={mostrada} alt="" className="w-full h-full object-cover" />
+          ) : (
+            nome.slice(0, 1).toUpperCase()
+          )}
+        </span>
+        <label
+          className={cn(
+            "px-3 py-1.5 rounded-lg border border-white/10 text-xs text-white/80 hover:text-white hover:border-white/25 cursor-pointer transition-colors",
+            enviando && "opacity-60 pointer-events-none",
+          )}
+        >
+          {enviando ? "Enviando…" : imagem ? "Trocar" : "Escolher"}
+          <input type="file" accept="image/*" onChange={escolher} className="hidden" disabled={enviando} />
+        </label>
+        {imagem && !enviando && (
+          <button
+            onClick={() => void onTrocar(null)}
+            aria-label="Remover foto de perfil"
+            className="p-1.5 text-white/40 hover:text-white transition-colors"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Limite da bio na tela. A API aceita até 500, mas o cabeçalho da página
+ *  mostra só duas linhas — mais que isso a fã nunca lê. */
+const LIMITE_DA_BIO = 150;
+
+/** Bio: salva ao sair do campo, e volta ao valor salvo se a API recusar. */
+function CampoDeBio({ valor, onSalvar }: { valor: string; onSalvar: (v: string) => Promise<boolean> }) {
+  const [rascunho, setRascunho] = useState(valor);
+  useEffect(() => setRascunho(valor), [valor]);
+  const confirmar = async () => {
+    if (rascunho === valor) return;
+    if (!(await onSalvar(rascunho.trim()))) setRascunho(valor);
+  };
+  return (
+    <label className="block px-2 py-3">
+      <span className="flex items-center justify-between text-[15px] text-white/85">
+        Bio
+        <span className="text-xs text-white/35 tabular-nums">
+          {rascunho.length}/{LIMITE_DA_BIO}
+        </span>
+      </span>
+      <textarea
+        value={rascunho}
+        maxLength={LIMITE_DA_BIO}
+        rows={3}
+        placeholder="Uma frase sobre você"
+        onChange={(e) => setRascunho(e.target.value)}
+        onBlur={confirmar}
+        className="mt-2 w-full resize-none rounded-xl bg-black/30 border border-white/10 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/25"
+      />
+    </label>
+  );
+}
+
+/**
+ * Cor própria (fundo ou destaque). O seletor dispara a cada pixel arrastado:
+ * a amostra acompanha na hora e salva só quando a criadora para de mexer.
+ * "Tema" apaga a cor própria e volta à do tema.
+ */
+function CampoDeCor({
+  rotulo,
+  valor,
+  propria,
+  travado,
+  onSalvar,
+}: {
+  rotulo: string;
+  valor: string;
+  propria: boolean;
+  travado: boolean;
+  onSalvar: (cor: string | null) => Promise<boolean>;
+}) {
+  const [cor, setCor] = useState(valor);
+  const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => setCor(valor), [valor]);
+  useEffect(() => () => {
+    if (espera.current) clearTimeout(espera.current);
+  }, []);
+
+  const escolher = (nova: string) => {
+    setCor(nova);
+    if (espera.current) clearTimeout(espera.current);
+    espera.current = setTimeout(() => void onSalvar(nova), 600);
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-3 py-2">
+      <span className="flex items-center gap-1.5 text-[15px] text-white/85">
+        {rotulo}
+        {travado && <SeloPro />}
+      </span>
+      <span className="flex items-center gap-2">
+        {propria && !travado && (
+          <button
+            onClick={() => void onSalvar(null)}
+            title="Voltar à cor do tema"
+            className="text-[11px] text-white/45 hover:text-white transition-colors"
+          >
+            tema
+          </button>
+        )}
+        <code className="text-xs text-white/50 uppercase">{cor}</code>
+        {travado ? (
+          <button
+            type="button"
+            onClick={() => avisarPro("Cor própria")}
+            className="w-8 h-8 rounded-lg border border-white/10 opacity-50 cursor-not-allowed"
+            style={{ background: cor }}
+            aria-label={`${rotulo}: cor própria é do plano Pro`}
+          />
+        ) : (
+          <input
+            type="color"
+            value={cor}
+            onChange={(e) => escolher(e.target.value)}
+            aria-label={`Cor de ${rotulo.toLowerCase()}`}
+            className="w-8 h-8 rounded-lg bg-transparent border border-white/10 cursor-pointer"
+          />
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** Escurecimento da capa (0 a 100): o número acompanha o arraste e salva ao
+ *  soltar, para a prévia não recarregar a cada passo. */
+function CampoDeEscurecimento({
+  valor,
+  onSalvar,
+}: {
+  valor: number;
+  onSalvar: (v: number) => Promise<boolean>;
+}) {
+  const [atual, setAtual] = useState(valor);
+  useEffect(() => setAtual(valor), [valor]);
+  const confirmar = () => {
+    if (atual !== valor) void onSalvar(atual);
+  };
+  return (
+    <div className="flex items-center gap-3 px-3 py-2">
+      <input
+        type="range"
+        min={0}
+        max={100}
+        value={atual}
+        onChange={(e) => setAtual(Number(e.target.value))}
+        onPointerUp={confirmar}
+        onKeyUp={confirmar}
+        aria-label="Escurecer a capa"
+        className="flex-1 accent-white"
+      />
+      <span className="w-10 text-right text-xs text-white/60 tabular-nums">{atual}%</span>
     </div>
   );
 }

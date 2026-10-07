@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Link2,
-  Palette,
   BarChart2,
   Settings,
   LogOut,
@@ -30,7 +29,6 @@ const SECOES = [
     itens: [
       { icon: LayoutGrid, label: "Páginas", href: "/paginas" },
       { icon: Link2, label: "Links", href: "/links" },
-      { icon: Palette, label: "Aparência", href: "/aparencia" },
       { icon: BarChart2, label: "Analytics", href: "/analytics", pro: true },
       { icon: Globe, label: "Domínio próprio", href: "/dominios", pro: true },
     ],

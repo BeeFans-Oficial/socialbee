@@ -16,7 +16,7 @@ const barlow = Barlow({
 
 /** A fonte da aplicação inteira: tela inicial, login, cadastro e painel. As
  *  outras (Inter, Barlow, Bebas) ficam carregadas porque são opções de fonte
- *  da PÁGINA PÚBLICA da criadora, escolhidas em Aparência. */
+ *  da PÁGINA PÚBLICA da criadora, escolhidas no editor da página. */
 const poppins = Poppins({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],

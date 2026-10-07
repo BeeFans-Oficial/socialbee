@@ -27,18 +27,10 @@ import {
   DEFAULT_LINK_APPEARANCE,
   PLATFORMS,
   type LinkAppearance,
-  type LinkButtonStyle,
 } from "@/lib/catalog";
-import { resolverVisual } from "@/lib/templates";
+import { ESTILOS_DE_BOTAO, resolverVisual } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 
-const ESTILOS: { id: LinkButtonStyle; label: string }[] = [
-  { id: "soft", label: "Suave" },
-  { id: "filled", label: "Preenchido" },
-  { id: "outlined", label: "Contorno" },
-  { id: "glass", label: "Vidro" },
-  { id: "pill", label: "Pílula" },
-];
 
 /** Redes que a página segura pode mostrar. */
 const REDES_DA_PAGINA_SEGURA = [
@@ -566,7 +558,7 @@ function Aparencia({
   return (
     <div className="px-2 pt-1 pb-2 space-y-4">
       <div className="flex flex-wrap gap-2">
-        {ESTILOS.map((e) => (
+        {ESTILOS_DE_BOTAO.map((e) => (
           <button
             key={e.id}
             onClick={() => valor.style !== e.id && mudar({ style: e.id })}

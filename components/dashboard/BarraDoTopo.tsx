@@ -9,7 +9,6 @@ import { cn } from "@/lib/utils";
 const TITULOS: Record<string, string> = {
   "/paginas": "Páginas",
   "/links": "Links",
-  "/aparencia": "Aparência",
   "/analytics": "Analytics",
   "/dominios": "Domínio próprio",
   "/configuracoes": "Configurações",
