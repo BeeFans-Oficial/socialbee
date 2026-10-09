@@ -150,6 +150,7 @@ export async function recordClick(
  *  `cache: "no-store"` porque a resposta depende de quem pediu. Uma página de
  *  perfil cacheada entregaria ao visitante seguinte o veredito do anterior. */
 export interface PublicProfileForRender {
+  safePageLinks?: Array<{ platform: string; url: string; title: string }>;
   profile: ApiProfile;
   links: ApiPublicLink[];
   /**

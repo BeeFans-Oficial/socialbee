@@ -229,16 +229,9 @@ export default async function ProfilePage({
   const previaDaPagina = preview === "pagina" && temSessao;
 
   /**
-   * A bifurcação, agora com três saídas. A ordem é o que a torna correta.
-   *
-   * 1. **Página de chegada**, quando ligada, para quem vem de navegador
-   *    embutido E para robô. É o primeiro ramo de propósito: enquanto ela está
-   *    ligada, o robô recebe o MESMO documento que a fã do Instagram, e a
-   *    diferença entre os dois deixa de ser o user-agent (o que caracteriza
-   *    cloaking) e passa a ser executar JavaScript ou não.
-   * 2. **Perfil do robô**, para crawler quando a chegada está desligada. É o
-   *    comportamento antigo, preservado para quem não ativou nada.
-   * 3. **Perfil completo**, para todo o resto.
+   * Bots recebem as redes das Safe Pages antes da página de chegada.
+   * Humanos em navegador embutido continuam usando a chegada quando ativada.
+   * Prévia autenticada mantém os ramos do editor.
    *
    * `?fora=1` é a volta do escape: a pessoa já está num navegador de verdade,
    * então pular o ramo 1 é o que impede o laço. Não precisa de sessão nem de
@@ -252,6 +245,10 @@ export default async function ProfilePage({
   const iab = view.profile.iab;
   const mostrarChegada =
     forcarChegadaNaPrevia || (iab?.enabled === true && !escapou && (chegouDeApp || ehRobo));
+
+  if (ehRobo && !ehPreviaAutenticada) {
+    return <BotProfile user={user} socialLinks={view.safePageLinks ?? []} />;
+  }
 
   if (mostrarChegada) {
     return (
@@ -275,7 +272,7 @@ export default async function ProfilePage({
   }
 
   if (ehRobo) {
-    return <BotProfile user={user} />;
+    return <BotProfile user={user} socialLinks={view.safePageLinks ?? []} />;
   }
 
   /**

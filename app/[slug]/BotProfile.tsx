@@ -3,26 +3,20 @@ import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { type User } from "@/lib/catalog";
 import { resolverVisual } from "@/lib/templates";
 
-/**
- * O perfil como um cliente NÃO HUMANO o recebe.
- *
- * Entrega identidade — nome, bio, avatar, selo de idade — e **não entrega a
- * lista de links**. Isso é retenção de conteúdo de quem não é gente, no mesmo
- * espírito do `noindex` que o redirecionador já manda: um crawler de prévia não
- * precisa dos destinos, e o produto inteiro depende de o destino não estar no
- * documento (é o que mantém o link fora do alcance de quem varre HTML).
- *
- * Vale ser explícito sobre o que isto NÃO é: não há link fabricado aqui, nem
- * página falsa. É a mesma criadora, a mesma bio, o mesmo avatar — só sem os
- * botões. Quem executa JavaScript, inclusive um revisor humano com um navegador
- * de verdade, recebe `ProfileClient` e vê a página real.
- *
- * Antes desta bifurcação existir, o comportamento era o mesmo por acidente: a
- * página era um componente de cliente, então quem não roda JS recebia uma casca
- * sem NADA — nem o nome da criadora. Isso quebrava a prévia para as fãs também,
- * que é o que motivou a mudança.
- */
-export function BotProfile({ user }: { user: User }) {
+/** Identidade e redes sociais das Safe Pages, sem destinos principais. */
+export function BotProfile({ user, socialLinks = [] }: {
+  user: User;
+  socialLinks?: Array<{ platform: string; url: string; title: string }>;
+}) {
+  const seen = new Set<string>();
+  const links = socialLinks.filter((link) => {
+    try {
+      const url = new URL(link.url);
+      if (!["http:", "https:"].includes(url.protocol) || seen.has(url.href)) return false;
+      seen.add(url.href);
+      return true;
+    } catch { return false; }
+  });
   // Sem imagem de fundo e sem template: para o robô, o cabeçalho é identidade,
   // não vitrine. Passar a capa aqui mandaria uma imagem grande a quem só vai
   // ler texto, e o tamanho do documento é o que mais importa nesse caminho.
@@ -37,6 +31,15 @@ export function BotProfile({ user }: { user: User }) {
 
       <div className="relative z-10 pb-20">
         <ProfileHeader user={user} visual={visual} activePlatforms={[]} />
+        <ul className="mx-auto max-w-md px-6 space-y-3">
+          {links.map((link) => (
+            <li key={link.url}>
+              <a href={link.url} rel="noopener noreferrer" className="block rounded-xl bg-white px-6 py-4 text-center text-black font-semibold">
+                {link.title || link.platform}
+              </a>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

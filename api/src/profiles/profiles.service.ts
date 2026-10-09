@@ -93,6 +93,7 @@ export interface PublicLinkView {
 export interface PublicProfileView {
   profile: Omit<OwnProfileView, "id"> & { id: string };
   links: PublicLinkView[];
+  safePageLinks: Array<{ platform: string; url: string; title: string }>;
 }
 
 @Injectable()
@@ -480,10 +481,14 @@ export class ProfilesService {
     // criadora que tirou a página do ar não quer que ela seja encontrada.
     if (!profile || !profile.published) throw new NotFoundException("Perfil não encontrado.");
 
-    const links = await this.links.find({
-      where: { profileId: profile.id, isActive: true },
-      order: { position: "ASC", createdAt: "ASC" },
-    });
+    const links = await this.links.createQueryBuilder("link")
+      .leftJoinAndSelect("link.safePage", "page")
+      .leftJoinAndSelect("page.socialLinks", "social")
+      .where("link.profileId = :profileId AND link.isActive = true", { profileId: profile.id })
+      .orderBy("link.position", "ASC")
+      .addOrderBy("link.createdAt", "ASC")
+      .addOrderBy("social.position", "ASC")
+      .getMany();
 
     const view = toOwnProfileView(profile);
     const ehPro = planoDe(profile.user?.proUntil) === "pro";
@@ -526,6 +531,8 @@ export class ProfilesService {
             : null,
         },
       },
+      safePageLinks: ehPro ? links.filter((link) => link.cloakEnabled)
+        .flatMap((link) => (link.safePage?.socialLinks ?? []).map(({ platform, url, title }) => ({ platform, url, title }))) : [],
       links: links
         .map(toPublicLinkView)
         .map((link) => (ehPro ? link : { ...link, cloakEnabled: false })),

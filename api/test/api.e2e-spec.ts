@@ -338,6 +338,27 @@ describe("perfil público", () => {
     }
   });
 
+  it("entrega as redes da Safe Page dos links ativos protegidos no perfil", async () => {
+    const socialLinks = [{ platform: "instagram", url: "https://www.instagram.com/perfil/", title: "Instagram" }];
+    await servidor.patch(`/v1/me/links/${linkDaBella}`)
+      .set("authorization", `Bearer ${tokenBella}`)
+      .send({ cloakEnabled: true, safePage: { socialLinks } }).expect(200);
+    const { body } = await servidor.get("/v1/public/profiles/bella-teste")
+      .set("x-internal-secret", "segredo-interno-de-teste-24+")
+      .set("user-agent", "InstagramBot").expect(200);
+    expect(body.requester.isBot).toBe(true);
+    expect(body.safePageLinks).toEqual(socialLinks);
+    expect(body.links[0]).not.toHaveProperty("destinationUrl");
+    await servidor.patch(`/v1/me/links/${linkDaBella}`)
+      .set("authorization", `Bearer ${tokenBella}`)
+      .send({ cloakEnabled: false }).expect(200);
+    const unprotected = await servidor.get("/v1/public/profiles/bella-teste").expect(200);
+    expect(unprotected.body.safePageLinks).toEqual([]);
+    await servidor.patch(`/v1/me/links/${linkDaBella}`)
+      .set("authorization", `Bearer ${tokenBella}`)
+      .send({ cloakEnabled: true }).expect(200);
+  });
+
   it("responde 404 para slug que não existe", async () => {
     await servidor.get("/v1/public/profiles/nao-existe-ninguem").expect(404);
   });
