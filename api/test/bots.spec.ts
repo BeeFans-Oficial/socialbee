@@ -36,6 +36,8 @@ describe("detectBot", () => {
   it("trata robô declarado como robô", () => {
     for (const ua of [
       "facebookexternalhit/1.1",
+      "InstagramBot/1.0",
+      "Facebot",
       "TelegramBot (like TwitterBot)",
       "Googlebot/2.1",
       "curl/8.4.0",

@@ -3,15 +3,7 @@ import { Column, CreateDateColumn, Entity, JoinColumn, OneToMany, OneToOne, Prim
 import { Link } from "./link.entity";
 import { SafePageSocialLink } from "./safe-page-social-link.entity";
 
-/**
- * A página "limpa" servida ao robô da rede social no lugar do destino real.
- *
- * O `LinkModal` já monta esta estrutura na interface e hoje ela é **descartada
- * no fechamento do modal** (ver README, "Cloaking no servidor"). A tabela
- * existe para o dado parar de morrer; servir conteúdo diferente ao crawler
- * continua sendo decisão de produto em aberto, e esta API não faz isso por
- * conta própria.
- */
+/** Página simplificada vinculada ao link, servida a bots em /r/[code]. */
 @Entity({ name: "safe_pages" })
 export class SafePage {
   @PrimaryGeneratedColumn("uuid")

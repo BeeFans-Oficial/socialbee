@@ -8,6 +8,9 @@ import { InternalSecretGuard } from "../common/guards/internal-secret.guard";
 import { safeDestination } from "../common/url";
 import { LinksService } from "../links/links.service";
 import { ProfilesService } from "../profiles/profiles.service";
+import { detectBot } from "./bots";
+import { clientIP } from "./attribution";
+import { header } from "./types";
 import { TrackingService } from "./tracking.service";
 
 class RecordViewDto {
@@ -93,6 +96,7 @@ export class PublicTrackingController {
     const destination = safeDestination(link.destinationUrl);
     if (!destination) return { destinationUrl: null, counted: false };
 
+    const isBot = identifyVisitor({ headers: request.headers, method: dto.method ?? "GET" });
     let counted = false;
     let reason = "";
     try {
@@ -118,7 +122,10 @@ export class PublicTrackingController {
     // clique não contou. Sem isso, "cliquei e não apareceu no analytics" é
     // impossível de investigar — e o filtro de robô é justamente a peça em que
     // um falso positivo apaga clique humano em silêncio.
-    return { destinationUrl: destination.toString(), counted, reason };
+    return {
+      destinationUrl: isBot ? null : destination.toString(), counted, reason, isBot,
+      safePage: isBot ? { displayName: link.displayName ?? "Perfil", socialLinks: link.socialLinks ?? [] } : null,
+    };
   }
 }
 
@@ -164,4 +171,16 @@ function parseUrlOr(raw: string, request: Request): URL {
   } catch {
     return originalUrl(request);
   }
+}
+
+/** Classifica os cabeçalhos originais repassados pelo servidor Next. */
+export function identifyVisitor(request: { headers: Request["headers"]; method: string }): boolean {
+  return detectBot({
+    userAgent: header(request.headers, "user-agent") ?? "",
+    ip: clientIP(request.headers), method: request.method,
+    acceptLanguage: header(request.headers, "accept-language"),
+    accept: header(request.headers, "accept"),
+    secChUa: header(request.headers, "sec-ch-ua"),
+    secFetchMode: header(request.headers, "sec-fetch-mode"),
+  }).isBot;
 }

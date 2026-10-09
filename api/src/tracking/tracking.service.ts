@@ -40,8 +40,7 @@ export interface ClickInput {
 }
 
 export interface ClickOutcome {
-  /** `false` quando o filtro classificou como robô. O redirecionamento
-   *  acontece de todo jeito — só não conta. */
+  /** `false` quando o filtro classificou como robô. */
   counted: boolean;
   reason: string;
 }

@@ -68,6 +68,8 @@ export function clientIp(fonte: FonteDeCabecalho): string | undefined {
 }
 
 export interface ClickResult {
+  isBot?: boolean;
+  safePage?: { displayName: string; socialLinks: Array<{ platform: string; url: string; title: string }> } | null;
   destinationUrl: string | null;
   counted: boolean;
   /** Por que o clique contou ou não. É o que torna "cliquei e não apareceu no
@@ -130,8 +132,7 @@ export async function recordClick(
   const result = (await response.json()) as ClickResult;
 
   if (!result.counted && result.destinationUrl) {
-    // O visitante segue para o destino de todo jeito; o registro é que foi
-    // descartado. Fica no log do servidor, com o motivo.
+    // Falha de contagem não impede o redirecionamento humano.
     console.warn(`[r] clique em ${code} não contado: ${result.reason ?? "sem motivo"}`);
   }
 

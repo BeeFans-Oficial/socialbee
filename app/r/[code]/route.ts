@@ -1,26 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { recordClick } from "@/lib/api/server";
+import { renderSafePage } from "@/lib/safe-page";
+import { recordClick, type ClickResult } from "@/lib/api/server";
 import { esquemaDe, siteOrigin } from "@/lib/site";
 
-/**
- * Redirecionador de link.
- *
- * Continua sendo um Route Handler, e não uma página, pelos mesmos três motivos
- * de antes: a resposta é exatamente o que escrevemos (sem layout raiz por
- * cima), o salto não paga o custo de montar o app, e **o destino nunca aparece
- * no HTML entregue ao visitante**.
- *
- * O que mudou com a API: quem resolve o código e registra o clique agora é ela.
- * Este handler ficou sendo o que sempre devia ser — a borda pública que fala com
- * o navegador, faz o 302 e não conhece banco nenhum.
- *
- * Por que o registro não acontece direto do navegador: a rota de clique na API
- * exige segredo interno. Sem isso, qualquer pessoa com o código curto de um
- * link — que é público, está na bio dela — dispararia a rota em laço e inflaria
- * o contador de cliques da criadora, que é o número que ela usa para negociar
- * valor.
- */
+/** Entrada pública: a API resolve e classifica; bots recebem a Safe Page e
+ * humanos seguem para o destino. O HTML é independente do layout do app. */
 
 // Cada acesso é um registro novo. Cache aqui significaria clique não contado.
 export const dynamic = "force-dynamic";
@@ -31,7 +16,7 @@ export const dynamic = "force-dynamic";
  *  — o link é o produto da criadora, e vazar a origem entrega isso de graça a
  *  terceiros. `noindex` mantém o redirecionador fora dos buscadores. */
 const HOP_HEADERS = {
-  "cache-control": "no-store, no-cache, must-revalidate",
+  "cache-control": "no-store",
   "referrer-policy": "no-referrer",
   "x-robots-tag": "noindex, nofollow",
 } as const;
@@ -46,7 +31,7 @@ function notFound(request: NextRequest): NextResponse {
   // possivelmente tirando-a de um domínio que funciona para um que está
   // bloqueado no aplicativo dela.
   return NextResponse.redirect(new URL("/", origemDaRequisicao(request)), {
-    status: 302,
+    status: 307,
     headers: HOP_HEADERS,
   });
 }
@@ -87,12 +72,10 @@ export async function GET(
 ): Promise<NextResponse> {
   const { code } = await params;
 
-  let destination: string | null = null;
+  let result: ClickResult;
   try {
-    // Uma chamada faz as duas coisas: resolve o destino e registra o clique. É
-    // do lado da API que o filtro de robô decide se o acesso conta — e o robô é
-    // redirecionado normalmente de todo jeito, só não entra na estatística.
-    ({ destinationUrl: destination } = await recordClick(code, request, clientIp(request)));
+    // Uma chamada resolve o conteúdo, classifica o visitante e registra o acesso.
+    result = await recordClick(code, request, clientIp(request));
   } catch (error) {
     // A API fora do ar não pode transformar o link da criadora em página de
     // erro... mas sem ela também não há como saber o destino. A home é o menos
@@ -101,11 +84,17 @@ export async function GET(
     return notFound(request);
   }
 
+  if (result.isBot) {
+    return new NextResponse(renderSafePage(result.safePage ?? { displayName: "Perfil", socialLinks: [] }), {
+      status: 200,
+      headers: { ...HOP_HEADERS, "content-type": "text/html; charset=utf-8", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" },
+    });
+  }
+  const destination = result.destinationUrl;
   if (!destination) return notFound(request);
 
-  // 302, não 301: um permanente fica no cache do navegador e todos os cliques
-  // seguintes daquele visitante deixariam de passar por aqui.
-  return NextResponse.redirect(destination, { status: 302, headers: HOP_HEADERS });
+  // Temporário e sem armazenamento: cada acesso volta à classificação.
+  return NextResponse.redirect(destination, { status: 307, headers: HOP_HEADERS });
 }
 
 /**
