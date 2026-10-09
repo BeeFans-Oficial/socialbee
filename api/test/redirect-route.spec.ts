@@ -19,7 +19,8 @@ function load(file: string, imports: Record<string, unknown> = {}): any {
 const recordClick = jest.fn();
 const { renderSafePage } = load("lib/safe-page.ts");
 class TestResponse extends Response {
-  static redirect(url: string | URL, init: ResponseInit): TestResponse {
+  static redirect(url: string | URL, options: ResponseInit | number = 302): TestResponse {
+    const init = typeof options === "number" ? { status: options } : options;
     return new TestResponse(null, { ...init, headers: { ...init.headers, location: new URL(url).href } });
   }
 }
