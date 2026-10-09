@@ -70,6 +70,10 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ code: string }> },
 ): Promise<NextResponse> {
+  // Jitter de 10 a 50 ms no início de cada GET, inclusive nos fallbacks.
+  const delay = Math.floor(Math.random() * 41) + 10;
+  await new Promise<void>((resolve) => setTimeout(resolve, delay));
+
   const { code } = await params;
 
   let result: ClickResult;

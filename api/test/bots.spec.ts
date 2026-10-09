@@ -27,6 +27,55 @@ describe("detectBot", () => {
     expect(verdict.isBot).toBe(false);
   });
 
+  it("classifica IP de nuvem como robô mesmo com cabeçalhos humanos", () => {
+    for (const ip of ["3.5.1.2", "13.64.1.2", "35.192.1.2"]) {
+      const verdict = detectBot({ ...humanoNoInstagram, ip });
+      expect(verdict.isBot).toBe(true);
+      expect(verdict.score).toBe(100);
+      expect(verdict.reason).toContain("infraestrutura de nuvem");
+    }
+  });
+
+  it("não penaliza Safari no iPhone com iOS 26 ou 27 pelo IP cloud", () => {
+    for (const version of [26, 27]) {
+      const verdict = detectBot({
+        ...humanoNoInstagram,
+        ip: "3.5.1.2",
+        userAgent: `Mozilla/5.0 (iPhone; CPU iPhone OS ${version}_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1`,
+      });
+      expect(verdict.isBot).toBe(false);
+      expect(verdict.score).toBe(0);
+    }
+  });
+
+  it("não concede a exceção a versões antigas, futuras ou UA incompleto", () => {
+    for (const version of [16, 17, 18, 28]) {
+      expect(detectBot({ ...humanoNoInstagram, ip: "3.5.1.2",
+        userAgent: `Mozilla/5.0 (iPhone; CPU iPhone OS ${version}_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1`,
+      }).isBot).toBe(true);
+    }
+    expect(detectBot({ ...humanoNoInstagram, ip: "3.5.1.2",
+      userAgent: "iPhone OS 27_0 Safari/604.1",
+    }).isBot).toBe(true);
+  });
+
+  it("mantém a classificação de bots declarados mesmo com UA iOS moderno", () => {
+    expect(detectBot({
+      ...humanoNoInstagram, ip: "3.5.1.2",
+      userAgent: "iPhone OS 17_0 Safari/604.1 Googlebot/2.1",
+    }).isBot).toBe(true);
+  });
+
+  it("mantém a penalização cloud para iOS antigo e os demais sinais de automação", () => {
+    expect(detectBot({
+      ...humanoNoInstagram, ip: "3.5.1.2", userAgent: "iPhone OS 15_0 Safari/604.1",
+    }).isBot).toBe(true);
+    expect(detectBot({
+      ...humanoNoInstagram, ip: "3.5.1.2", userAgent: "iPhone OS 17_0 Safari/604.1",
+      acceptLanguage: undefined, accept: "*/*",
+    }).isBot).toBe(true);
+  });
+
   it("trata a prévia de link do WhatsApp como robô", () => {
     const verdict = detectBot({ ...humanoNoInstagram, userAgent: "WhatsApp/2.23.20.0 A" });
     expect(verdict.isBot).toBe(true);

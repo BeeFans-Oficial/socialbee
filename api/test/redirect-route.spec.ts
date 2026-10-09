@@ -11,14 +11,20 @@ function load(file: string, imports: Record<string, unknown> = {}): any {
   const exports = {};
   vm.runInNewContext(source, {
     exports, require: (name: string) => imports[name] ?? require(require.resolve(name, { paths: [root] })),
-    URL, URLSearchParams, console,
+    URL, URLSearchParams, console, setTimeout,
   });
   return exports;
 }
 
 const recordClick = jest.fn();
 const { renderSafePage } = load("lib/safe-page.ts");
+class TestResponse extends Response {
+  static redirect(url: string | URL, init: ResponseInit): TestResponse {
+    return new TestResponse(null, { ...init, headers: { ...init.headers, location: new URL(url).href } });
+  }
+}
 const { GET, HEAD } = load("app/r/[code]/route.ts", {
+  "next/server": { NextResponse: TestResponse },
   "@/lib/safe-page": { renderSafePage },
   "@/lib/api/server": { recordClick },
   "@/lib/site": { siteOrigin: () => "https://example.com", esquemaDe: () => "https" },

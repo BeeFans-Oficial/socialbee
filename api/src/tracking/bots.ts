@@ -1,4 +1,5 @@
 import type { BotVerdict } from "./types";
+import { isCloudIP } from "./cloud-ranges";
 
 /** Filtro compartilhado pelo rastreamento e pela segmentação de /r/[code]. */
 
@@ -173,6 +174,20 @@ export function detectBot(signals: BotSignals): BotVerdict {
     score += points;
     reasons.push(why);
   };
+
+  if (signals.ip && isCloudIP(signals.ip)) {
+    // O UA é um sinal de compatibilidade, não uma prova de identidade.
+    // Safari no iPhone com iOS 26 ou 27 pode chegar por relay ou VPN.
+    const iosVersion = /\biPhone OS (\d+)[_\d]*\b/i.exec(signals.userAgent);
+    const isModernIOS = iosVersion !== null
+      && [26, 27].includes(Number(iosVersion[1]))
+      && /Mozilla\/5\.0.*\(iPhone;/i.test(signals.userAgent)
+      && /\bAppleWebKit\/[\d.]+/i.test(signals.userAgent)
+      && /\bVersion\/[\d.]+/i.test(signals.userAgent)
+      && /\bMobile\/[A-Za-z0-9]+/i.test(signals.userAgent)
+      && /\bSafari\/[\d.]+/i.test(signals.userAgent);
+    if (!isModernIOS) add(100, "IP de infraestrutura de nuvem");
+  }
 
   // HEAD é sondagem, não visita. Vale 100 sozinho: nenhuma navegação humana
   // chega por HEAD, então isto é conclusivo por si.
