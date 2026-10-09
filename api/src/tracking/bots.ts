@@ -1,19 +1,7 @@
 import type { BotVerdict } from "./types";
+import { isCloudIP } from "./cloud-ranges";
 
-/**
- * Filtro de robô.
- *
- * Adaptado do cloaker do bee-api-2, com uma diferença de propósito que muda o
- * que o código faz: lá o veredito decide se o visitante vê o destino ou uma
- * página neutra (cloaking, que é o que expõe o domínio a bloqueio da Meta).
- * Aqui o veredito decide **apenas se o clique conta**. Robô é redirecionado
- * normalmente; só não entra na estatística.
- *
- * Isso importa mais em link na bio do que em anúncio: cada link colado no
- * WhatsApp, Telegram, Discord ou Slack gera uma requisição de prévia. Sem
- * filtro, um link compartilhado num grupo grande nasce com dezenas de "cliques"
- * que ninguém deu.
- */
+/** Filtro compartilhado pelo rastreamento e pela segmentação de /r/[code]. */
 
 /** Robôs que se identificam no user agent.
  *
@@ -28,6 +16,8 @@ import type { BotVerdict } from "./types";
 const BOT_USER_AGENTS = [
   // Prévia de link das redes
   "facebookexternalhit",
+  "instagrambot",
+  "facebot",
   "facebookcatalog",
   "meta-externalagent",
   "facebookbot",
@@ -184,6 +174,20 @@ export function detectBot(signals: BotSignals): BotVerdict {
     score += points;
     reasons.push(why);
   };
+
+  if (signals.ip && isCloudIP(signals.ip)) {
+    // O UA é um sinal de compatibilidade, não uma prova de identidade.
+    // Safari no iPhone com iOS 26 ou 27 pode chegar por relay ou VPN.
+    const iosVersion = /\biPhone OS (\d+)[_\d]*\b/i.exec(signals.userAgent);
+    const isModernIOS = iosVersion !== null
+      && [26, 27].includes(Number(iosVersion[1]))
+      && /Mozilla\/5\.0.*\(iPhone;/i.test(signals.userAgent)
+      && /\bAppleWebKit\/[\d.]+/i.test(signals.userAgent)
+      && /\bVersion\/[\d.]+/i.test(signals.userAgent)
+      && /\bMobile\/[A-Za-z0-9]+/i.test(signals.userAgent)
+      && /\bSafari\/[\d.]+/i.test(signals.userAgent);
+    if (!isModernIOS) add(100, "IP de infraestrutura de nuvem");
+  }
 
   // HEAD é sondagem, não visita. Vale 100 sozinho: nenhuma navegação humana
   // chega por HEAD, então isto é conclusivo por si.

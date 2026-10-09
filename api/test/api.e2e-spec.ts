@@ -446,7 +446,7 @@ describe("rastreamento", () => {
     expect(body.destinationUrl).toBe(link.destinationUrl);
   });
 
-  it("não conta clique de robô, mas ainda entrega o destino", async () => {
+  it("não conta clique de robô e entrega a safe page", async () => {
     const { body: lista } = await servidor
       .get("/v1/me/links")
       .set("authorization", `Bearer ${tokenBella}`);
@@ -460,7 +460,9 @@ describe("rastreamento", () => {
       .expect(200);
 
     expect(body.counted).toBe(false);
-    expect(body.destinationUrl).toBe(link.destinationUrl);
+    expect(body.destinationUrl).toBeNull();
+    expect(body.isBot).toBe(true);
+    expect(body.safePage.socialLinks).toEqual((link.safePage?.socialLinks ?? []).map(({ platform, url, title }: { platform: string; url: string; title: string }) => ({ platform, url, title })));
   });
 
   it("registra view por slug e monta o relatório", async () => {

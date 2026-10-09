@@ -264,19 +264,24 @@ export class LinksService {
    * resolver antigo prometia que o banco faria.
    */
   async resolveByShortCode(shortCode: string): Promise<ResolvedLink | null> {
-    const link = await this.links.findOne({
-      where: { shortCode },
-      select: {
-        id: true,
-        profileId: true,
-        platform: true,
-        destinationUrl: true,
-        isActive: true,
-      },
-    });
+    const link = await this.links.createQueryBuilder("link")
+      .leftJoin("link.profile", "profile")
+      .leftJoin("link.safePage", "page")
+      .leftJoin("page.socialLinks", "social")
+      .select([
+        "link.id", "link.profileId", "link.platform", "link.destinationUrl", "link.isActive",
+        "profile.id", "profile.displayName", "page.id",
+        "social.id", "social.platform", "social.url", "social.title", "social.position",
+      ])
+      .where("link.shortCode = :shortCode", { shortCode })
+      .orderBy("social.position", "ASC")
+      .addOrderBy("social.id", "ASC")
+      .getOne();
     if (!link) return null;
 
     return {
+      displayName: link.profile?.displayName ?? "Perfil",
+      socialLinks: (link.safePage?.socialLinks ?? []).map(({ platform, url, title }) => ({ platform, url, title })),
       linkId: link.id,
       profileId: link.profileId,
       channel: link.platform,
