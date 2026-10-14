@@ -19,6 +19,7 @@ import { SairDoAppPorPadrao1790600000000 } from "./migrations/1790600000000-Sair
 import { HostDeChegadaNoEvento1790500000000 } from "./migrations/1790500000000-HostDeChegadaNoEvento";
 import { PlanoPro1790700000000 } from "./migrations/1790700000000-PlanoPro";
 import { DominioProprio1790800000000 } from "./migrations/1790800000000-DominioProprio";
+import { ImagensComoChave1790900000000 } from "./migrations/1790900000000-ImagensComoChave";
 
 /**
  * Conexão e lista de migrations.
@@ -74,6 +75,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       SairDoAppPorPadrao1790600000000,
       PlanoPro1790700000000,
       DominioProprio1790800000000,
+      ImagensComoChave1790900000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,
