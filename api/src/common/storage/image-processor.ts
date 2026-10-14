@@ -55,10 +55,15 @@ export async function processarImagem(entrada: Buffer, uso: UsoDaImagem): Promis
     return { bytes: data, contentType: FORMATO_DE_SAIDA.contentType, width: info.width, height: info.height };
   } catch {
     // `sharp` não reconheceu como imagem: arquivo corrompido, PDF renomeado,
-    // formato que ele não lê. Para a criadora é tudo "não é uma imagem".
+    // ou HEIC — o formato padrão da câmera do iPhone, que o binário do sharp
+    // na imagem Alpine NÃO decodifica (precisaria de libheif compilada). O
+    // Safari costuma converter HEIC para JPEG ao subir por `<input type=file>`,
+    // mas não sempre; daí a dica na mensagem.
     throw new BadRequestException({
       code: "imagem_invalida",
-      message: "Arquivo não é uma imagem válida. Use JPG, PNG, WebP ou HEIC.",
+      message:
+        "Arquivo não é uma imagem válida ou está em HEIC. Use JPG, PNG ou WebP " +
+        "(no iPhone: Ajustes › Câmera › Formatos › Mais compatível).",
     });
   }
 }
