@@ -53,9 +53,20 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-beesocial}
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
-    # SEM `ports`. Nem no loopback: quem fala com o banco é a API, pela rede
-    # interna do Compose. Para abrir um psql:
+    # Publicada SÓ no loopback, para o DBeaver (ou psql) da equipe chegar por
+    # túnel SSH: `ssh -L 5432:localhost:5432 root@<vps>` e conectar em
+    # localhost:5432 — o DBeaver faz o túnel sozinho na aba SSH da conexão.
+    #
+    # O `127.0.0.1:` no começo é o que mantém a porta fechada para a internet
+    # (o mesmo motivo da API e do front, abaixo): sem ele o Docker publicaria
+    # em 0.0.0.0 por cima do ufw, e um Postgres com senha ficaria exposto a
+    # tentativas automáticas, sem TLS. A API continua falando pela rede
+    # interna do Compose (`db:5432`); esta porta é só para gente.
+    #
+    # psql sem túnel, de dentro da VPS:
     #   docker compose -f docker-compose.prod.yml exec db psql -U beesocial
+    ports:
+      - "127.0.0.1:5432:5432"
     volumes:
       - beesocial-db:/var/lib/postgresql/data
     healthcheck:
