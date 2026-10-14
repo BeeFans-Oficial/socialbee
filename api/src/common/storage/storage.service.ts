@@ -1,19 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectCommand, PutObjectCommand, type S3Client } from "@aws-sdk/client-s3";
 
 import { loadEnv } from "../../config/env";
 import { isMediaKey, mediaUrl } from "./media-url";
+import { criarClienteS3 } from "./s3-client";
 
 /**
  * Armazenamento de objetos para as imagens das criadoras.
  *
- * Fala S3. Em dev e em produção o outro lado é o MinIO do compose; o código não
- * sabe disso e não precisa — Amazon S3 ou Cloudflare R2 entram trocando as
- * variáveis `S3_*`, nenhuma linha aqui.
+ * Fala S3. Em produção o outro lado é o Cloudflare R2; em dev e no CI, um
+ * RustFS no compose. O código não sabe qual é e não precisa — trocar é mudar
+ * as variáveis `S3_*` (ver `s3-client.ts`).
  *
- * O bucket é de LEITURA pública (ver `minio-init` no compose). Por isso não há
- * URL assinada: a imagem de uma criadora é pública por natureza, ela está na
- * página pública. O que estas credenciais protegem é a ESCRITA.
+ * O bucket é de LEITURA pública: no R2 pelo domínio público do bucket, em dev
+ * pela política aplicada por `s3-init`. Por isso não há URL assinada: a imagem
+ * de uma criadora é pública por natureza, ela está na página pública. O que
+ * estas credenciais protegem é a ESCRITA.
  *
  * ## Chave, não URL
  *
@@ -32,17 +34,8 @@ export class StorageService {
   private readonly bucket: string;
 
   constructor() {
-    const env = loadEnv();
-    this.bucket = env.s3Bucket;
-    this.client = new S3Client({
-      endpoint: env.s3Endpoint,
-      region: env.s3Region,
-      credentials: { accessKeyId: env.s3AccessKey, secretAccessKey: env.s3SecretKey },
-      // MinIO serve o bucket no caminho (`/bucket/chave`), não no subdomínio
-      // como a Amazon. Sem isto o SDK tenta `bucket.minio:9000` e falha na
-      // resolução de nome.
-      forcePathStyle: env.s3ForcePathStyle,
-    });
+    this.bucket = loadEnv().s3Bucket;
+    this.client = criarClienteS3();
   }
 
   async put(key: string, bytes: Buffer, contentType: string): Promise<void> {

@@ -63,13 +63,13 @@ beforeAll(async () => {
   process.env.SEED_DEMO = "false";
   // Custo mínimo do bcrypt: o teste cria várias contas e não está medindo hash.
   process.env.BCRYPT_ROUNDS = "4";
-  // MinIO de verdade, o do compose, pela mesma razão que o Postgres é real:
-  // testar o upload contra um mock do S3 é testar o mock. `TEST_S3_ENDPOINT`
-  // aponta para outro quando fizer sentido.
+  // S3 de verdade, o RustFS do compose, pela mesma razão que o Postgres é
+  // real: testar o upload contra um mock do S3 é testar o mock.
+  // `TEST_S3_ENDPOINT` aponta para outro quando fizer sentido.
   process.env.S3_ENDPOINT = process.env.TEST_S3_ENDPOINT ?? "http://localhost:9000";
   process.env.S3_BUCKET = process.env.TEST_S3_BUCKET ?? "beesocial";
-  process.env.S3_ACCESS_KEY = process.env.MINIO_ROOT_USER ?? "beesocial";
-  process.env.S3_SECRET_KEY = process.env.MINIO_ROOT_PASSWORD ?? "beesocial-dev";
+  process.env.S3_ACCESS_KEY = process.env.TEST_S3_ACCESS_KEY ?? "beesocial";
+  process.env.S3_SECRET_KEY = process.env.TEST_S3_SECRET_KEY ?? "beesocial-dev";
   process.env.MEDIA_PUBLIC_URL = `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`;
 
   const { ensureSchema } = await import("../src/database/ensure-schema");

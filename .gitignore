@@ -46,3 +46,6 @@ yarn-error.log*
 
 # saída do `npm run ver:robo -- <slug> --render`
 /.visao-do-bot.html
+
+# host do bucket das imagens: dado de ambiente, como o .env
+deploy/nginx/snippets/beesocial-media-origem.conf

@@ -1,0 +1,7 @@
+# Host PÚBLICO do bucket das imagens no Cloudflare R2 — só o host, sem https://
+# e sem barra. É o que aparece em R2 → bucket → Settings → Public Development
+# URL depois de habilitar.
+#
+# Copiar para /etc/nginx/snippets/beesocial-media-origem.conf (sem o .example)
+# e preencher. Não entra no git: é dado de ambiente, como o .env.
+set $media_origem pub-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.r2.dev;
