@@ -64,34 +64,30 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm test
-      - name: MinIO (o mesmo do compose, com o mesmo bucket e política)
-        # Não entra em `services` porque a imagem do MinIO exige o argumento
-        # `server /data`, e `services` não aceita comando. A tag e o digest
-        # são os de docker-compose.yml — o teste roda contra o que vai ao ar.
+      - name: Servidor S3 local (o mesmo RustFS do compose, com o mesmo bucket)
+        # Não entra em `services` porque precisa do bucket criado e da política
+        # de leitura anônima aplicadas ANTES do teste. Imagem e política são as
+        # de docker-compose.yml — o teste roda contra o que o dev roda.
         working-directory: .
         run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=beesocial -e MINIO_ROOT_PASSWORD=beesocial-dev \
-            minio/minio:RELEASE.2025-09-07T16-13-09Z server /data
-          for i in $(seq 1 30); do
-            curl -fsS http://localhost:9000/minio/health/live >/dev/null 2>&1 && break
+          docker run -d --name rustfs -p 9000:9000 \
+            -e RUSTFS_ACCESS_KEY=beesocial -e RUSTFS_SECRET_KEY=beesocial-dev \
+            rustfs/rustfs:1.0.1
+          for i in $(seq 1 60); do
+            curl -s -o /dev/null http://localhost:9000/ && break
             sleep 1
           done
           docker run --rm --network host \
-            -v "$PWD/deploy/minio/politica-leitura.json:/politica-leitura.json:ro" \
-            --entrypoint /bin/sh \
-            minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727 -c '
-              mc alias set local http://localhost:9000 beesocial beesocial-dev &&
-              mc mb --ignore-existing local/beesocial &&
-              mc anonymous set download local/beesocial &&
-              mc admin policy create local beesocial-leitura /politica-leitura.json'
-      - name: Testes de ponta a ponta (Postgres e MinIO reais)
+            -e AWS_ACCESS_KEY_ID=beesocial -e AWS_SECRET_ACCESS_KEY=beesocial-dev -e AWS_DEFAULT_REGION=us-east-1 \
+            -v "$PWD/deploy/s3/politica-publica.json:/politica-publica.json:ro" \
+            --entrypoint /bin/sh amazon/aws-cli:2.33.11 -c '
+              aws --endpoint-url http://localhost:9000 s3api create-bucket --bucket beesocial &&
+              aws --endpoint-url http://localhost:9000 s3api put-bucket-policy --bucket beesocial --policy file:///politica-publica.json'
+      - name: Testes de ponta a ponta (Postgres e S3 reais)
         run: npm run test:e2e
         env:
           TEST_DATABASE_URL: postgres://beesocial:beesocial@localhost:5432/beesocial
           TEST_S3_ENDPOINT: http://localhost:9000
-          MINIO_ROOT_USER: beesocial
-          MINIO_ROOT_PASSWORD: beesocial-dev
       - run: npm run build
 
   web:

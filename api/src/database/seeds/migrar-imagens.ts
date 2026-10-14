@@ -1,8 +1,9 @@
 import { Client } from "pg";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { PutObjectCommand } from "@aws-sdk/client-s3";
 
 import { loadEnv } from "../../config/env";
 import { chaveDaImagem, processarImagem, type UsoDaImagem } from "../../common/storage/image-processor";
+import { criarClienteS3 } from "../../common/storage/s3-client";
 
 /**
  * Move para o bucket as imagens que ainda estão em base64 nas colunas.
@@ -53,12 +54,7 @@ async function main(argv: string[]): Promise<void> {
     ssl: env.dbSsl ? { rejectUnauthorized: false } : undefined,
   });
   await client.connect();
-  const s3 = new S3Client({
-    endpoint: env.s3Endpoint,
-    region: env.s3Region,
-    credentials: { accessKeyId: env.s3AccessKey, secretAccessKey: env.s3SecretKey },
-    forcePathStyle: env.s3ForcePathStyle,
-  });
+  const s3 = criarClienteS3();
 
   let migradas = 0;
   let falhas = 0;

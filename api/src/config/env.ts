@@ -44,8 +44,8 @@ export interface Env {
    *  instrução nem confere o DNS, e diz para falar com a equipe. */
   serverPublicIp: string | null;
 
-  /** Armazenamento das imagens (S3 ou compatível: MinIO, R2). Ver
-   *  `common/storage/storage.service.ts`. */
+  /** Armazenamento das imagens: Cloudflare R2 em produção, RustFS no compose
+   *  de dev. Ver `common/storage/s3-client.ts`. */
   s3Endpoint: string;
   s3Region: string;
   s3Bucket: string;
@@ -53,7 +53,7 @@ export interface Env {
   s3SecretKey: string;
   s3ForcePathStyle: boolean;
   /** Endereço que o NAVEGADOR usa para ler o bucket, sem barra no fim. Em
-   *  produção é `${SITE_URL}/media` (nginx → MinIO); em dev, o MinIO publicado
+   *  produção é o domínio público do bucket no R2; em dev, o RustFS publicado
    *  no host. */
   mediaPublicUrl: string;
 }
@@ -153,7 +153,7 @@ export function loadEnv(): Env {
   }
 
   // Imagens. Em produção faltar credencial derruba a subida, pelo mesmo motivo
-  // dos segredos acima. Em dev e teste os defaults batem com o MinIO do
+  // dos segredos acima. Em dev e teste os defaults batem com o RustFS do
   // compose (`docker-compose.yml`), que é o único lugar onde eles valem.
   const s3AccessKey = optional("S3_ACCESS_KEY") ?? (isProduction ? undefined : "beesocial");
   const s3SecretKey = optional("S3_SECRET_KEY") ?? (isProduction ? undefined : "beesocial-dev");

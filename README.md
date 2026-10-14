@@ -219,9 +219,10 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
 - **Recuperação de senha.** A tela "Esqueci minha senha" não aponta para nada.
 - **Upload de arquivo.** Feito: avatar, capa, foto da página de chegada e
   miniatura sobem em multipart (`POST /me/profile/images/:tipo`,
-  `POST /me/links/:id/image`), são redimensionadas pelo `sharp` e vão para o
-  MinIO do compose; a coluna guarda a chave e a página pública aponta para
-  `/media/` (nginx → MinIO). Perfis antigos com base64 continuam servidos pelo
+  `POST /me/links/:id/image`), são redimensionadas pelo `sharp` e vão para um
+  bucket S3 — Cloudflare R2 em produção, RustFS no compose de dev; a coluna
+  guarda a chave e a página pública aponta para o domínio público do bucket
+  (`MEDIA_PUBLIC_URL`). Perfis antigos com base64 continuam servidos pelo
   `AvatarController` até `npm run imagens:migrar` rodar em produção — depois
   disso ele pode sair.
 - **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
