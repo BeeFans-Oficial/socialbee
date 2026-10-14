@@ -20,8 +20,10 @@ import { criarClienteS3 } from "../../common/storage/s3-client";
  * no bucket, e a coluna antiga nunca é apagada antes disso — o pior caso de
  * uma falha no meio é a imagem existir nos dois lugares.
  *
- * Depois que este script devolver "0 pendentes" em produção, o caminho de
- * fallback (`AvatarController`, `decodeDataUrl`) pode ser removido.
+ * Rodou em produção em 14/10/2026 (0 pendentes depois). Desde a migration
+ * `1790900000000` as colunas são varchar(255) e não cabem base64, então este
+ * script só serve a um banco restaurado de backup anterior a essa data — e
+ * precisaria rodar ANTES da migration (ela recusa colunas com base64).
  */
 
 interface Alvo {

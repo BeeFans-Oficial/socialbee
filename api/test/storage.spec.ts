@@ -1,7 +1,7 @@
 import sharp from "sharp";
 
 import { chaveDaImagem, processarImagem } from "../src/common/storage/image-processor";
-import { isDataUrl, isMediaKey, mediaUrl } from "../src/common/storage/media-url";
+import { isMediaKey, mediaUrl } from "../src/common/storage/media-url";
 
 process.env.JWT_SECRET ??= "segredo-de-teste-com-mais-de-32-caracteres-ok";
 process.env.INTERNAL_API_SECRET ??= "segredo-interno-de-teste-24+";
@@ -58,17 +58,14 @@ describe("mediaUrl", () => {
   it("chave vira URL pública", () => {
     expect(mediaUrl("profiles/abc/avatar-1.webp")).toBe("https://beesocial.bio/media/profiles/abc/avatar-1.webp");
   });
-  it("data URL e URL http passam intactas; vazio vira null", () => {
-    expect(mediaUrl("data:image/png;base64,AAAA")).toBe("data:image/png;base64,AAAA");
+  it("URL http passa intacta; vazio vira null", () => {
     expect(mediaUrl("https://cdn.exemplo/x.png")).toBe("https://cdn.exemplo/x.png");
     expect(mediaUrl(null)).toBeNull();
     expect(mediaUrl("")).toBeNull();
   });
-  it("classifica os três formatos", () => {
+  it("classifica os formatos", () => {
     expect(isMediaKey("profiles/a/avatar-1.webp")).toBe(true);
     expect(isMediaKey("data:image/png;base64,AA")).toBe(false);
     expect(isMediaKey("http://x/y.png")).toBe(false);
-    expect(isDataUrl("data:image/png;base64,AA")).toBe(true);
-    expect(isDataUrl("profiles/a")).toBe(false);
   });
 });

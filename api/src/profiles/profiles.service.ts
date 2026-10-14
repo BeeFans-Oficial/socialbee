@@ -2,7 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { InjectRepository } from "@nestjs/typeorm";
 import { EntityManager, IsNull, Not, Repository } from "typeorm";
 
-import { isDataUrl, mediaUrl } from "../common/storage/media-url";
+import { mediaUrl } from "../common/storage/media-url";
 import { loadEnv } from "../config/env";
 import { Link } from "../links/entities/link.entity";
 import { PLANOS, TEMPLATE_DO_FREE, cabeMais, exigirPro, planoDe, type PlanoId } from "../plans/plans";
@@ -416,64 +416,6 @@ export class ProfilesService {
   }
 
   /**
-   * Bytes da imagem de fundo do template. Mesma mecânica do avatar.
-   */
-  async coverBytes(
-    slug: string,
-  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
-    const profile = await this.profiles.findOne({
-      where: { slug: slug.trim().toLowerCase() },
-      select: { coverUrl: true, updatedAt: true },
-    });
-    if (!profile?.coverUrl) return null;
-
-    const decoded = decodeDataUrl(profile.coverUrl);
-    if (!decoded) return null;
-
-    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
-  }
-
-  /**
-   * Bytes da imagem da página de chegada. Mesma mecânica do avatar.
-   */
-  async iabImageBytes(
-    slug: string,
-  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
-    const profile = await this.profiles.findOne({
-      where: { slug: slug.trim().toLowerCase() },
-      select: { iabImageUrl: true, updatedAt: true },
-    });
-    if (!profile?.iabImageUrl) return null;
-
-    const decoded = decodeDataUrl(profile.iabImageUrl);
-    if (!decoded) return null;
-
-    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
-  }
-
-  /**
-   * Bytes do avatar, para a rota que o serve como imagem.
-   *
-   * O `etag` sai de `updated_at`: a criadora trocar a foto invalida o cache do
-   * navegador na hora, e nada além disso invalida.
-   */
-  async avatarBytes(
-    slug: string,
-  ): Promise<{ contentType: string; bytes: Buffer; etag: string } | null> {
-    const profile = await this.profiles.findOne({
-      where: { slug: slug.trim().toLowerCase() },
-      select: { avatarUrl: true, updatedAt: true },
-    });
-    if (!profile?.avatarUrl) return null;
-
-    const decoded = decodeDataUrl(profile.avatarUrl);
-    // Avatar que já é URL http(s) não passa por aqui — a interface o usa direto.
-    if (!decoded) return null;
-
-    return { ...decoded, etag: `"${profile.updatedAt.getTime()}"` };
-  }
-
-  /**
    * Perfil público por slug.
    *
    * Uma consulta para o perfil e uma para os links ativos, ordenados. Não usa
@@ -524,27 +466,15 @@ export class ProfilesService {
               accentColor: null,
               fontId: null,
             },
-        // Imagem no bucket (o normal): URL pública, servida pelo nginx/MinIO.
-        // Perfil ainda não migrado (data URL em base64): a rota antiga do
-        // `AvatarController`, para o HTML não carregar megabytes. Esse segundo
-        // ramo morre quando `imagens:migrar` tiver rodado em produção.
-        avatarUrl: isDataUrl(profile.avatarUrl)
-          ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/avatar`
-          : mediaUrl(profile.avatarUrl),
-        // A capa agora É renderizada — é a imagem de fundo do template — e
-        // segue o mesmo caminho do avatar, como este comentário prometia
-        // quando ela ainda não aparecia em lugar nenhum.
-        coverUrl: isDataUrl(profile.coverUrl)
-          ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/cover`
-          : mediaUrl(profile.coverUrl),
-        // Mesma troca do avatar, e aqui ela pesa mais: a página de chegada é o
-        // PRIMEIRO documento que a fã recebe, dentro de um aplicativo, em rede
-        // móvel. Base64 no HTML seria o pior lugar possível para megabytes.
+        // As três imagens moram no bucket; a coluna guarda a chave e aqui ela
+        // vira a URL pública (`MEDIA_PUBLIC_URL`). O documento carrega uma URL
+        // curta, e quem serve os bytes é o nginx (cache) + R2 — a API fica
+        // fora do caminho de cada imagem.
+        avatarUrl: mediaUrl(profile.avatarUrl),
+        coverUrl: mediaUrl(profile.coverUrl),
         iab: {
           ...view.iab,
-          imageUrl: isDataUrl(profile.iabImageUrl)
-            ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/iab-image`
-            : mediaUrl(profile.iabImageUrl),
+          imageUrl: mediaUrl(profile.iabImageUrl),
         },
       },
       safePageLinks: ehPro ? links.filter((link) => link.cloakEnabled)
@@ -575,13 +505,6 @@ function exigirProParaMudancas(plano: PlanoId, profile: Profile, dto: UpdateProf
   if (mudaAparencia) exigirPro(plano, "aparencia");
 
   if (muda(dto.domainId, profile.domainId)) exigirPro(plano, "dominio");
-}
-
-/** Data URL em base64 → bytes + tipo. `null` quando não é data URL. */
-function decodeDataUrl(value: string): { contentType: string; bytes: Buffer } | null {
-  const match = /^data:([\w/+.-]+);base64,(.*)$/s.exec(value);
-  if (!match) return null;
-  return { contentType: match[1], bytes: Buffer.from(match[2], "base64") };
 }
 
 /**

@@ -221,10 +221,10 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
   miniatura sobem em multipart (`POST /me/profile/images/:tipo`,
   `POST /me/links/:id/image`), são redimensionadas pelo `sharp` e vão para um
   bucket S3 — Cloudflare R2 em produção, RustFS no compose de dev; a coluna
-  guarda a chave e a página pública aponta para o domínio público do bucket
-  (`MEDIA_PUBLIC_URL`). Perfis antigos com base64 continuam servidos pelo
-  `AvatarController` até `npm run imagens:migrar` rodar em produção — depois
-  disso ele pode sair.
+  guarda a chave (`varchar(255)` desde a migration `1790900000000`) e a página
+  pública aponta para `MEDIA_PUBLIC_URL` (`/media/` do site, nginx com cache na
+  frente do R2). O caminho antigo de base64 foi removido; `npm run
+  imagens:migrar` só serve a um backup anterior a 14/10/2026.
 - **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
   cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona. A
   safe page agora é **persistida**, mas nenhuma rota serve conteúdo diferente a

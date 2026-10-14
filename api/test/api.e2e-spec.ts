@@ -479,7 +479,8 @@ describe("perfil público", () => {
     expect((await fetch(url)).status).toBe(404);
     const me = await servidor.get("/v1/me/profile").set("authorization", `Bearer ${tokenBella}`).expect(200);
     expect(me.body.avatarUrl).toBeNull();
-    await servidor.get("/v1/public/profiles/bella-teste/avatar").expect(404);
+    const publico = await servidor.get("/v1/public/profiles/bella-teste").expect(200);
+    expect(publico.body.profile.avatarUrl).toBeNull();
   });
 
   it("sobe a miniatura de um link", async () => {
@@ -496,8 +497,9 @@ describe("perfil público", () => {
     await servidor.delete(`/v1/me/links/${link.id}/image`).set("authorization", `Bearer ${tokenBella}`).expect(204);
   });
 
-  it("responde 404 no avatar de quem não tem foto", async () => {
+  it("a rota antiga de imagem por slug não existe mais", async () => {
     await servidor.get("/v1/public/profiles/luna-teste/avatar").expect(404);
+    await servidor.get("/v1/public/profiles/luna-teste/cover").expect(404);
   });
 });
 

@@ -55,7 +55,9 @@ export class Link {
   @Column({ name: "subtitle", type: "text", nullable: true })
   subtitle: string | null;
 
-  @Column({ name: "thumbnail_url", type: "text", nullable: true })
+  /** Chave da miniatura no bucket (`links/<id>/thumb-<ts>.webp`); ver
+   *  `LinkImagesController`. */
+  @Column({ name: "thumbnail_url", type: "varchar", length: 255, nullable: true })
   thumbnailUrl: string | null;
 
   /** Rótulo do canal ("onlyfans", "telegram"…). String aberta: o núcleo não

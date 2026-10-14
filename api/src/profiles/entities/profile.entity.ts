@@ -36,10 +36,16 @@ export class Profile {
   @Column({ name: "bio", type: "text", default: "" })
   bio: string;
 
-  @Column({ name: "avatar_url", type: "text", nullable: true })
+  /**
+   * As imagens do perfil guardam a CHAVE do objeto no bucket
+   * (`profiles/<id>/avatar-<ts>.webp`), nunca a imagem nem a URL completa. A
+   * URL pública é montada na leitura (`mediaUrl`). Upload e remoção são pelo
+   * `ProfileImagesController`; o PATCH só aceita `null`.
+   */
+  @Column({ name: "avatar_url", type: "varchar", length: 255, nullable: true })
   avatarUrl: string | null;
 
-  @Column({ name: "cover_url", type: "text", nullable: true })
+  @Column({ name: "cover_url", type: "varchar", length: 255, nullable: true })
   coverUrl: string | null;
 
   /** Id do tema em `lib/mock-data.ts` (`THEMES`). Texto livre de propósito: o
@@ -135,9 +141,7 @@ export class Profile {
    * navegador embutido de um aplicativo (e a robôs), e o perfil completo ao
    * resto. Desligada, o comportamento é o de antes.
    *
-   * A imagem é data URL em base64, como o avatar, e pelo mesmo motivo: não há
-   * upload de arquivo ainda. Quem a serve como imagem de verdade é
-   * `AvatarController`, para o data URL não entrar no HTML.
+   * A imagem (`iab_image_url`) é chave no bucket, como o avatar.
    */
   /** Padrão LIGADO desde a migration `1790600000000`. O default precisa estar
    *  aqui também, e não só no banco: o TypeORM inclui o valor da entidade em
@@ -146,7 +150,7 @@ export class Profile {
   @Column({ name: "iab_enabled", type: "boolean", default: true })
   iabEnabled: boolean;
 
-  @Column({ name: "iab_image_url", type: "text", nullable: true })
+  @Column({ name: "iab_image_url", type: "varchar", length: 255, nullable: true })
   iabImageUrl: string | null;
 
   /** Título da página de chegada. Vazio cai no `displayName` na renderização —
