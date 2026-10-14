@@ -50,10 +50,10 @@ async function bootstrap(): Promise<void> {
 
   app.use(cookieParser());
 
-  // O limite padrão do Express é 100 kB — e o MVP ainda não tem upload de
-  // arquivo: avatar, capa e miniatura chegam como data URL em base64. Com o
-  // padrão, trocar a foto de perfil responderia 413 sem explicação.
-  app.useBodyParser("json", { limit: "10mb" });
+  // Imagem não entra mais por JSON (vai em multipart para as rotas de upload,
+  // com limite próprio em `common/storage/upload.ts`). 1 MB cobre com folga o
+  // maior corpo legítimo que sobrou: a Safe Page com a lista de redes.
+  app.useBodyParser("json", { limit: "1mb" });
   app.useBodyParser("urlencoded", { limit: "1mb", extended: true });
 
   /**

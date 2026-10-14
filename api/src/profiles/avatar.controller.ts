@@ -5,27 +5,16 @@ import { Public } from "../common/decorators/public.decorator";
 import { ProfilesService } from "./profiles.service";
 
 /**
- * Avatar do perfil, servido como IMAGEM.
+ * Serve como IMAGEM os perfis que AINDA guardam a foto em base64.
  *
- * Existe por uma razão medida: enquanto não há upload de arquivo, o avatar é
- * gravado como data URL em base64 numa coluna de texto — 1,8 MB para uma foto
- * de celular. Com a página de perfil renderizada no servidor, esse data URL
- * entrava **duas a três vezes** no mesmo documento (HTML + payload RSC, que
- * carregam a mesma árvore), e o perfil da criadora passava de 2,9 MB de HTML
- * antes de qualquer imagem ser otimizada. Numa audiência que chega por celular
- * e dados móveis, isso é a diferença entre a visitante esperar e desistir.
+ * Caminho de transição. O upload novo grava no bucket (ver
+ * `ProfileImagesController`) e a página pública aponta direto para a URL do
+ * MinIO; estas rotas só são usadas por perfil criado antes disso e ainda não
+ * migrado — `publicProfile` escolhe o ramo pelo prefixo `data:` da coluna.
  *
- * Aqui o documento passa a carregar uma URL curta, e a imagem vira uma
- * requisição própria — cacheável pelo navegador, paralela ao HTML e fora do
- * payload de hidratação.
- *
- * Não é a solução final: o certo é armazenamento de objeto com URL assinada. É
- * a solução que cabe sem mudar a infraestrutura, e o dia em que o upload
- * existir, só esta rota muda.
- *
- * O controlador serve DUAS imagens pela mesma mecânica: o avatar e a imagem da
- * página de chegada (IAB). O nome do arquivo ficou do primeiro caso; o que os
- * une é serem data URL guardada em coluna de texto.
+ * Quando `npm run imagens:migrar` tiver rodado em produção e nenhuma coluna
+ * começar com `data:`, este arquivo, `decodeDataUrl` e os três métodos
+ * `*Bytes` do serviço podem sair.
  */
 @Controller("public/profiles")
 export class AvatarController {

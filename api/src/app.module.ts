@@ -4,6 +4,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { AuthModule } from "./auth/auth.module";
+import { StorageModule } from "./common/storage/storage.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
 import { RequestLogInterceptor } from "./common/interceptors/request-log.interceptor";
@@ -30,6 +31,7 @@ import { TrackingModule } from "./tracking/tracking.module";
 @Module({
   imports: [
     DatabaseModule,
+    StorageModule,
     ScheduleModule.forRoot(),
     ThrottlerModule.forRoot({
       // UM teto global, generoso: o dashboard salva campo por campo e a tela de

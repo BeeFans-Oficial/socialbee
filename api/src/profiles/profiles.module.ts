@@ -9,6 +9,7 @@ import { CustomDomainsController } from "./custom-domains.controller";
 import { CustomDomainsService } from "./custom-domains.service";
 import { DomainsController } from "./domains.controller";
 import { MyProfilesController } from "./my-profiles.controller";
+import { ProfileImagesController } from "./profile-images.controller";
 import { ProfilesController } from "./profiles.controller";
 import { ProfilesService } from "./profiles.service";
 import { PublicProfilesController } from "./public-profiles.controller";
@@ -17,6 +18,7 @@ import { PublicProfilesController } from "./public-profiles.controller";
   imports: [TypeOrmModule.forFeature([Profile, Domain, Link])],
   controllers: [
     ProfilesController,
+    ProfileImagesController,
     MyProfilesController,
     DomainsController,
     CustomDomainsController,

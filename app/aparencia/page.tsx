@@ -17,6 +17,7 @@ import {
 } from "@/lib/catalog";
 import { validateSlug, slugify, getPlatformColor, getPlatformIcon } from "@/lib/utils";
 import { api, ApiError } from "@/lib/api/client";
+import { arquivoDoInput, subirImagemDoPerfil } from "@/lib/imagens";
 import type { ApiLink } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
@@ -223,26 +224,24 @@ export default function AparenciaPage() {
     };
   }, [slug, slugAtual]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  /**
+   * A imagem sobe na hora da escolha, não no "Salvar": o arquivo vai em
+   * multipart para a rota de upload, que o redimensiona e devolve a URL. A
+   * prévia mostra a URL definitiva. O resto do formulário continua indo no
+   * botão.
+   */
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
+    if (!file) return;
+    const url = await subirImagemDoPerfil("avatar", file);
+    if (url) setAvatarPreview(url);
   };
 
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
+    if (!file) return;
+    const url = await subirImagemDoPerfil("cover", file);
+    if (url) setCoverPreview(url);
   };
 
   /**
@@ -266,8 +265,6 @@ export default function AparenciaPage() {
       const salvo = await api.updateProfile({
         displayName,
         bio,
-        avatarUrl: avatarPreview,
-        coverUrl: coverPreview,
         themeId: selectedTheme,
         buttonStyle,
         isAdult,

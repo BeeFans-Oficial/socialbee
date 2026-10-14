@@ -2,6 +2,7 @@ import { ConflictException, Injectable, NotFoundException } from "@nestjs/common
 import { InjectRepository } from "@nestjs/typeorm";
 import { EntityManager, IsNull, Not, Repository } from "typeorm";
 
+import { isDataUrl, mediaUrl } from "../common/storage/media-url";
 import { loadEnv } from "../config/env";
 import { Link } from "../links/entities/link.entity";
 import { PLANOS, TEMPLATE_DO_FREE, cabeMais, exigirPro, planoDe, type PlanoId } from "../plans/plans";
@@ -385,6 +386,21 @@ export class ProfilesService {
   }
 
   /**
+   * Troca (ou remove, com `null`) uma das imagens do perfil e devolve o valor
+   * ANTERIOR da coluna, para o chamador apagar o objeto antigo do bucket
+   * depois que a coluna já aponta para o novo. Ver `ProfileImagesController`.
+   *
+   * `UPDATE` direto, sem carregar a entidade: a linha de perfil ainda pode
+   * carregar megabytes de base64 nas outras colunas até a migração rodar.
+   */
+  async setImage(profileId: string, campo: ImagemDoPerfil, chave: string | null): Promise<string | null> {
+    const atual = await this.profiles.findOne({ where: { id: profileId }, select: { id: true, [campo]: true } });
+    if (!atual) throw new NotFoundException("Página não encontrada.");
+    await this.profiles.update({ id: profileId }, { [campo]: chave });
+    return atual[campo];
+  }
+
+  /**
    * Slug público → id do perfil.
    *
    * Existe para o registro de visualização nunca aceitar `profileId` vindo do
@@ -508,27 +524,27 @@ export class ProfilesService {
               accentColor: null,
               fontId: null,
             },
-        // Troca o data URL pela rota que serve a imagem. O documento carrega
-        // uma URL curta em vez de megabytes de base64 repetidos no HTML e no
-        // payload de hidratação. O dono do perfil continua recebendo o data URL
-        // em `GET /me/profile`, porque o editor precisa dele para a prévia.
-        avatarUrl: profile.avatarUrl
+        // Imagem no bucket (o normal): URL pública, servida pelo nginx/MinIO.
+        // Perfil ainda não migrado (data URL em base64): a rota antiga do
+        // `AvatarController`, para o HTML não carregar megabytes. Esse segundo
+        // ramo morre quando `imagens:migrar` tiver rodado em produção.
+        avatarUrl: isDataUrl(profile.avatarUrl)
           ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/avatar`
-          : null,
+          : mediaUrl(profile.avatarUrl),
         // A capa agora É renderizada — é a imagem de fundo do template — e
         // segue o mesmo caminho do avatar, como este comentário prometia
         // quando ela ainda não aparecia em lugar nenhum.
-        coverUrl: profile.coverUrl
+        coverUrl: isDataUrl(profile.coverUrl)
           ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/cover`
-          : null,
+          : mediaUrl(profile.coverUrl),
         // Mesma troca do avatar, e aqui ela pesa mais: a página de chegada é o
         // PRIMEIRO documento que a fã recebe, dentro de um aplicativo, em rede
         // móvel. Base64 no HTML seria o pior lugar possível para megabytes.
         iab: {
           ...view.iab,
-          imageUrl: profile.iabImageUrl
+          imageUrl: isDataUrl(profile.iabImageUrl)
             ? `/api/v1/public/profiles/${encodeURIComponent(view.slug)}/iab-image`
-            : null,
+            : mediaUrl(profile.iabImageUrl),
         },
       },
       safePageLinks: ehPro ? links.filter((link) => link.cloakEnabled)
@@ -592,14 +608,17 @@ export function toDomainView(domain: Domain): DomainView {
  *   existir — sem ela, uma página com domínio escolhido seria descrita com o
  *   host padrão, e o link copiado apontaria para o endereço errado.
  */
+/** Colunas de imagem do perfil que o upload pode trocar. */
+export type ImagemDoPerfil = "avatarUrl" | "coverUrl" | "iabImageUrl";
+
 export function toOwnProfileView(profile: Profile): OwnProfileView {
   return {
     id: profile.id,
     slug: profile.slug,
     displayName: profile.displayName,
     bio: profile.bio,
-    avatarUrl: profile.avatarUrl,
-    coverUrl: profile.coverUrl,
+    avatarUrl: mediaUrl(profile.avatarUrl),
+    coverUrl: mediaUrl(profile.coverUrl),
     themeId: profile.themeId,
     buttonStyle: profile.buttonStyle,
     isAdult: profile.isAdult,
@@ -616,11 +635,11 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
       coverPosY: profile.coverPosY,
       coverOverlay: profile.coverOverlay,
     },
-    // A dona do perfil recebe o data URL cru: o editor precisa dele para a
-    // prévia antes de salvar. A visitante recebe a rota (ver `publicProfile`).
+    // Chave do bucket vira URL pública. Perfil ainda não migrado (data URL)
+    // recebe o data URL cru, que o editor sabe mostrar.
     iab: {
       enabled: profile.iabEnabled,
-      imageUrl: profile.iabImageUrl,
+      imageUrl: mediaUrl(profile.iabImageUrl),
       headline: profile.iabHeadline,
       buttonLabel: profile.iabButtonLabel,
     },
@@ -632,7 +651,7 @@ export function toPublicLinkView(link: Link): PublicLinkView {
     id: link.id,
     title: link.title,
     subtitle: link.subtitle,
-    thumbnailUrl: link.thumbnailUrl,
+    thumbnailUrl: mediaUrl(link.thumbnailUrl),
     platform: link.platform,
     shortCode: link.shortCode,
     position: link.position,

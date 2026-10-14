@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { AlertTriangle, Check, Info as InfoIcon } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
@@ -17,13 +17,23 @@ import { cn } from "@/lib/utils";
 /** Fundo do painel lateral dos editores: grafite com um toque de azul. */
 export const FUNDO_DO_PAINEL = "bg-[#0d1119]";
 
-export function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+export function Secao({
+  titulo,
+  info,
+  children,
+}: {
+  titulo: string;
+  /** Explicação da seção inteira, no ⓘ ao lado do título. */
+  info?: string;
+  children: React.ReactNode;
+}) {
   return (
     <section className="px-4 pt-6 pb-2">
       <div className="flex items-center gap-3 mb-3">
         <span className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
           {titulo}
         </span>
+        {info && <Info texto={info} />}
         <span className="flex-1 h-px bg-white/[0.07]" />
       </div>
       {children}
@@ -48,12 +58,85 @@ export function Linha({
   );
 }
 
-/** Ícone ⓘ com a explicação no `title` — o detalhe fica a um passar de mouse,
- *  e o painel não vira manual. */
+/** Quanto o balão espera antes de aparecer. O `title` nativo demora perto de
+ *  um segundo e não se ajusta; por isso o balão é nosso. */
+const ATRASO_DO_BALAO_MS = 330;
+
+/** Largura máxima do balão; o painel tem ~380 px. */
+const LARGURA_DO_BALAO = 260;
+
+/**
+ * Ícone ⓘ com a explicação num balão — o detalhe fica a um passar de mouse, e o
+ * painel não vira manual. Abre também no foco do teclado.
+ *
+ * O balão é `position: fixed`, calculado na hora de abrir: dentro do painel
+ * lateral (que rola) um `absolute` seria cortado na borda, e o ícone fica ora
+ * à esquerda (título de seção) ora à direita (grupo). Fica abaixo do ícone, e
+ * sobe para cima dele se não couber embaixo.
+ */
 export function Info({ texto }: { texto: string }) {
+  const [posicao, setPosicao] = useState<{ top: number; left: number } | null>(null);
+  const [acima, setAcima] = useState(false);
+  const alvo = useRef<HTMLSpanElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const id = useId();
+
+  const abrir = () => {
+    if (timer.current) return;
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      const caixa = alvo.current?.getBoundingClientRect();
+      if (!caixa) return;
+      const margem = 8;
+      const left = Math.min(
+        Math.max(margem, caixa.left + caixa.width / 2 - LARGURA_DO_BALAO / 2),
+        window.innerWidth - LARGURA_DO_BALAO - margem,
+      );
+      // Altura estimada: três linhas. Só decide se vai para cima ou para baixo.
+      const cabeEmbaixo = caixa.bottom + 80 < window.innerHeight;
+      setPosicao({ top: cabeEmbaixo ? caixa.bottom + 6 : caixa.top - 6, left });
+      setAcima(!cabeEmbaixo);
+    }, ATRASO_DO_BALAO_MS);
+  };
+
+  const fechar = () => {
+    if (timer.current) {
+      clearTimeout(timer.current);
+      timer.current = null;
+    }
+    setPosicao(null);
+  };
+
+  useEffect(() => fechar, []);
+
   return (
-    <span title={texto} aria-label={texto} className="text-white/35 hover:text-white/70 cursor-help">
+    <span
+      ref={alvo}
+      tabIndex={0}
+      aria-describedby={posicao ? id : undefined}
+      onMouseEnter={abrir}
+      onMouseLeave={fechar}
+      onFocus={abrir}
+      onBlur={fechar}
+      className="text-white/35 hover:text-white/70 focus:text-white/70 focus:outline-none cursor-help"
+    >
       <InfoIcon className="w-3.5 h-3.5" />
+      {posicao && (
+        <span
+          id={id}
+          role="tooltip"
+          style={{
+            position: "fixed",
+            top: posicao.top,
+            left: posicao.left,
+            width: LARGURA_DO_BALAO,
+            transform: acima ? "translateY(-100%)" : undefined,
+          }}
+          className="z-50 block rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-xs leading-relaxed text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.5)] normal-case tracking-normal font-normal"
+        >
+          {texto}
+        </span>
+      )}
     </span>
   );
 }

@@ -217,8 +217,13 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
 ## O que ainda não existe
 
 - **Recuperação de senha.** A tela "Esqueci minha senha" não aponta para nada.
-- **Upload de arquivo.** Avatar, capa e miniatura são data URL em base64 e vão
-  para colunas de texto. O certo é armazenamento de objeto com URL assinada.
+- **Upload de arquivo.** Feito: avatar, capa, foto da página de chegada e
+  miniatura sobem em multipart (`POST /me/profile/images/:tipo`,
+  `POST /me/links/:id/image`), são redimensionadas pelo `sharp` e vão para o
+  MinIO do compose; a coluna guarda a chave e a página pública aponta para
+  `/media/` (nginx → MinIO). Perfis antigos com base64 continuam servidos pelo
+  `AvatarController` até `npm run imagens:migrar` rodar em produção — depois
+  disso ele pode sair.
 - **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
   cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona. A
   safe page agora é **persistida**, mas nenhuma rota serve conteúdo diferente a

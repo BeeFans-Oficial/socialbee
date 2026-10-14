@@ -63,6 +63,14 @@ beforeAll(async () => {
   process.env.SEED_DEMO = "false";
   // Custo mínimo do bcrypt: o teste cria várias contas e não está medindo hash.
   process.env.BCRYPT_ROUNDS = "4";
+  // MinIO de verdade, o do compose, pela mesma razão que o Postgres é real:
+  // testar o upload contra um mock do S3 é testar o mock. `TEST_S3_ENDPOINT`
+  // aponta para outro quando fizer sentido.
+  process.env.S3_ENDPOINT = process.env.TEST_S3_ENDPOINT ?? "http://localhost:9000";
+  process.env.S3_BUCKET = process.env.TEST_S3_BUCKET ?? "beesocial";
+  process.env.S3_ACCESS_KEY = process.env.MINIO_ROOT_USER ?? "beesocial";
+  process.env.S3_SECRET_KEY = process.env.MINIO_ROOT_PASSWORD ?? "beesocial-dev";
+  process.env.MEDIA_PUBLIC_URL = `${process.env.S3_ENDPOINT}/${process.env.S3_BUCKET}`;
 
   const { ensureSchema } = await import("../src/database/ensure-schema");
   await ensureSchema();
@@ -395,43 +403,101 @@ describe("perfil público", () => {
     expect(humano.body.requester.isBot).toBe(false);
   });
 
-  it("serve o avatar como imagem, não como base64 no documento", async () => {
-    // Um data URL de 1,8 MB entrava duas a três vezes no HTML do perfil (o
-    // payload RSC carrega a mesma árvore), e a página passava de 2,9 MB.
-    const png = Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==",
-      "base64",
-    );
+  /** PNG pequeno e VÁLIDO, gerado pelo próprio sharp. O "PNG 1×1" em base64
+   *  que circula por aí é truncado — o libpng o recusa, e o upload responderia
+   *  400 por motivo que não tem nada a ver com o teste. */
+  let PNG_1x1: Buffer;
+  beforeAll(async () => {
+    const sharp = (await import("sharp")).default;
+    PNG_1x1 = await sharp({ create: { width: 8, height: 8, channels: 3, background: "#0af" } }).png().toBuffer();
+  });
+
+  it("base64 no PATCH não é mais aceito", async () => {
     await servidor
       .patch("/v1/me/profile")
       .set("authorization", `Bearer ${tokenBella}`)
-      .send({ avatarUrl: `data:image/png;base64,${png.toString("base64")}` })
-      .expect(200);
+      .send({ avatarUrl: `data:image/png;base64,${PNG_1x1.toString("base64")}` })
+      .expect(400);
+  });
 
+  it("sobe o avatar por multipart, redimensiona e devolve a URL pública", async () => {
+    const sharp = (await import("sharp")).default;
+    const grande = await sharp({ create: { width: 2000, height: 1000, channels: 3, background: "#f0a" } })
+      .png()
+      .toBuffer();
+
+    const { body } = await servidor
+      .post("/v1/me/profile/images/avatar")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .attach("file", grande, "foto.png")
+      .expect(201);
+    expect(body.url).toMatch(/^http:\/\/localhost:9000\/beesocial\/profiles\/[0-9a-f-]+\/avatar-\d+\.webp$/);
+
+    // O objeto existe no bucket, é WebP e foi recortado para 512×512.
+    const resposta = await fetch(body.url);
+    expect(resposta.status).toBe(200);
+    expect(resposta.headers.get("content-type")).toBe("image/webp");
+    const meta = await sharp(Buffer.from(await resposta.arrayBuffer())).metadata();
+    expect([meta.width, meta.height]).toEqual([512, 512]);
+
+    // Dono e visitante recebem a mesma URL; a rota antiga não entra.
+    const me = await servidor.get("/v1/me/profile").set("authorization", `Bearer ${tokenBella}`).expect(200);
+    expect(me.body.avatarUrl).toBe(body.url);
     const publico = await servidor.get("/v1/public/profiles/bella-teste").expect(200);
-    expect(publico.body.profile.avatarUrl).toBe(
-      "/api/v1/public/profiles/bella-teste/avatar",
-    );
+    expect(publico.body.profile.avatarUrl).toBe(body.url);
+  });
 
-    const imagem = await servidor
-      .get("/v1/public/profiles/bella-teste/avatar")
-      .expect(200);
-    expect(imagem.headers["content-type"]).toContain("image/png");
-    expect(imagem.headers["cache-control"]).toContain("max-age");
-    expect(imagem.headers["etag"]).toBeDefined();
-    expect(imagem.body.length).toBe(png.length);
+  it("trocar a foto apaga a anterior do bucket", async () => {
+    const antes = (await servidor.get("/v1/me/profile").set("authorization", `Bearer ${tokenBella}`)).body.avatarUrl;
+    await new Promise((r) => setTimeout(r, 2)); // carimbo de tempo diferente
+    const { body } = await servidor
+      .post("/v1/me/profile/images/avatar")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .attach("file", PNG_1x1, "foto.png")
+      .expect(201);
+    expect(body.url).not.toBe(antes);
+    expect((await fetch(antes)).status).toBe(404);
+    expect((await fetch(body.url)).status).toBe(200);
+  });
+
+  it("recusa o que não é imagem", async () => {
+    await servidor
+      .post("/v1/me/profile/images/cover")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .attach("file", Buffer.from("isto não é uma imagem"), { filename: "x.png", contentType: "image/png" })
+      .expect(400);
+    await servidor
+      .post("/v1/me/profile/images/qualquer")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .attach("file", PNG_1x1, "foto.png")
+      .expect(400);
+  });
+
+  it("remove a foto e apaga o objeto", async () => {
+    const url = (await servidor.get("/v1/me/profile").set("authorization", `Bearer ${tokenBella}`)).body.avatarUrl;
+    await servidor.delete("/v1/me/profile/images/avatar").set("authorization", `Bearer ${tokenBella}`).expect(204);
+    expect((await fetch(url)).status).toBe(404);
+    const me = await servidor.get("/v1/me/profile").set("authorization", `Bearer ${tokenBella}`).expect(200);
+    expect(me.body.avatarUrl).toBeNull();
+    await servidor.get("/v1/public/profiles/bella-teste/avatar").expect(404);
+  });
+
+  it("sobe a miniatura de um link", async () => {
+    const { body: lista } = await servidor.get("/v1/me/links").set("authorization", `Bearer ${tokenBella}`);
+    const link = lista.links[0];
+    const { body } = await servidor
+      .post(`/v1/me/links/${link.id}/image`)
+      .set("authorization", `Bearer ${tokenBella}`)
+      .attach("file", PNG_1x1, "thumb.png")
+      .expect(201);
+    expect(body.url).toMatch(new RegExp(`/links/${link.id}/thumb-\\d+\\.webp$`));
+    const { body: depois } = await servidor.get(`/v1/me/links/${link.id}`).set("authorization", `Bearer ${tokenBella}`).expect(200);
+    expect(depois.thumbnailUrl).toBe(body.url);
+    await servidor.delete(`/v1/me/links/${link.id}/image`).set("authorization", `Bearer ${tokenBella}`).expect(204);
   });
 
   it("responde 404 no avatar de quem não tem foto", async () => {
     await servidor.get("/v1/public/profiles/luna-teste/avatar").expect(404);
-  });
-
-  it("o dono continua recebendo o data URL, para o editor", async () => {
-    const { body } = await servidor
-      .get("/v1/me/profile")
-      .set("authorization", `Bearer ${tokenBella}`)
-      .expect(200);
-    expect(body.avatarUrl).toMatch(/^data:image\/png;base64,/);
   });
 });
 

@@ -101,7 +101,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       // navegador que o envie.
       credentials: "include",
       headers: {
-        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        // Multipart (upload de imagem) define o próprio Content-Type, com o
+        // `boundary`; forçar JSON aqui quebraria o parse do lado da API.
+        ...(init?.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
         // Um lugar só manda o cabeçalho: toda chamada do painel passa por aqui,
         // e espalhar isso por cada método seria esquecer em um deles.
         ...(paginaAtiva() ? { "x-profile-id": paginaAtiva()! } : {}),
@@ -155,6 +157,29 @@ export const api = {
 
   updateProfile: (input: ProfileInput) =>
     request<ApiProfile>("/me/profile", { method: "PATCH", body: JSON.stringify(input) }),
+
+  /**
+   * Imagens do perfil: avatar, capa (`cover`) e foto da página de chegada
+   * (`iab`). O arquivo vai em multipart e a API o redimensiona antes de
+   * guardar; a resposta é a URL pública. Remover é `DELETE` — o PATCH não
+   * aceita mais imagem, nem em base64 nem como URL.
+   */
+  uploadProfileImage: (tipo: "avatar" | "cover" | "iab", arquivo: File) => {
+    const form = new FormData();
+    form.append("file", arquivo, arquivo.name);
+    return request<{ url: string }>(`/me/profile/images/${tipo}`, { method: "POST", body: form });
+  },
+
+  removeProfileImage: (tipo: "avatar" | "cover" | "iab") =>
+    request<void>(`/me/profile/images/${tipo}`, { method: "DELETE" }),
+
+  uploadLinkImage: (linkId: string, arquivo: File) => {
+    const form = new FormData();
+    form.append("file", arquivo, arquivo.name);
+    return request<{ url: string }>(`/me/links/${linkId}/image`, { method: "POST", body: form });
+  },
+
+  removeLinkImage: (linkId: string) => request<void>(`/me/links/${linkId}/image`, { method: "DELETE" }),
 
   /** Os domínios que uma página pode usar. Só os ativos. */
   domains: () => request<{ domains: ApiDomain[] }>("/me/domains").then((d) => d.domains),

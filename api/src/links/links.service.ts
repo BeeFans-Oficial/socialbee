@@ -4,6 +4,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { InjectRepository } from "@nestjs/typeorm";
 import { DataSource, Repository, type EntityManager } from "typeorm";
 
+import { mediaUrl } from "../common/storage/media-url";
 import { checkDestination, destinationErrorMessage } from "../common/url";
 import { PLANOS, cabeMais, exigirPro, type PlanoId } from "../plans/plans";
 import { Profile } from "../profiles/entities/profile.entity";
@@ -150,6 +151,14 @@ export class LinksService {
 
       return toOwnLinkView(await this.reload(manager, link.id));
     });
+  }
+
+  /** Troca (ou remove) a miniatura e devolve a chave anterior. Mesma mecânica
+   *  de `ProfilesService.setImage`; ver `LinkImagesController`. */
+  async setThumbnail(profileId: string, linkId: string, chave: string | null): Promise<string | null> {
+    const link = await this.findOwned(profileId, linkId);
+    await this.links.update({ id: link.id }, { thumbnailUrl: chave });
+    return link.thumbnailUrl;
   }
 
   async update(
@@ -380,7 +389,7 @@ export function toOwnLinkView(link: Link, counter?: LinkCounter): OwnLinkView {
     id: link.id,
     title: link.title,
     subtitle: link.subtitle,
-    thumbnailUrl: link.thumbnailUrl,
+    thumbnailUrl: mediaUrl(link.thumbnailUrl),
     platform: link.platform,
     shortCode: link.shortCode,
     destinationUrl: link.destinationUrl,
