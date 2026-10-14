@@ -243,7 +243,8 @@ export interface ApiErrorBody {
 export interface LinkInput {
   title: string;
   subtitle?: string | null;
-  thumbnailUrl?: string | null;
+  /** Só `null` (remover). A miniatura sobe por `api.uploadLinkImage`. */
+  thumbnailUrl?: null;
   platform?: string;
   destinationUrl: string;
   isActive?: boolean;
@@ -257,8 +258,10 @@ export interface ProfileInput {
   displayName?: string;
   slug?: string;
   bio?: string;
-  avatarUrl?: string | null;
-  coverUrl?: string | null;
+  /** Imagem só entra por `api.uploadProfileImage`. Aqui, `null` remove — e
+   *  é o único valor aceito. */
+  avatarUrl?: null;
+  coverUrl?: null;
   themeId?: string;
   buttonStyle?: string;
   isAdult?: boolean;
@@ -276,7 +279,7 @@ export interface ProfileInput {
   // Página de chegada. Campos planos, e não um objeto `iab`, porque o PATCH
   // salva um campo por vez — aninhar exigiria mesclar no servidor.
   iabEnabled?: boolean;
-  iabImageUrl?: string | null;
+  iabImageUrl?: null;
   iabHeadline?: string | null;
   iabButtonLabel?: string | null;
 }

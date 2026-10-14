@@ -1,5 +1,6 @@
 import { Transform, Type } from "class-transformer";
 import {
+  Equals,
   IsBoolean,
   IsInt,
   IsOptional,
@@ -42,9 +43,7 @@ export class UpdateLinkDto {
   subtitle?: string | null;
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2_000_000, { message: "Imagem muito grande. Use um arquivo menor." })
+  @Equals(null, { message: "Imagem entra pela rota de upload; aqui só `null`, para remover." })
   thumbnailUrl?: string | null;
 
   @IsOptional()

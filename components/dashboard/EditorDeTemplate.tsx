@@ -7,6 +7,7 @@ import { AlertTriangle, Eye, EyeOff, ImagePlus, Plus, RotateCcw, Trash2 } from "
 import { PreviaDaPagina } from "@/components/shared/PreviaDaPagina";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
+import { arquivoDoInput, subirImagemDoPerfil } from "@/lib/imagens";
 import { invalidateSession, usePlano } from "@/lib/api/use-session";
 import { THEMES, type Link as LinkType } from "@/lib/catalog";
 import { FONTES, TEMPLATES, TEMPLATE_DO_FREE, resolverVisual } from "@/lib/templates";
@@ -121,7 +122,6 @@ export function EditorDeTemplate({
         bgColor,
         accentColor,
         fontId,
-        coverUrl,
         coverPosX,
         coverPosY,
         coverOverlay,
@@ -215,12 +215,22 @@ export function EditorDeTemplate({
     toast.error(caught instanceof ApiError ? caught.message : fallback);
   };
 
-  const escolherImagem = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  /** A capa sobe na escolha (multipart → API → bucket) e a prévia recebe a
+   *  URL pública. Não entra no `salvar`: o PATCH não aceita mais imagem. */
+  const escolherImagem = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => setCoverUrl(reader.result as string);
-    reader.readAsDataURL(file);
+    const url = await subirImagemDoPerfil("cover", file);
+    if (url) setCoverUrl(url);
+  };
+
+  const removerImagem = async () => {
+    try {
+      await api.removeProfileImage("cover");
+      setCoverUrl(null);
+    } catch (caught) {
+      tratarErro(caught, "Não foi possível remover a foto.");
+    }
   };
 
   const salvar = async () => {
@@ -235,7 +245,6 @@ export function EditorDeTemplate({
         bgColor,
         accentColor,
         fontId,
-        coverUrl,
         coverPosX,
         coverPosY,
         coverOverlay,
@@ -346,7 +355,7 @@ export function EditorDeTemplate({
                   style={{ objectPosition: `${coverPosX}% ${coverPosY}%` }}
                 />
                 <button
-                  onClick={() => setCoverUrl(null)}
+                  onClick={() => void removerImagem()}
                   className="absolute top-2 right-2 p-1.5 rounded-lg bg-black/60 text-white/70 hover:text-white"
                   title="Remover imagem"
                 >

@@ -1,5 +1,6 @@
 import { Transform } from "class-transformer";
 import {
+  Equals,
   IsBoolean,
   IsIn,
   IsInt,
@@ -106,9 +107,7 @@ export class UpdateProfileDto {
   iabEnabled?: boolean;
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2_000_000, { message: "Imagem muito grande. Use um arquivo menor." })
+  @Equals(null, { message: "Imagem entra pela rota de upload; aqui só `null`, para remover." })
   iabImageUrl?: string | null;
 
   @IsOptional()
@@ -149,15 +148,11 @@ export class UpdateProfileDto {
    *  ainda não tem upload: o `LinkModal` lê o arquivo e manda base64. O teto de
    *  tamanho é o que impede um PNG de 8 MB virar linha de tabela. */
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2_000_000, { message: "Imagem muito grande. Use um arquivo menor." })
+  @Equals(null, { message: "Imagem entra pela rota de upload; aqui só `null`, para remover." })
   avatarUrl?: string | null;
 
   @IsOptional()
-  @ValidateIf((_, value) => value !== null)
-  @IsString()
-  @MaxLength(2_000_000, { message: "Imagem muito grande. Use um arquivo menor." })
+  @Equals(null, { message: "Imagem entra pela rota de upload; aqui só `null`, para remover." })
   coverUrl?: string | null;
 
   @IsOptional()

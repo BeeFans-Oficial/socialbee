@@ -21,6 +21,7 @@ import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { siteHost } from "@/lib/site";
 import { api } from "@/lib/api/client";
+import { arquivoDoInput, subirImagemDoPerfil, subirMiniaturaDoLink } from "@/lib/imagens";
 import {
   ShieldCheck,
   ShieldOff,
@@ -803,12 +804,13 @@ function InlineLinkRow({
     });
   };
 
-  const handleThumb = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  /** A miniatura sobe na escolha, direto para a API; `save` só avisa o pai
+   *  para a prévia acompanhar (o PATCH de link não aceita mais imagem). */
+  const handleThumb = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
     if (!file) return;
-    const r = new FileReader();
-    r.onloadend = () => { const result = r.result as string; setThumbUrl(result); save({ thumbnailUrl: result }); };
-    r.readAsDataURL(file);
+    const url = await subirMiniaturaDoLink(link.id, file);
+    if (url) { setThumbUrl(url); save({ thumbnailUrl: url }); }
   };
 
   // Color swatch showing the current appearance
@@ -885,7 +887,7 @@ function InlineLinkRow({
             )}
           </button>
           {thumbUrl && (
-            <button type="button" onClick={() => { setThumbUrl(null); save({ thumbnailUrl: null }); }}
+            <button type="button" onClick={() => { void api.removeLinkImage(link.id).catch(() => toast.error("Não foi possível remover a miniatura.")); setThumbUrl(null); save({ thumbnailUrl: null }); }}
               className="w-11 text-center text-[8px] text-white/15 hover:text-red-400 mt-0.5 focus:outline-none transition-colors">
               remover
             </button>
@@ -1125,14 +1127,18 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
     return () => { cancelado = true; clearTimeout(t); };
   }, [profileSlug, profileData?.slug]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { const r = new FileReader(); r.onloadend = () => setProfileAvatar(r.result as string); r.readAsDataURL(file); }
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
+    if (!file) return;
+    const url = await subirImagemDoPerfil("avatar", file);
+    if (url) setProfileAvatar(url);
   };
 
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) { const r = new FileReader(); r.onloadend = () => setProfileCover(r.result as string); r.readAsDataURL(file); }
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
+    if (!file) return;
+    const url = await subirImagemDoPerfil("cover", file);
+    if (url) setProfileCover(url);
   };
 
   const handleSaveProfile = () => {
@@ -1142,13 +1148,17 @@ export function LinkModal({ open, onClose, onSave, onDelete, onSaveProfile, edit
     onClose();
   };
 
-  const handleThumbnailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const r = new FileReader();
-      r.onloadend = () => setThumbnailUrl(r.result as string);
-      r.readAsDataURL(file);
+  const handleThumbnailChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = arquivoDoInput(e);
+    if (!file) return;
+    const linkId = isListMode ? focusedLinkId : editLink?.id;
+    if (!linkId) {
+      // Link ainda não existe na API, então não há onde guardar a imagem.
+      toast.error("Salve o link primeiro e depois escolha a miniatura.");
+      return;
     }
+    const url = await subirMiniaturaDoLink(linkId, file);
+    if (url) setThumbnailUrl(url);
   };
 
   const handleSelectPlatform = (platformId: string) => {

@@ -3,7 +3,8 @@
 #   cp .env.example .env
 #   docker compose up
 #
-# Depois: app em http://localhost:3000, API em http://localhost:3333/v1.
+# Depois: app em http://localhost:3000, API em http://localhost:3333/v1,
+# console do MinIO em http://localhost:9001.
 #
 # O banco expõe 5433 no host (e não 5432) para não colidir com um Postgres
 # instalado na máquina; dentro da rede do compose os serviços falam pela porta
@@ -40,6 +41,70 @@ services:
       retries: 10
       start_period: 10s
 
+  # Armazenamento de objetos para as imagens (avatar, capa, página de chegada).
+  #
+  # Fala a API do S3; o código da API usa o SDK da AWS e não sabe que é MinIO.
+  # Trocar por Amazon S3 ou Cloudflare R2 um dia é mudar as variáveis S3_* —
+  # nenhuma linha de código.
+  #
+  # Porta 9000 é a API (o que o navegador e a API da aplicação usam); 9001 é o
+  # console web, só para olhar o bucket durante o desenvolvimento.
+  minio:
+    # Tag fixa, não `latest`: o console fica exposto num domínio em produção e
+    # atualização de MinIO tem que ser decisão, não efeito colateral de um build.
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-beesocial}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-beesocial-dev}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      # Volume nomeado, como o do banco: `down` não apaga as imagens.
+      - beesocial-media:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Roda UMA vez a cada `up`: cria o bucket (se não existe), o deixa com
+  # leitura pública anônima — é isso que faz a URL da imagem abrir direto no
+  # navegador sem a API no meio; escrita continua exigindo credencial — e cria
+  # o usuário SÓ DE LEITURA do painel. É com esse usuário que se entra no
+  # console; a credencial raiz fica só para a API e para este script.
+  minio-init:
+    # Fixo pelo digest (a imagem do mc não publica a release como tag).
+    # Corresponde a mc RELEASE.2025-08-13T08-35-41Z.
+    image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-beesocial}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-beesocial-dev}
+      S3_BUCKET: ${S3_BUCKET:-beesocial}
+      MINIO_CONSOLE_USER: ${MINIO_CONSOLE_USER:-leitura}
+      MINIO_CONSOLE_PASSWORD: ${MINIO_CONSOLE_PASSWORD:-leitura-dev-12}
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set local http://minio:9000 \"$$MINIO_ROOT_USER\" \"$$MINIO_ROOT_PASSWORD\" &&
+        mc mb --ignore-existing local/$$S3_BUCKET &&
+        mc anonymous set download local/$$S3_BUCKET &&
+        mc admin policy create local beesocial-leitura /politica-leitura.json &&
+        mc admin user add local \"$$MINIO_CONSOLE_USER\" \"$$MINIO_CONSOLE_PASSWORD\" &&
+        (mc admin policy attach local beesocial-leitura --user \"$$MINIO_CONSOLE_USER\" 2>&1 | grep -v -i 'already' || true) &&
+        mc admin policy entities local --user \"$$MINIO_CONSOLE_USER\"
+      "
+    volumes:
+      # A política do usuário de leitura: listar e abrir objetos do bucket,
+      # nada mais. A `readonly` embutida do MinIO NÃO lista (só lê objeto por
+      # nome), e o painel ficaria vazio.
+      - ./deploy/minio/politica-leitura.json:/politica-leitura.json:ro
+
   api:
     build:
       context: ./api
@@ -61,11 +126,29 @@ services:
       # Conta de demonstração (bella@beesocial.app / 123456). Desligue em
       # qualquer coisa que não seja sua máquina.
       SEED_DEMO: ${SEED_DEMO:-true}
+      # Armazenamento de imagens (ver o serviço `minio` acima).
+      #
+      # S3_ENDPOINT é o endereço DENTRO da rede do compose: é por ele que a API
+      # grava. MEDIA_PUBLIC_URL é o endereço que o NAVEGADOR usa para ler, e
+      # por isso aponta para a porta publicada no host. Os dois precisam
+      # apontar para o mesmo bucket.
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_BUCKET: ${S3_BUCKET:-beesocial}
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-beesocial}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-beesocial-dev}
+      # MinIO serve o bucket no caminho (`/bucket/chave`), não no subdomínio
+      # (`bucket.host/chave`) como a Amazon. Sem isto o SDK tenta o subdomínio
+      # e falha na resolução de nome.
+      S3_FORCE_PATH_STYLE: "true"
+      MEDIA_PUBLIC_URL: ${MEDIA_PUBLIC_URL:-http://localhost:${MINIO_PORT:-9000}/${S3_BUCKET:-beesocial}}
     ports:
       - "${API_PORT:-3333}:3333"
     depends_on:
       db:
         condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
 
   web:
     build:
@@ -110,3 +193,4 @@ services:
 
 volumes:
   beesocial-db:
+  beesocial-media:

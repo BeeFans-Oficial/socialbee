@@ -43,6 +43,19 @@ export interface Env {
    *  conectar o domínio próprio. Opcional: sem ele, o painel não mostra a
    *  instrução nem confere o DNS, e diz para falar com a equipe. */
   serverPublicIp: string | null;
+
+  /** Armazenamento das imagens (S3 ou compatível: MinIO, R2). Ver
+   *  `common/storage/storage.service.ts`. */
+  s3Endpoint: string;
+  s3Region: string;
+  s3Bucket: string;
+  s3AccessKey: string;
+  s3SecretKey: string;
+  s3ForcePathStyle: boolean;
+  /** Endereço que o NAVEGADOR usa para ler o bucket, sem barra no fim. Em
+   *  produção é `${SITE_URL}/media` (nginx → MinIO); em dev, o MinIO publicado
+   *  no host. */
+  mediaPublicUrl: string;
 }
 
 class MissingEnvError extends Error {
@@ -139,6 +152,14 @@ export function loadEnv(): Env {
     missing.push("INTERNAL_API_SECRET (mínimo de 24 caracteres)");
   }
 
+  // Imagens. Em produção faltar credencial derruba a subida, pelo mesmo motivo
+  // dos segredos acima. Em dev e teste os defaults batem com o MinIO do
+  // compose (`docker-compose.yml`), que é o único lugar onde eles valem.
+  const s3AccessKey = optional("S3_ACCESS_KEY") ?? (isProduction ? undefined : "beesocial");
+  const s3SecretKey = optional("S3_SECRET_KEY") ?? (isProduction ? undefined : "beesocial-dev");
+  if (!s3AccessKey) missing.push("S3_ACCESS_KEY");
+  if (!s3SecretKey) missing.push("S3_SECRET_KEY");
+
   if (missing.length > 0) throw new MissingEnvError(missing);
 
   cached = Object.freeze({
@@ -168,6 +189,14 @@ export function loadEnv(): Env {
     trackingEventTtlDays: int("TRACKING_EVENT_TTL_DAYS", 90),
 
     serverPublicIp: optional("SERVER_PUBLIC_IP") ?? null,
+
+    s3Endpoint: (optional("S3_ENDPOINT") ?? "http://localhost:9000").replace(/\/+$/, ""),
+    s3Region: optional("S3_REGION") ?? "us-east-1",
+    s3Bucket: optional("S3_BUCKET") ?? "beesocial",
+    s3AccessKey: s3AccessKey as string,
+    s3SecretKey: s3SecretKey as string,
+    s3ForcePathStyle: bool("S3_FORCE_PATH_STYLE", true),
+    mediaPublicUrl: (optional("MEDIA_PUBLIC_URL") ?? "http://localhost:9000/beesocial").replace(/\/+$/, ""),
   });
 
   return cached;

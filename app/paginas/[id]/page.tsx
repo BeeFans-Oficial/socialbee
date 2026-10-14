@@ -27,6 +27,7 @@ import {
   Aviso,
   CampoDeTexto,
   Grupo,
+  Info,
   Linha,
   MolduraDeCelular,
   FUNDO_DO_PAINEL,
@@ -37,6 +38,7 @@ import {
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
+import { arquivoDoInput, subirImagemDoPerfil, type ImagemDoPerfil } from "@/lib/imagens";
 import { invalidateSession, usePlano } from "@/lib/api/use-session";
 import type { ApiDomain, ApiProfile, ProfileInput } from "@/lib/api/types";
 import { THEMES } from "@/lib/catalog";
@@ -161,6 +163,37 @@ export default function EditorDePagina() {
     }
   }, []);
 
+  /**
+   * Troca (arquivo) ou remove (`null`) uma imagem da página. O upload grava
+   * direto na API; depois a página é relida para a prévia e os campos
+   * mostrarem a URL nova. `extra` é o que deve ser salvo junto (o enquadramento
+   * da capa volta ao centro quando a foto muda).
+   */
+  const trocarImagem = useCallback(async (
+    tipo: ImagemDoPerfil,
+    arquivo: File | null,
+    extra: ProfileInput = {},
+  ): Promise<boolean> => {
+    setSalvando(true);
+    try {
+      if (arquivo) {
+        if (!(await subirImagemDoPerfil(tipo, arquivo))) return false;
+      } else {
+        await api.removeProfileImage(tipo);
+      }
+      const atualizada = Object.keys(extra).length > 0 ? await api.updateProfile(extra) : await api.profile();
+      setPagina(atualizada);
+      setRecarga((r) => r + 1);
+      invalidateSession();
+      return true;
+    } catch (caught) {
+      toast.error(caught instanceof ApiError ? caught.message : "Não foi possível salvar a imagem.");
+      return false;
+    } finally {
+      setSalvando(false);
+    }
+  }, []);
+
   if (!pagina) {
     return (
       <div className="min-h-screen bg-bee-bg flex items-center justify-center text-bee-muted">
@@ -200,16 +233,8 @@ export default function EditorDePagina() {
   const topoAcoes = naCapa(visual.capa === "faixa" ? 0.62 : 0.72);
   const temFoto = Boolean(pagina.coverUrl);
   const escolherCapa = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const arquivo = e.target.files?.[0];
-    e.target.value = "";
-    if (!arquivo) return;
-    if (arquivo.size > LIMITE_DA_IMAGEM) {
-      toast.error("Imagem muito grande. Use um arquivo de até 1,4 MB.");
-      return;
-    }
-    const leitor = new FileReader();
-    leitor.onloadend = () => void salvar({ coverUrl: leitor.result as string, coverPosY: 50 });
-    leitor.readAsDataURL(arquivo);
+    const arquivo = arquivoDoInput(e);
+    if (arquivo) void trocarImagem("cover", arquivo, { coverPosY: 50 });
   };
   /** Sobe ou desce o enquadramento da foto de capa (`object-position` Y). */
   const centralizar = (passo: number) => {
@@ -328,7 +353,7 @@ export default function EditorDePagina() {
                   <input type="file" accept="image/*" onChange={escolherCapa} className="hidden" />
                 </label>
                 <button
-                  onClick={() => salvar({ coverUrl: null })}
+                  onClick={() => trocarImagem("cover", null)}
                   aria-label="Remover a foto"
                   title="Remover a foto"
                   className="w-7 h-7 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center text-white/90 hover:text-white transition-colors"
@@ -543,7 +568,10 @@ export default function EditorDePagina() {
         </Secao>
 
         {pagina.iab.enabled && (
-          <Secao titulo="Página de chegada">
+          <Secao
+            titulo="Página de chegada"
+            info="É a primeira tela que a fã vê ao abrir o seu link de dentro do Instagram ou de outro aplicativo: a sua foto, um título e o botão que leva para a sua página no navegador do celular."
+          >
             <CampoDeTexto
               rotulo="Título"
               valor={pagina.iab.headline ?? ""}
@@ -559,11 +587,12 @@ export default function EditorDePagina() {
               onSalvar={(v) => salvar({ iabButtonLabel: v.trim() || null })}
             />
             <CampoDeImagem
-              rotulo="Imagem"
+              rotulo="Foto da página de chegada"
+              info="Aparece em destaque na tela de chegada, acima do título e do botão de continuar. Sem foto escolhida, entra a padrão da plataforma."
               imagem={pagina.iab.imageUrl}
               padrao="/chegada-padrao.svg"
-              aviso="É a imagem que o robô da rede social vê. Escolha uma que passe por qualquer revisão."
-              onTrocar={(iabImageUrl) => salvar({ iabImageUrl })}
+              nota="É a primeira imagem que a fã vê ao abrir o seu link. Ela ainda não está na sua página; está na tela de entrada."
+              onTrocar={(arquivo) => trocarImagem("iab", arquivo)}
             />
           </Secao>
         )}
@@ -700,10 +729,6 @@ function SeletorDeDominio({
   );
 }
 
-/** O data URL vai inteiro no PATCH, e a API recusa acima de 2 MB de texto —
- *  em base64, isso é cerca de 1,4 MB de arquivo. Recusar aqui poupa o upload. */
-const LIMITE_DA_IMAGEM = 1_400_000;
-
 /**
  * Campo de imagem do editor: mostra a atual (ou a padrão), troca por arquivo
  * e remove. Usado pela foto de capa e pela imagem da página de chegada.
@@ -713,6 +738,7 @@ const LIMITE_DA_IMAGEM = 1_400_000;
  */
 function CampoDeImagem({
   rotulo,
+  info,
   imagem,
   padrao,
   nota,
@@ -720,30 +746,42 @@ function CampoDeImagem({
   onTrocar,
 }: {
   rotulo: string;
+  /** Explicação do campo, no ⓘ ao lado do rótulo. */
+  info?: string;
   imagem: string | null;
   padrao?: string;
   nota?: string;
   aviso?: string;
-  onTrocar: (dataUrl: string | null) => Promise<boolean>;
+  /** Arquivo para subir, ou `null` para remover. O upload é de quem chama. */
+  onTrocar: (arquivo: File | null) => Promise<boolean>;
 }) {
-  const escolher = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const arquivo = e.target.files?.[0];
-    e.target.value = "";
+  const [enviando, setEnviando] = useState(false);
+  /** Prévia local enquanto o upload roda: a criadora vê a foto escolhida na
+   *  hora, antes de a API responder com a URL definitiva. */
+  const [previa, setPrevia] = useState<string | null>(null);
+  useEffect(() => () => { if (previa) URL.revokeObjectURL(previa); }, [previa]);
+
+  const escolher = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arquivo = arquivoDoInput(e);
     if (!arquivo) return;
-    if (arquivo.size > LIMITE_DA_IMAGEM) {
-      toast.error("Imagem muito grande. Use um arquivo de até 1,4 MB.");
-      return;
+    setPrevia(URL.createObjectURL(arquivo));
+    setEnviando(true);
+    try {
+      await onTrocar(arquivo);
+    } finally {
+      setEnviando(false);
+      setPrevia(null);
     }
-    const leitor = new FileReader();
-    leitor.onloadend = () => void onTrocar(leitor.result as string);
-    leitor.readAsDataURL(arquivo);
   };
 
-  const mostrada = imagem ?? padrao ?? null;
+  const mostrada = previa ?? imagem ?? padrao ?? null;
 
   return (
     <div className="px-2 py-3">
-      <div className="text-sm text-white/85 mb-2">{rotulo}</div>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-sm text-white/85">{rotulo}</span>
+        {info && <Info texto={info} />}
+      </div>
       <div className="relative h-36 rounded-lg overflow-hidden border border-white/10 bg-white/[0.02]">
         {mostrada ? (
           // eslint-disable-next-line @next/next/no-img-element -- data URL ou arquivo estático
@@ -754,9 +792,9 @@ function CampoDeImagem({
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-2 bg-gradient-to-t from-black/80 to-transparent">
-          <label className="px-3 py-1.5 rounded-md bg-white text-bee-bg text-xs font-semibold cursor-pointer">
-            {imagem ? "Trocar" : "Escolher foto"}
-            <input type="file" accept="image/*" onChange={escolher} className="hidden" />
+          <label className={cn("px-3 py-1.5 rounded-md bg-white text-bee-bg text-xs font-semibold cursor-pointer", enviando && "opacity-60 pointer-events-none")}>
+            {enviando ? "Enviando…" : imagem ? "Trocar" : "Escolher foto"}
+            <input type="file" accept="image/*" onChange={escolher} className="hidden" disabled={enviando} />
           </label>
           {imagem ? (
             <button
