@@ -229,8 +229,17 @@ export default function EditorDePagina() {
     areaDaCapa ? Math.round(areaDaCapa.top + areaDaCapa.height * fracao) : 0;
   /** Abaixo disto o controle ficaria sob a Dynamic Island — some antes. */
   const TOPO_LIVRE = 56;
-  const topoSetas = naCapa(visual.capa === "faixa" ? 0.2 : 0.3);
-  const topoAcoes = naCapa(visual.capa === "faixa" ? 0.62 : 0.72);
+  /**
+   * Capa em FAIXA (128 px no topo): os quatro controles vão numa linha só,
+   * encostada no limite livre. Separados em dois blocos, como na capa de tela
+   * cheia, as setas caíam em 20% de 128 px = ~26 px — sob a Dynamic Island —
+   * e a regra abaixo as escondia; sobravam só trocar e remover, e a criadora
+   * não tinha como enquadrar a foto.
+   */
+  const controlesEmLinha = visual.capa === "faixa";
+  const topoLinha = Math.max(TOPO_LIVRE, naCapa(0.5) - 14);
+  const topoSetas = naCapa(0.3);
+  const topoAcoes = naCapa(0.72);
   const temFoto = Boolean(pagina.coverUrl);
   const escolherCapa = (e: React.ChangeEvent<HTMLInputElement>) => {
     const arquivo = arquivoDoInput(e);
@@ -315,13 +324,9 @@ export default function EditorDePagina() {
               sandbox="allow-scripts allow-same-origin allow-top-navigation-by-user-activation"
             />
           )}
-          {mostraControlesDaFoto && temFoto && (
-            <>
-              {topoSetas >= TOPO_LIVRE && (
-              <div
-                className="absolute right-3 z-30 flex flex-col items-center w-8 py-1 rounded-full bg-black/35 backdrop-blur-md"
-                style={{ top: topoSetas }}
-              >
+          {mostraControlesDaFoto && temFoto && (() => {
+            const setas = (
+              <>
                 <button
                   onClick={() => centralizar(-10)}
                   aria-label="Mostrar mais do topo da foto"
@@ -338,13 +343,10 @@ export default function EditorDePagina() {
                 >
                   <ChevronDown className="w-3.5 h-3.5" strokeWidth={2.5} />
                 </button>
-              </div>
-              )}
-              {topoAcoes >= TOPO_LIVRE && (
-              <div
-                className="absolute right-3 z-30 flex gap-1.5"
-                style={{ top: topoAcoes }}
-              >
+              </>
+            );
+            const acoes = (
+              <>
                 <label
                   title="Trocar a foto"
                   className="w-7 h-7 rounded-full bg-black/35 backdrop-blur-md flex items-center justify-center text-white/90 hover:text-white cursor-pointer transition-colors"
@@ -360,10 +362,34 @@ export default function EditorDePagina() {
                 >
                   <X className="w-3.5 h-3.5" strokeWidth={2.5} />
                 </button>
-              </div>
-              )}
-            </>
-          )}
+              </>
+            );
+            if (controlesEmLinha) {
+              return (
+                <div className="absolute right-3 z-30 flex items-center gap-1.5" style={{ top: topoLinha }}>
+                  <div className="flex items-center rounded-full bg-black/35 backdrop-blur-md">{setas}</div>
+                  {acoes}
+                </div>
+              );
+            }
+            return (
+              <>
+                {topoSetas >= TOPO_LIVRE && (
+                  <div
+                    className="absolute right-3 z-30 flex flex-col items-center w-8 py-1 rounded-full bg-black/35 backdrop-blur-md"
+                    style={{ top: topoSetas }}
+                  >
+                    {setas}
+                  </div>
+                )}
+                {topoAcoes >= TOPO_LIVRE && (
+                  <div className="absolute right-3 z-30 flex gap-1.5" style={{ top: topoAcoes }}>
+                    {acoes}
+                  </div>
+                )}
+              </>
+            );
+          })()}
           {mostraControlesDaFoto && !temFoto && (
             <label
               className="absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 rounded-full bg-black/35 backdrop-blur-md text-xs text-white/90 hover:text-white cursor-pointer transition-colors"
