@@ -273,24 +273,16 @@ export class LinksService {
    * resolver antigo prometia que o banco faria.
    */
   async resolveByShortCode(shortCode: string): Promise<ResolvedLink | null> {
-    const link = await this.links.createQueryBuilder("link")
-      .leftJoin("link.profile", "profile")
-      .leftJoin("link.safePage", "page")
-      .leftJoin("page.socialLinks", "social")
-      .select([
-        "link.id", "link.profileId", "link.platform", "link.destinationUrl", "link.isActive",
-        "profile.id", "profile.displayName", "page.id",
-        "social.id", "social.platform", "social.url", "social.title", "social.position",
-      ])
-      .where("link.shortCode = :shortCode", { shortCode })
-      .orderBy("social.position", "ASC")
-      .addOrderBy("social.id", "ASC")
-      .getOne();
+    // Só o link. Já carregou a Safe Page junto, para o redirecionador montar
+    // uma página ao robô — caminho que deixou de existir (ver
+    // `app/r/[code]/route.ts`). Dois JOINs a menos no salto de cada clique.
+    const link = await this.links.findOne({
+      where: { shortCode },
+      select: ["id", "profileId", "platform", "destinationUrl", "isActive"],
+    });
     if (!link) return null;
 
     return {
-      displayName: link.profile?.displayName ?? "Perfil",
-      socialLinks: (link.safePage?.socialLinks ?? []).map(({ platform, url, title }) => ({ platform, url, title })),
       linkId: link.id,
       profileId: link.profileId,
       channel: link.platform,

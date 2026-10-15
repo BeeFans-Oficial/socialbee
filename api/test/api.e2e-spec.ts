@@ -346,25 +346,29 @@ describe("perfil público", () => {
     }
   });
 
-  it("entrega as redes da Safe Page dos links ativos protegidos no perfil", async () => {
+  it("entrega o mesmo perfil a robô e a humano, sem as redes da Safe Page", async () => {
     const socialLinks = [{ platform: "instagram", url: "https://www.instagram.com/perfil/", title: "Instagram" }];
     await servidor.patch(`/v1/me/links/${linkDaBella}`)
       .set("authorization", `Bearer ${tokenBella}`)
       .send({ cloakEnabled: true, safePage: { socialLinks } }).expect(200);
-    const { body } = await servidor.get("/v1/public/profiles/bella-teste")
-      .set("x-internal-secret", "segredo-interno-de-teste-24+")
+    const segredo = "segredo-interno-de-teste-24+";
+    const robo = await servidor.get("/v1/public/profiles/bella-teste")
+      .set("x-internal-secret", segredo)
       .set("user-agent", "InstagramBot").expect(200);
-    expect(body.requester.isBot).toBe(true);
-    expect(body.safePageLinks).toEqual(socialLinks);
-    expect(body.links[0]).not.toHaveProperty("destinationUrl");
-    await servidor.patch(`/v1/me/links/${linkDaBella}`)
-      .set("authorization", `Bearer ${tokenBella}`)
-      .send({ cloakEnabled: false }).expect(200);
-    const unprotected = await servidor.get("/v1/public/profiles/bella-teste").expect(200);
-    expect(unprotected.body.safePageLinks).toEqual([]);
-    await servidor.patch(`/v1/me/links/${linkDaBella}`)
-      .set("authorization", `Bearer ${tokenBella}`)
-      .send({ cloakEnabled: true }).expect(200);
+    const humano = await servidor.get("/v1/public/profiles/bella-teste")
+      .set("x-internal-secret", segredo)
+      .set("user-agent", "Mozilla/5.0 (iPhone) Mobile/15E148 Instagram 300.0.0.0")
+      .set("accept-language", "pt-BR")
+      .set("accept", "text/html").expect(200);
+    // Documento diferente por user-agent é o que a Meta chama de cloaking, e
+    // foi o que derrubou uma conta em 15/10/2026. O veredito de robô vai junto
+    // (é para o relatório), mas perfil e links são os mesmos para os dois.
+    expect(robo.body.requester.isBot).toBe(true);
+    expect(humano.body.requester.isBot).toBe(false);
+    expect(robo.body.profile).toEqual(humano.body.profile);
+    expect(robo.body.links).toEqual(humano.body.links);
+    expect(robo.body).not.toHaveProperty("safePageLinks");
+    expect(robo.body.links[0]).not.toHaveProperty("destinationUrl");
   });
 
   it("responde 404 para slug que não existe", async () => {
@@ -535,7 +539,7 @@ describe("rastreamento", () => {
     expect(body.destinationUrl).toBe(link.destinationUrl);
   });
 
-  it("não conta clique de robô e entrega a safe page", async () => {
+  it("não conta clique de robô, mas redireciona para o mesmo destino", async () => {
     const { body: lista } = await servidor
       .get("/v1/me/links")
       .set("authorization", `Bearer ${tokenBella}`);
@@ -549,9 +553,10 @@ describe("rastreamento", () => {
       .expect(200);
 
     expect(body.counted).toBe(false);
-    expect(body.destinationUrl).toBeNull();
     expect(body.isBot).toBe(true);
-    expect(body.safePage.socialLinks).toEqual((link.safePage?.socialLinks ?? []).map(({ platform, url, title }: { platform: string; url: string; title: string }) => ({ platform, url, title })));
+    // O destino vai do mesmo jeito: para o robô só muda o relatório.
+    expect(body.destinationUrl).toBe(link.destinationUrl);
+    expect(body).not.toHaveProperty("safePage");
   });
 
   it("registra view por slug e monta o relatório", async () => {

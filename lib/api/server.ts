@@ -69,7 +69,6 @@ export function clientIp(fonte: FonteDeCabecalho): string | undefined {
 
 export interface ClickResult {
   isBot?: boolean;
-  safePage?: { displayName: string; socialLinks: Array<{ platform: string; url: string; title: string }> } | null;
   destinationUrl: string | null;
   counted: boolean;
   /** Por que o clique contou ou não. É o que torna "cliquei e não apareceu no
@@ -150,15 +149,15 @@ export async function recordClick(
  *  `cache: "no-store"` porque a resposta depende de quem pediu. Uma página de
  *  perfil cacheada entregaria ao visitante seguinte o veredito do anterior. */
 export interface PublicProfileForRender {
-  safePageLinks?: Array<{ platform: string; url: string; title: string }>;
   profile: ApiProfile;
   links: ApiPublicLink[];
   /**
    * Veredito sobre QUEM pediu, preenchido só para o nosso próprio servidor.
    *
-   * `isBot` e `isInAppBrowser` são excludentes por construção na API: sendo
-   * robô, o segundo vem `false`. A página usa os dois para escolher entre três
-   * documentos — chegada, perfil do robô e perfil completo.
+   * A página NÃO usa isto para escolher o que renderizar — o documento é o
+   * mesmo para todo mundo (ver `app/[slug]/page.tsx`). O campo continua vindo
+   * porque o detector vive num lugar só e o relatório o consome; aqui serve a
+   * depuração (`reason`), nada mais.
    */
   requester?: {
     isBot: boolean;

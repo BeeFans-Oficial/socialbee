@@ -122,10 +122,12 @@ export class PublicTrackingController {
     // clique não contou. Sem isso, "cliquei e não apareceu no analytics" é
     // impossível de investigar — e o filtro de robô é justamente a peça em que
     // um falso positivo apaga clique humano em silêncio.
-    return {
-      destinationUrl: isBot ? null : destination.toString(), counted, reason, isBot,
-      safePage: isBot ? { displayName: link.displayName ?? "Perfil", socialLinks: link.socialLinks ?? [] } : null,
-    };
+    //
+    // O destino vai SEMPRE, robô ou não. `isBot` serve ao relatório e ao log.
+    // Esconder o destino do robô fazia o redirecionador servir uma página a
+    // ele e um salto à fã — documento diferente por user-agent, que é o que a
+    // Meta classifica como cloaking e compara antes de derrubar a conta.
+    return { destinationUrl: destination.toString(), counted, reason, isBot };
   }
 }
 

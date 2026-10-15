@@ -17,7 +17,6 @@ function load(file: string, imports: Record<string, unknown> = {}): any {
 }
 
 const recordClick = jest.fn();
-const { renderSafePage } = load("lib/safe-page.ts");
 class TestResponse extends Response {
   static redirect(url: string | URL, options: ResponseInit | number = 302): TestResponse {
     const init = typeof options === "number" ? { status: options } : options;
@@ -26,7 +25,6 @@ class TestResponse extends Response {
 }
 const { GET, HEAD } = load("app/r/[code]/route.ts", {
   "next/server": { NextResponse: TestResponse },
-  "@/lib/safe-page": { renderSafePage },
   "@/lib/api/server": { recordClick },
   "@/lib/site": { siteOrigin: () => "https://example.com", esquemaDe: () => "https" },
 });
@@ -41,25 +39,14 @@ describe("/r/[code]", () => {
     expect(response.headers.get("location")).toBe("https://destination.test/");
     expect(response.headers.get("cache-control")).toBe("no-store");
   });
-  it("entrega HTML seguro para bots sem Location nem destino principal", async () => {
-    recordClick.mockResolvedValue({ isBot: true, destinationUrl: null, safePage: {
-      displayName: '<script>alert("x")</script>',
-      socialLinks: [{ url: "https://social.test", title: "A&B", platform: "social" },
-        { url: "javascript:alert(1)", title: "inseguro", platform: "social" }],
-    } });
+  it("redireciona robôs com o MESMO 307 — a diferença fica no relatório", async () => {
+    // Resposta diferente por user-agent é cloaking para a Meta. O robô recebe
+    // o mesmo salto que a fã; o que muda é só o `counted` do relatório.
+    recordClick.mockResolvedValue({ isBot: true, destinationUrl: "https://destination.test", counted: false });
     const response = await GET(request, context);
-    const html = await response.text();
-    expect(response.status).toBe(200);
-    expect(response.headers.get("location")).toBeNull();
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("https://destination.test/");
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(html).toContain('href="https://social.test/"');
-    expect(html).toContain("A&amp;B");
-    expect(html).not.toContain("<script>");
-    expect(html).not.toContain("javascript:");
-  });
-  it("entrega perfil vazio quando não há Safe Page", async () => {
-    recordClick.mockResolvedValue({ isBot: true, safePage: null });
-    expect((await GET(request, context)).status).toBe(200);
   });
   it("mantém fallback temporário para código inexistente", async () => {
     recordClick.mockResolvedValue({ destinationUrl: null, counted: false });

@@ -1,9 +1,16 @@
 # BeeSocial
 
-Link na bio para criadoras de conteúdo adulto. O diferencial pretendido é o
-**cloaking**: escapar do navegador interno do Instagram e servir uma página
-limpa aos robôs da rede, para que links de OnlyFans/Privacy/Telegram não sejam
-bloqueados.
+Link na bio para criadoras de conteúdo adulto. O diferencial é a **página de
+chegada**: quem abre o link de dentro do Instagram vê uma tela que leva ao
+navegador do celular, onde login e pagamento funcionam.
+
+> **Uma página só, para todo mundo.** O servidor entrega o mesmo HTML a fã,
+> crawler e navegador da Meta; a página de chegada é uma sobreposição decidida
+> no aparelho, e o redirecionador dá o mesmo 307 a qualquer um. Servir
+> documento diferente por user-agent é o que a Meta chama de cloaking — em
+> 15/10/2026 ela comparou três versões de um perfil nosso e derrubou a conta
+> da criadora no mesmo segundo em que o link entrou na bio. O raciocínio
+> completo está em `app/[slug]/page.tsx`.
 
 > **Estado: MVP com API.** Autenticação por email e senha, perfil, links e
 > rastreamento vivem em Postgres, atrás de uma API própria (`api/`). O que
@@ -164,7 +171,7 @@ As regras ficam em `api/src/plans/plans.ts`. Uma conta é Pro enquanto
 | Páginas por conta | 1 | sem limite |
 | Links por página | 5 | sem limite |
 | Modelo, cores e fonte | só o Clássico e os temas prontos | todos |
-| Cloaking e página segura | não | sim |
+| Saída do app ao tocar num link (`cloakEnabled`) | não | sim |
 | Escolher o domínio | não (fica com o sorteado) | sim |
 | Relatório de visitas e cliques | não | sim (7, 30 ou 90 dias) |
 
@@ -225,11 +232,10 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
   pública aponta para `MEDIA_PUBLIC_URL` (`/media/` do site, nginx com cache na
   frente do R2). O caminho antigo de base64 foi removido; `npm run
   imagens:migrar` só serve a um backup anterior a 14/10/2026.
-- **Cloaking no servidor.** `lib/cloak.ts` faz escape de in-app browser no
-  cliente (intent URL no Android, redirect + fallback no iOS) e isso funciona. A
-  safe page agora é **persistida**, mas nenhuma rota serve conteúdo diferente a
-  crawler. Decisão de produto em aberto: servir conteúdo diferente ao robô da
-  Meta viola o ToS deles.
+- **Safe Page sem efeito público.** O editor de link ainda grava as redes da
+  Safe Page (`safe_pages`), mas desde 15/10/2026 nenhuma rota as serve: robô
+  recebe o mesmo perfil e o mesmo redirecionamento que a fã (ver o aviso no
+  topo). Decisão em aberto: tirar o campo do editor ou dar a ele outro uso.
 - **`/configuracoes`.** Continua placeholder; sair está na Sidebar.
 - **`/dashboard`.** Existe e nenhuma navegação aponta para lá.
 - **ESLint.** Não há config, e `npm run lint` quebra: `next lint` foi removido no
