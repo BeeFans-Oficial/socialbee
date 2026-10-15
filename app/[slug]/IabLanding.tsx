@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowUpRight, MoreHorizontal } from "lucide-react";
 
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
-import { detectIAB, urlDeSaida } from "@/lib/cloak";
+import { detectIAB, urlDeSaida, type IABDetection } from "@/lib/cloak";
 import { THEMES } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
@@ -16,17 +16,23 @@ import { cn } from "@/lib/utils";
  * vários aparelhos recusa abrir esquemas de outros apps. A fã clica no link da
  * bio, cai numa janela sem saída, e o destino nunca é alcançado.
  *
- * ## Por que a mesma página serve o robô
+ * ## É uma sobreposição, não um documento
  *
- * A bifurcação por user-agent que existia — robô recebe um documento, humano
- * recebe outro — é o que a documentação da Meta chama de cloaking, e é o que
- * expõe o domínio a bloqueio. Aqui a diferença deixa de ser QUEM pediu e passa
- * a ser o que o cliente FAZ: todo mundo recebe este mesmo HTML, e quem executa
- * JavaScript sai dele. O robô não executa, então fica — e o que ele indexa é
- * uma página que a criadora escolheu e revisou.
+ * Esta tela NÃO é mais uma página diferente servida pelo servidor a quem se
+ * apresenta como navegador embutido. O servidor entrega o MESMO HTML do perfil
+ * a todo mundo — fã, robô de prévia, navegador controlado pela Meta — e é o
+ * JavaScript, já no aparelho, que decide cobrir o perfil com esta tela.
  *
- * Não há conteúdo fabricado: é o nome dela, a imagem que ela escolheu e um
- * botão. Os links continuam fora do documento, como já estavam.
+ * O motivo é concreto: em 15/10/2026 a Meta buscou um perfil nosso no mesmo
+ * segundo em que o link entrou numa bio, três vezes, com três identidades
+ * (crawler declarado, Safari de iPhone, app do Facebook), comparou os três
+ * documentos e derrubou a conta na hora. Documento diferente por user-agent é
+ * a definição de cloaking que ela aplica. Comportamento no cliente, sobre um
+ * documento igual para todos, não é.
+ *
+ * Por isso o componente renderiza NADA no servidor e no primeiro render do
+ * cliente, e só aparece depois do `useEffect` — o HTML estático é idêntico com
+ * ou sem ele. Quem não executa JavaScript fica no perfil comum.
  *
  * ## O escape
  *
@@ -35,15 +41,14 @@ import { cn } from "@/lib/utils";
  * que abra no navegador externo (o Instagram ignora o `x-safari-https://`);
  * em outros apps, `x-safari-https://` abre no Safari. Ver `lib/cloak.ts`.
  *
- * A tentativa automática acontece UMA vez, ao carregar, nos dois sistemas; o
- * botão repete a mesma saída. Se depois de um instante a página continua
- * visível, a saída não funcionou (iOS antigo, aplicativo que bloqueia) e a
- * instrução do menu `•••` aparece — é o plano B que sempre funciona.
+ * A tentativa automática acontece UMA vez, ao aparecer; o botão repete a mesma
+ * saída. Se depois de um instante a página continua visível, a saída não
+ * funcionou (iOS antigo, aplicativo que bloqueia) e a instrução do menu `•••`
+ * aparece — é o plano B que sempre funciona.
  */
 
-/** Abstrata e de marca de propósito: é o que a fã vê ao chegar E o que o robô
- *  da rede social vê pela mesma rota. Nenhuma pele, nenhum rosto, nada que
- *  dispare revisão automática. */
+/** Abstrata e de marca de propósito: é o que a fã vê ao chegar. Nenhuma pele,
+ *  nenhum rosto, nada que dispare revisão automática. */
 const IMAGEM_PADRAO = "/chegada-padrao.svg";
 
 export interface IabLandingProps {
@@ -57,19 +62,25 @@ export interface IabLandingProps {
   /** Título. Vazio cai no nome de exibição. */
   headline: string | null;
   buttonLabel: string | null;
-  /** Decide a técnica de escape. Vem do detector da API, não do `navigator`:
-   *  o documento precisa ser o mesmo para todo mundo, inclusive no HTML. */
-  platform: "android" | "ios" | "other";
-  /** Prévia no painel: desenha a página sem NUNCA tentar escapar, senão abrir
-   *  a prévia sequestraria a aba de quem está editando. */
+  /** `?fora=1`: a pessoa já saiu do aplicativo e voltou para cá. Sem isto ela
+   *  cairia nesta tela de novo, em laço. */
+  escapou: boolean;
+  /** Prévia no painel: desenha a tela sem olhar o user-agent e sem NUNCA
+   *  tentar escapar, senão abrir a prévia sequestraria a aba de quem edita. */
   preview?: boolean;
 }
 
 /** Destino do escape: a própria página, pedindo o perfil completo.
  *
- *  `?fora=1` é o que diz ao servidor "já estou num navegador de verdade" — sem
+ *  `?fora=1` é o que diz a esta tela "já estou num navegador de verdade" — sem
  *  ele a pessoa voltaria para esta mesma tela, em laço. */
 const PARAM_ESCAPE = "fora";
+
+type Plataforma = "android" | "ios" | "other";
+
+function plataformaDe(d: IABDetection): Plataforma {
+  return d.isAndroid ? "android" : d.isIOS ? "ios" : "other";
+}
 
 export function IabLanding({
   slug,
@@ -78,27 +89,78 @@ export function IabLanding({
   imageUrl,
   headline,
   buttonLabel,
-  platform,
+  escapou,
   preview = false,
 }: IabLandingProps) {
   const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
 
   /**
-   * A imagem da chegada, com padrão da plataforma.
+   * Decidido no aparelho, depois da hidratação.
    *
-   * Servida pelo app e não gravada em cada perfil: assim vale para quem já
-   * existe e para quem se cadastrar amanhã, sem repetir a mesma imagem em toda
-   * linha da tabela. O `iab_image_url` continua nulo quando a criadora não
-   * escolheu — é a diferença entre "não escolheu" e "escolheu esta", que o
-   * editor precisa saber para mostrar o estado certo.
+   * `null` enquanto não se sabe — é o estado do servidor e do primeiro render
+   * do cliente, e nele o componente não desenha nada. Só assim o HTML que o
+   * servidor manda é o mesmo para todo mundo.
    */
-  const imagem = imageUrl ?? IMAGEM_PADRAO;
-  const titulo = headline?.trim() || displayName;
-  const rotulo = buttonLabel?.trim() || `Continuar para ${displayName}`;
+  const [aparelho, setAparelho] = useState<IABDetection | null>(null);
 
+  useEffect(() => {
+    if (preview) {
+      // A prévia é sempre a de iPhone: é onde a página de chegada mais
+      // trabalha (lá não há escape automático, só a instrução do menu), e
+      // quem edita está num computador, que não é nem um nem outro.
+      setAparelho({ isIAB: true, source: "instagram", isAndroid: false, isIOS: true });
+      return;
+    }
+    if (escapou) return;
+    const d = detectIAB();
+    if (d.isIAB) setAparelho(d);
+  }, [preview, escapou]);
+
+  if (!aparelho) return null;
+
+  return (
+    <Tela
+      slug={slug}
+      displayName={displayName}
+      bg={theme.bg}
+      imagem={imageUrl ?? IMAGEM_PADRAO}
+      titulo={headline?.trim() || displayName}
+      rotulo={buttonLabel?.trim() || `Continuar para ${displayName}`}
+      plataforma={plataformaDe(aparelho)}
+      app={aparelho.source}
+      preview={preview}
+    />
+  );
+}
+
+/**
+ * A tela em si, separada para que os efeitos de escape só existam quando ela
+ * está montada — e não disparem no perfil de quem nunca verá esta tela.
+ */
+function Tela({
+  slug,
+  displayName,
+  bg,
+  imagem,
+  titulo,
+  rotulo,
+  plataforma,
+  app,
+  preview,
+}: {
+  slug: string;
+  displayName: string;
+  bg: string;
+  imagem: string;
+  titulo: string;
+  rotulo: string;
+  plataforma: Plataforma;
+  app: IABDetection["source"];
+  preview: boolean;
+}) {
   /** Mostra a instrução manual depois de a tentativa automática não ter tirado
    *  ninguém do lugar. Fora de Android e iPhone não há tentativa: aparece já. */
-  const [mostrarInstrucao, setMostrarInstrucao] = useState(platform === "other");
+  const [mostrarInstrucao, setMostrarInstrucao] = useState(plataforma === "other");
 
   // A página rola sem barra visível, como no celular — inclusive dentro da
   // moldura de iPhone das prévias do painel.
@@ -109,17 +171,17 @@ export function IabLanding({
   }, []);
 
   useEffect(() => {
-    if (preview || platform === "other") return;
+    if (preview || plataforma === "other") return;
 
     // Uma tentativa, e só. Se a saída funcionar, o aplicativo vai para segundo
     // plano e o navegador abre a página; se não, o timer revela a instrução.
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
     // `replace`, e não `href`: se a pessoa voltar, não cai de novo aqui.
-    window.location.replace(urlDeSaida(destino, platform, detectIAB().source));
+    window.location.replace(urlDeSaida(destino, plataforma, app));
 
     const timer = setTimeout(() => setMostrarInstrucao(true), 2500);
     return () => clearTimeout(timer);
-  }, [preview, platform, slug]);
+  }, [preview, plataforma, app, slug]);
 
   const abrir = () => {
     if (preview) return;
@@ -127,20 +189,22 @@ export function IabLanding({
     // `replace`, como na tentativa automática: a página de chegada é só uma
     // ponte, e não pode ficar no histórico — senão "voltar" cai nela de novo,
     // ela pede a saída outra vez, e a fã fica num laço.
-    window.location.replace(urlDeSaida(destino, platform, detectIAB().source));
+    window.location.replace(urlDeSaida(destino, plataforma, app));
     setMostrarInstrucao(true);
   };
 
   return (
+    // Acima de tudo, inclusive da barreira de idade (`z-[9999]`): a fã decide
+    // onde abrir antes de qualquer outra pergunta.
     <div
-      className="relative min-h-screen flex flex-col text-bee-text overflow-hidden"
-      style={{ backgroundColor: theme.bg }}
+      className="fixed inset-0 z-[10000] overflow-y-auto text-bee-text"
+      style={{ backgroundColor: bg }}
     >
-      <CeuEstrelado brilho={false} />
+      <div className="relative min-h-full flex flex-col overflow-hidden">
+        <CeuEstrelado brilho={false} />
 
-      {/* A imagem escolhida pela criadora ocupa o topo inteiro. É o que a fã vê
-          antes de qualquer texto, e é também o que um revisor automático vê. */}
-      {imagem && (
+        {/* A imagem escolhida pela criadora ocupa o topo inteiro. É o que a fã
+            vê antes de qualquer texto. */}
         <div className="absolute inset-x-0 top-0 h-[55vh] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
               bytes de uma coluna do banco; `next/image` exige loader ou domínio
@@ -148,61 +212,54 @@ export function IabLanding({
           <img src={imagem} alt="" className="w-full h-full object-cover" />
           <div
             className="absolute inset-0"
-            style={{ background: `linear-gradient(to bottom, transparent 30%, ${theme.bg} 95%)` }}
+            style={{ background: `linear-gradient(to bottom, transparent 30%, ${bg} 95%)` }}
           />
         </div>
-      )}
 
-      {/* Com imagem o conteúdo desce para não cobri-la; sem imagem ele se
-          centraliza, senão metade da tela fica vazia. */}
-      <div
-        className={cn(
-          "relative z-10 flex-1 flex flex-col px-6 pb-12",
-          imagem ? "justify-end pt-[45vh]" : "justify-center",
-        )}
-      >
-        <h1 className="font-bebas text-[40px] leading-none uppercase tracking-wide text-white text-center">
-          {titulo}
-        </h1>
-        <p className="mt-2 text-center text-sm text-white/50">
-          {displayName} está compartilhando os links dela com você
-        </p>
+        <div className={cn("relative z-10 flex-1 flex flex-col px-6 pb-12", "justify-end pt-[45vh]")}>
+          <h1 className="font-bebas text-[40px] leading-none uppercase tracking-wide text-white text-center">
+            {titulo}
+          </h1>
+          <p className="mt-2 text-center text-sm text-white/50">
+            {displayName} está compartilhando os links dela com você
+          </p>
 
-        <button
-          onClick={abrir}
-          className="mt-8 w-full rounded-2xl bg-white px-6 py-4 text-center text-[15px] font-semibold text-black transition-transform active:scale-[0.98]"
-        >
-          {rotulo}
-        </button>
+          <button
+            onClick={abrir}
+            className="mt-8 w-full rounded-2xl bg-white px-6 py-4 text-center text-[15px] font-semibold text-black transition-transform active:scale-[0.98]"
+          >
+            {rotulo}
+          </button>
 
-        {/*
-          A instrução do menu `•••` é o único caminho no iOS, e o segundo no
-          Android. Escrita com os rótulos exatos do Instagram: "abra no
-          navegador" descreve a intenção, mas quem está com o celular na mão
-          precisa do nome do item que vai tocar.
-        */}
-        {mostrarInstrucao && (
-          <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
-            <p className="text-center text-xs text-white/40 mb-3">
-              Não abriu? Faça assim:
-            </p>
-            <ol className="space-y-2 text-[13px] text-white/60">
-              <li className="flex items-center gap-2">
-                <span className="text-white/25">1</span>
-                Toque em
-                <MoreHorizontal className="w-4 h-4 text-white/80" />
-                no canto da tela
-              </li>
-              <li className="flex items-center gap-2">
-                <span className="text-white/25">2</span>
-                Escolha
-                <span className="text-white/80 inline-flex items-center gap-1">
-                  “Abrir no navegador” <ArrowUpRight className="w-3.5 h-3.5" />
-                </span>
-              </li>
-            </ol>
-          </div>
-        )}
+          {/*
+            A instrução do menu `•••` é o único caminho no iOS, e o segundo no
+            Android. Escrita com os rótulos exatos do Instagram: "abra no
+            navegador" descreve a intenção, mas quem está com o celular na mão
+            precisa do nome do item que vai tocar.
+          */}
+          {mostrarInstrucao && (
+            <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
+              <p className="text-center text-xs text-white/40 mb-3">
+                Não abriu? Faça assim:
+              </p>
+              <ol className="space-y-2 text-[13px] text-white/60">
+                <li className="flex items-center gap-2">
+                  <span className="text-white/25">1</span>
+                  Toque em
+                  <MoreHorizontal className="w-4 h-4 text-white/80" />
+                  no canto da tela
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-white/25">2</span>
+                  Escolha
+                  <span className="text-white/80 inline-flex items-center gap-1">
+                    “Abrir no navegador” <ArrowUpRight className="w-3.5 h-3.5" />
+                  </span>
+                </li>
+              </ol>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

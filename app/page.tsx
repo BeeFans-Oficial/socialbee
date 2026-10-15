@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Flag } from "lucide-react";
+import { Check } from "lucide-react";
 
 import { BuscaDeEndereco } from "@/components/landing/BuscaDeEndereco";
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
@@ -10,32 +10,40 @@ import { LogoAnimada } from "@/components/landing/LogoAnimada";
  *
  * Céu escuro, título em serifa e um único botão claro de ação. O texto descreve
  * só o que o produto faz hoje — cada item do hero tem um recurso real por trás
- * (página de chegada, pool de domínios, página segura, plano Free).
+ * (página de chegada, endereço próprio, barreira de idade, plano Free).
+ *
+ * O que esta página NÃO diz, de propósito: que "sai do Instagram", que tem
+ * "domínios de reserva" para quando "um for bloqueado", que serve "página
+ * segura" a quem "não deve ver o destino". Era assim, e é o vocabulário que a
+ * Meta usa para classificar serviço de cloaking — o classificador lê a raiz do
+ * domínio, não só o perfil. Em 15/10/2026 ela derrubou a conta de uma criadora
+ * no mesmo segundo em que o link entrou na bio (ver `app/[slug]/page.tsx`).
+ * A página descreve benefício para a fã, não truque contra a plataforma.
  */
 
 const NAV = [
-  { href: "#protecao", label: "Proteção" },
+  { href: "#como-funciona", label: "Como funciona" },
   { href: "#recursos", label: "Recursos" },
   { href: "#planos", label: "Planos" },
 ];
 
-const DESTAQUES = ["Sai do Instagram", "Domínios de reserva", "Página segura", "Grátis para começar"];
+const DESTAQUES = ["Abre no navegador do celular", "Seu endereço, seu nome", "Barreira de idade", "Grátis para começar"];
 
-const PROTECAO = [
+const COMO_FUNCIONA = [
   {
-    titulo: "Sai do navegador do Instagram",
+    titulo: "Abre no navegador do celular",
     texto:
-      "Quem toca no seu link dentro do app cai numa página de chegada que leva ao navegador do celular, onde pagamento e login funcionam de verdade.",
+      "Quem chega pelo link de dentro de um aplicativo vê uma tela de boas-vindas com a sua foto e um botão para continuar no navegador do celular, onde login e pagamento funcionam.",
   },
   {
-    titulo: "Domínios de reserva",
+    titulo: "A mesma página para todo mundo",
     texto:
-      "As páginas ficam espalhadas por vários endereços. Se um for bloqueado, os outros continuam no ar e a sua página pode mudar de casa.",
+      "Fã, prévia do WhatsApp ou do Instagram: todo mundo vê a mesma página, com o seu nome e os seus botões. Sem versão escondida, sem surpresa.",
   },
   {
-    titulo: "Página segura",
+    titulo: "Seu endereço, seu nome",
     texto:
-      "No Pro, cada link pode ter uma página limpa, só com as suas redes, para quem não deve ver o destino final.",
+      "Escolha o nome da sua página e, no Pro, o domínio entre os disponíveis. Trocou de endereço? O antigo continua levando até você.",
   },
 ];
 
@@ -50,7 +58,7 @@ const PLANOS = [
   {
     nome: "Free",
     resumo: "Para começar agora.",
-    itens: ["1 página", "Até 5 links", "Modelo Clássico", "Saída do Instagram", "Domínio de reserva"],
+    itens: ["1 página", "Até 5 links", "Modelo Clássico", "Tela de boas-vindas no celular", "Barreira de idade"],
     destaque: false,
   },
   {
@@ -59,7 +67,6 @@ const PLANOS = [
     itens: [
       "Páginas e links sem limite",
       "Todos os modelos, cores e fontes",
-      "Página segura nos links",
       "Escolha do domínio",
       "Relatório de cliques e visitas",
     ],
@@ -147,15 +154,15 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Proteção ──────────────────────────────────────────────────── */}
-      <section id="protecao" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
+      {/* ── Como funciona ─────────────────────────────────────────────── */}
+      <section id="como-funciona" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
         <Cabecalho
-          rotulo="Proteção"
-          titulo="Feito para o link não morrer"
-          texto="Três camadas trabalhando juntas para a sua fã chegar onde você quer."
+          rotulo="Como funciona"
+          titulo="Simples de abrir, fácil de confiar"
+          texto="Uma página só, pronta para o celular, com o mesmo conteúdo para quem quer que abra."
         />
         <div className="mt-14 grid gap-4 md:grid-cols-3">
-          {PROTECAO.map((p) => (
+          {COMO_FUNCIONA.map((p) => (
             <Cartao key={p.titulo} titulo={p.titulo} texto={p.texto} />
           ))}
         </div>
@@ -220,15 +227,6 @@ export default function LandingPage() {
           <span>© {new Date().getFullYear()} BeeSocial</span>
         </div>
       </footer>
-
-      {/* Atalho fixo para quem chegou aqui porque o link parou de abrir. */}
-      <a
-        href="#protecao"
-        className="fixed bottom-5 right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 rounded-full border border-bee-pink/30 bg-bee-bg/80 backdrop-blur text-sm text-white/90 hover:border-bee-pink/60 transition-colors"
-      >
-        <Flag className="w-4 h-4 text-bee-pink" />
-        Link bloqueado?
-      </a>
     </div>
   );
 }

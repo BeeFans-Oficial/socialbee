@@ -140,8 +140,6 @@ export interface TrackingReport {
 
 /** Link resolvido a partir do código curto. */
 export interface ResolvedLink {
-  displayName?: string;
-  socialLinks?: Array<{ platform: string; url: string; title: string }>;
   linkId: string;
   profileId: string;
   channel: string;

@@ -1,11 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-import { renderSafePage } from "@/lib/safe-page";
 import { recordClick, type ClickResult } from "@/lib/api/server";
 import { esquemaDe, siteOrigin } from "@/lib/site";
 
-/** Entrada pública: a API resolve e classifica; bots recebem a Safe Page e
- * humanos seguem para o destino. O HTML é independente do layout do app. */
+/** Entrada pública: a API resolve o destino, classifica o visitante para o
+ * RELATÓRIO e todo mundo — robô ou humano — recebe o mesmo 307.
+ *
+ * Já entregou uma página ao robô e o salto à fã. Foi um dos três documentos
+ * que a Meta comparou em 15/10/2026 antes de derrubar a conta de uma criadora
+ * (ver `app/[slug]/page.tsx`): ela seguiu este salto com navegador de verdade
+ * e viu o destino que o crawler declarado não via. Resposta diferente por
+ * user-agent é cloaking para ela, em qualquer rota. */
 
 // Cada acesso é um registro novo. Cache aqui significaria clique não contado.
 export const dynamic = "force-dynamic";
@@ -88,12 +93,8 @@ export async function GET(
     return notFound(request);
   }
 
-  if (result.isBot) {
-    return new NextResponse(renderSafePage(result.safePage ?? { displayName: "Perfil", socialLinks: [] }), {
-      status: 200,
-      headers: { ...HOP_HEADERS, "content-type": "text/html; charset=utf-8", "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'" },
-    });
-  }
+  // `result.isBot` existe, e de propósito não é lido aqui: a diferença entre
+  // robô e humano é só o `counted` do relatório, nunca a resposta.
   const destination = result.destinationUrl;
   if (!destination) return notFound(request);
 

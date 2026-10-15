@@ -94,7 +94,6 @@ export interface PublicLinkView {
 export interface PublicProfileView {
   profile: Omit<OwnProfileView, "id"> & { id: string };
   links: PublicLinkView[];
-  safePageLinks: Array<{ platform: string; url: string; title: string }>;
 }
 
 @Injectable()
@@ -477,8 +476,9 @@ export class ProfilesService {
           imageUrl: mediaUrl(profile.iabImageUrl),
         },
       },
-      safePageLinks: ehPro ? links.filter((link) => link.cloakEnabled)
-        .flatMap((link) => (link.safePage?.socialLinks ?? []).map(({ platform, url, title }) => ({ platform, url, title }))) : [],
+      // As redes da Safe Page NÃO saem aqui. Já saíram, para o robô montar um
+      // perfil "limpo" — e documento diferente por user-agent é o que a Meta
+      // chama de cloaking (ver `app/[slug]/page.tsx`).
       links: links
         .map(toPublicLinkView)
         .map((link) => (ehPro ? link : { ...link, cloakEnabled: false })),

@@ -12,7 +12,6 @@ import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/serve
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { urlDaPagina } from "@/lib/site";
 import type { Link as LinkType, User } from "@/lib/catalog";
-import { BotProfile } from "./BotProfile";
 import { IabLanding } from "./IabLanding";
 import { ProfileClient } from "./ProfileClient";
 
@@ -30,10 +29,23 @@ import { ProfileClient } from "./ProfileClient";
  *     mas por efeito colateral do modelo de renderização — não por decisão que
  *     alguém tomou, revisou ou testou.
  *
- * Agora a decisão é explícita e está numa linha só (`requester.isBot`), com
- * teste em cima. O veredito vem da API, que é onde o detector vive: a página
- * não reimplementa heurística de robô, porque duas heurísticas em dois lugares
- * divergem, e a que fica errada é sempre a que ninguém está olhando.
+ * ## Um documento só, para todo mundo
+ *
+ * Esta rota NÃO olha quem pediu. Fã, crawler de prévia, navegador headless da
+ * Meta — todos recebem o mesmo HTML: cabeçalho, links (ou barreira de idade) e
+ * a página de chegada como componente de cliente, que só aparece quando o
+ * JavaScript do aparelho detecta navegador embutido (ver `IabLanding`).
+ *
+ * Já foi diferente, e custou uma conta. Em 15/10/2026 a Meta buscou um perfil
+ * no mesmo segundo em que o link entrou na bio, com três identidades (crawler
+ * declarado, Safari de iPhone, app do Facebook), recebeu três documentos
+ * distintos — perfil só com redes sociais, perfil completo, página de chegada
+ * —, seguiu o redirecionador até o destino e derrubou a conta da criadora na
+ * hora. Conteúdo diferente por user-agent é exatamente o que ela chama de
+ * cloaking, e ela testa comparando. A única defesa é não haver o que comparar.
+ *
+ * O veredito de robô continua existindo na API, mas só para o RELATÓRIO
+ * (visita e clique de crawler não contam). Ele não escolhe mais página.
  */
 
 // A resposta depende de QUEM pediu, então não pode ser cacheada: uma página de
@@ -212,10 +224,9 @@ export default async function ProfilePage({
   /**
    * Prévia da página de chegada, no editor de página (`/paginas/[id]`).
    *
-   * `?preview=iab` força a chegada — mas **só com sessão**. Sem a trava,
-   * qualquer um forçaria ramos pela URL. Não existe parâmetro que force a
-   * versão COM links (`?preview=human`), justamente para um robô não conseguir
-   * pedi-la; forçar a chegada só entrega MENOS conteúdo, nunca mais.
+   * `?preview=iab` desenha a chegada por cima do perfil sem olhar o user-agent
+   * e sem tentar escapar — mas **só com sessão**, para a prévia não virar um
+   * jeito de qualquer um dirigir a página pela URL.
    */
   const forcarChegadaNaPrevia = preview === "iab" && temSessao;
 
@@ -229,51 +240,14 @@ export default async function ProfilePage({
   const previaDaPagina = preview === "pagina" && temSessao;
 
   /**
-   * Bots recebem as redes das Safe Pages antes da página de chegada.
-   * Humanos em navegador embutido continuam usando a chegada quando ativada.
-   * Prévia autenticada mantém os ramos do editor.
-   *
    * `?fora=1` é a volta do escape: a pessoa já está num navegador de verdade,
-   * então pular o ramo 1 é o que impede o laço. Não precisa de sessão nem de
-   * proteção — forçar a rota a entregar o perfil completo é o que ela faz por
-   * padrão para qualquer navegador comum.
+   * então a chegada não deve cobrir o perfil de novo — senão é laço. Não
+   * precisa de sessão nem de proteção: o perfil completo vai no HTML de
+   * qualquer forma; a chegada é só uma sobreposição por cima dele.
    */
   const escapou = fora === "1";
-  const chegouDeApp = view.requester?.isInAppBrowser ?? false;
-  const ehRobo = view.requester?.isBot ?? false;
-
   const iab = view.profile.iab;
-  const mostrarChegada =
-    forcarChegadaNaPrevia || (iab?.enabled === true && !escapou && (chegouDeApp || ehRobo));
-
-  if (ehRobo && !ehPreviaAutenticada) {
-    return <BotProfile user={user} socialLinks={view.safePageLinks ?? []} />;
-  }
-
-  if (mostrarChegada) {
-    return (
-      <IabLanding
-        slug={slug}
-        displayName={user.displayName}
-        themeId={user.themeId}
-        imageUrl={iab?.imageUrl ?? null}
-        headline={iab?.headline ?? null}
-        buttonLabel={iab?.buttonLabel ?? null}
-        // A prévia do painel é sempre a de iPhone: é onde a página de chegada
-        // mais trabalha (lá não há escape automático, só a instrução do menu),
-        // e quem edita está num computador, que não é nem um nem outro.
-        platform={forcarChegadaNaPrevia ? "ios" : view.requester?.platform ?? "other"}
-        // Na prévia do painel a página é desenhada, nunca executada: sem isto,
-        // abrir a prévia tentaria escapar e levaria a criadora para fora do
-        // painel dela.
-        preview={forcarChegadaNaPrevia}
-      />
-    );
-  }
-
-  if (ehRobo) {
-    return <BotProfile user={user} socialLinks={view.safePageLinks ?? []} />;
-  }
+  const mostrarChegada = forcarChegadaNaPrevia || (iab?.enabled === true && !escapou);
 
   /**
    * Humano: a página real, já renderizada no servidor.
@@ -363,6 +337,22 @@ export default async function ProfilePage({
           previa={previaDaPagina}
         />
       </div>
+
+      {/* Sobreposição de chegada. Igual no HTML para todo mundo: o componente
+          não desenha nada no servidor e decide no aparelho se cobre o perfil
+          (ver `IabLanding`). Só a prévia autenticada a força. */}
+      {mostrarChegada && (
+        <IabLanding
+          slug={slug}
+          displayName={user.displayName}
+          themeId={user.themeId}
+          imageUrl={iab?.imageUrl ?? null}
+          headline={iab?.headline ?? null}
+          buttonLabel={iab?.buttonLabel ?? null}
+          escapou={escapou}
+          preview={forcarChegadaNaPrevia}
+        />
+      )}
     </div>
   );
 }
