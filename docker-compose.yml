@@ -120,8 +120,14 @@ services:
       # grava. MEDIA_PUBLIC_URL é o endereço que o NAVEGADOR usa para ler, e
       # por isso aponta para a porta publicada no host. Os dois precisam
       # apontar para o mesmo bucket.
-      S3_ENDPOINT: http://rustfs:9000
-      S3_REGION: us-east-1
+      #
+      # Os defaults são o RustFS local. Para gravar no Cloudflare R2 de
+      # verdade a partir da sua máquina, defina no `.env` as mesmas variáveis
+      # de produção (S3_ENDPOINT, S3_REGION=auto, S3_BUCKET, as chaves e
+      # MEDIA_PUBLIC_URL com o domínio público do bucket); o RustFS continua
+      # subindo, só fica sem uso.
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://rustfs:9000}
+      S3_REGION: ${S3_REGION:-us-east-1}
       S3_BUCKET: ${S3_BUCKET:-beesocial}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY:-beesocial}
       S3_SECRET_KEY: ${S3_SECRET_KEY:-beesocial-dev}
