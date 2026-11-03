@@ -42,8 +42,20 @@ function fetchSession(): Promise<Session> {
   return pendente;
 }
 
+/**
+ * Quem está montado e exibe a sessão (barra do topo, seletor de página).
+ *
+ * Invalidar só limpava o cache; quem já tinha lido continuava com o valor
+ * antigo até remontar. O caso visível: abrir o editor de uma página torna ELA a
+ * ativa, mas a barra do topo — que já tinha pedido a sessão com a página
+ * anterior — seguia mostrando a outra. Agora invalidar avisa, e cada ouvinte
+ * busca de novo.
+ */
+const ouvintes = new Set<() => void>();
+
 export function invalidateSession(): void {
   pendente = null;
+  ouvintes.forEach((avisar) => avisar());
 }
 
 export function useSession(): { session: Session | null; loading: boolean; error: ApiError | null } {
@@ -54,19 +66,25 @@ export function useSession(): { session: Session | null; loading: boolean; error
   useEffect(() => {
     let cancelado = false;
 
-    fetchSession()
-      .then((data) => {
-        if (!cancelado) setSession(data);
-      })
-      .catch((caught) => {
-        if (!cancelado) setError(caught instanceof ApiError ? caught : null);
-      })
-      .finally(() => {
-        if (!cancelado) setLoading(false);
-      });
+    const buscar = () => {
+      fetchSession()
+        .then((data) => {
+          if (!cancelado) setSession(data);
+        })
+        .catch((caught) => {
+          if (!cancelado) setError(caught instanceof ApiError ? caught : null);
+        })
+        .finally(() => {
+          if (!cancelado) setLoading(false);
+        });
+    };
+
+    buscar();
+    ouvintes.add(buscar);
 
     return () => {
       cancelado = true;
+      ouvintes.delete(buscar);
     };
   }, []);
 
@@ -85,4 +103,27 @@ export function usePlano(): { plano: ApiPlan | null; ehPro: boolean } {
   const { session } = useSession();
   const plano = session?.user.plan ?? null;
   return { plano, ehPro: plano ? plano.id === "pro" : true };
+}
+
+/**
+ * Sair de verdade.
+ *
+ * A API revoga a linha em `sessions` e apaga o cookie, então o token deixa de
+ * valer mesmo para quem o tivesse copiado. Falha ao revogar não pode prender a
+ * pessoa no painel: o cookie some do navegador de todo jeito e a próxima
+ * requisição será recusada.
+ *
+ * A navegação usa `window.location` de propósito, e não o router: recarregar
+ * a página inteira descarta todo estado de cliente da sessão anterior. Com
+ * navegação do lado do cliente, dados da conta antiga continuariam em memória.
+ */
+export async function sairDoPainel(): Promise<void> {
+  try {
+    await api.logout();
+  } catch {
+    // ver acima
+  } finally {
+    invalidateSession();
+    window.location.href = "/login";
+  }
 }

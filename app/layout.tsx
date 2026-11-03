@@ -51,7 +51,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="pt-BR" className="dark">
       <body
         className={`${inter.variable} ${barlow.variable} ${bebasNeue.variable} ${poppins.variable} font-sans bg-bee-bg text-bee-text antialiased`}
       >
