@@ -157,6 +157,9 @@ export function ProfileHeader({ user, visual, activePlatforms }: ProfileHeaderPr
             câmera via a foto tomar a tela inteira. */}
         {mostrarAvatar && (
           <div
+            // `data-avatar-area`: o editor de página mede este círculo dentro
+            // da prévia e põe o botão de trocar a foto por cima dele.
+            data-avatar-area
             className={cn(
               TAMANHO_AVATAR[visual.avatar],
               "flex-shrink-0 rounded-full border-2 bg-bee-surface2 flex items-center justify-center overflow-hidden",

@@ -161,6 +161,15 @@ export const FONTES = [
 
 /** O padrão é o Clássico pelo id, e não "o primeiro da lista": a ordem da
  *  lista é a da vitrine, e mudá-la não pode trocar o modelo de ninguém. */
+/** Estilos de botão que a criadora escolhe, com o nome que aparece na tela. */
+export const ESTILOS_DE_BOTAO: { id: LinkButtonStyle; label: string }[] = [
+  { id: "soft", label: "Suave" },
+  { id: "filled", label: "Preenchido" },
+  { id: "outlined", label: "Contorno" },
+  { id: "glass", label: "Vidro" },
+  { id: "pill", label: "Pílula" },
+];
+
 export const TEMPLATE_PADRAO = TEMPLATES.find((t) => t.id === "classico")!;
 
 /** O único modelo do plano Free — o mesmo `TEMPLATE_DO_FREE` da API

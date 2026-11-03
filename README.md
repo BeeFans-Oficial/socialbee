@@ -99,16 +99,30 @@ Postgres 16 · TypeORM com migrations de SQL escrito à mão · JWT em cookie
 
 | Rota | Estado |
 | --- | --- |
-| `/` | Landing completa |
+| `/` | Tela inicial, com busca de endereço que leva ao cadastro |
 | `/login` · `/cadastro` | Autenticação real contra a API |
-| `/links` | Dashboard principal: drag & drop, CRUD, modal com abas Link/Aparência/Perfil |
-| `/aparencia` | Perfil, temas, estilos de botão, preview em celular |
-| `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento |
-| `/configuracoes` | Placeholder |
+| `/paginas` | As páginas da conta, em cartões; porta de entrada do painel. `?nova=1` abre a criação |
+| `/paginas/[id]` | Editor da página: prévia em iPhone e painel com nome, foto de perfil, bio, domínio, endereço, proteção, tema, modelo, cores, fonte, botões, capa e página de chegada |
+| `/links` | Links da página ativa: arrastar para reordenar, ativar, copiar, apagar; clicar nos cliques abre as métricas do link |
+| `/links/[id]` · `/links/novo` | Editor de um link, com a prévia do botão |
+| `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento (Pro) |
+| `/dominios` | Domínio próprio (Pro) |
+| `/configuracoes` | A conta: email, plano e sair |
 | `/api/v1/*` | Proxy para a API, no servidor do Next (é o que mantém o cookie de sessão same-origin) |
-| `/dashboard` | Existe, mas a Sidebar não aponta para lá |
 | `/[slug]` | Perfil público de qualquer criadora cadastrada. Barreira de idade + registro de visualização |
 | `/r/[code]` | Redirecionador real: registra o clique e faz 302 para o destino |
+
+### A casca do painel
+
+Tudo em `app/(painel)` — listas **e** editores — renderiza dentro da mesma casca
+(`components/painel/Shell.tsx`): barra lateral de 240px no computador, que vira um
+trilho de 72px nos editores para a prévia caber; barra inferior fixa no celular
+(Páginas, Links, Analytics, Mais); e a barra do topo com o **seletor de página**,
+que é o único lugar do painel que troca a página em edição. As telas de lista usam
+`Tela` e `CabecalhoDeTela` (`components/painel/Tela.tsx`), que fixam largura,
+margens e o título — cada tela escolhia as suas. As regras visuais estão em
+`design-system/beesocial/MASTER.md`, inclusive os tokens de movimento
+(`lib/movimento.ts`, com framer-motion) que toda animação do painel usa.
 
 ## Arquitetura
 
@@ -236,8 +250,8 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
   Safe Page (`safe_pages`), mas desde 15/10/2026 nenhuma rota as serve: robô
   recebe o mesmo perfil e o mesmo redirecionamento que a fã (ver o aviso no
   topo). Decisão em aberto: tirar o campo do editor ou dar a ele outro uso.
-- **`/configuracoes`.** Continua placeholder; sair está na Sidebar.
-- **`/dashboard`.** Existe e nenhuma navegação aponta para lá.
+- **`/configuracoes`.** Mostra email e plano e permite sair; troca de senha e
+  assinatura ainda não existem.
 - **ESLint.** Não há config, e `npm run lint` quebra: `next lint` foi removido no
   Next 16.
 - **CI.** A API tem 49 testes (unitários + ponta a ponta com Postgres real) e

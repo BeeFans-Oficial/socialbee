@@ -18,7 +18,8 @@
  */
 
 export interface SocialLink {
-  /** Id da rede em `SAFE_PLATFORMS` (ver `SafePageBuilder`).
+  /** Id da rede da página segura (ver `REDES_DA_PAGINA_SEGURA` no editor de
+   *  link, `app/links/[id]/page.tsx`).
    *
    *  Era uma união fechada de sete literais. Virou `string` porque agora o dado
    *  vem da API, que guarda canal como texto aberto de propósito — o mesmo
@@ -92,8 +93,8 @@ export interface Platform {
 /**
  * Perfil público como as telas o consomem.
  *
- * Espelha `ApiProfile` (`lib/api/types.ts`) e é o que `ProfileHeader`,
- * `PhoneMockup` e a Sidebar recebem. `name` e `email` saíram: o email é da
+ * Espelha `ApiProfile` (`lib/api/types.ts`) e é o que `ProfileHeader` e a
+ * Sidebar recebem. `name` e `email` saíram: o email é da
  * CONTA e não do perfil (a API os separa em duas tabelas justamente para
  * nenhuma consulta de página pública precisar tocar o email de ninguém), e
  * `name` nunca era exibido — `displayName` sempre foi.

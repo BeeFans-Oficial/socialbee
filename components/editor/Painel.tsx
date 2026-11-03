@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useId, useRef, useState } from "react";
-import { AlertTriangle, Check, Info as InfoIcon } from "lucide-react";
+import { AlertTriangle, Check, Eye, Info as InfoIcon, X } from "lucide-react";
 
 import { Switch } from "@/components/ui/switch";
+import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 
 import { cn } from "@/lib/utils";
 
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
  */
 
 /** Fundo do painel lateral dos editores: grafite com um toque de azul. */
-export const FUNDO_DO_PAINEL = "bg-[#0d1119]";
+export const FUNDO_DO_PAINEL = "bg-bee-panel";
 
 export function Secao({
   titulo,
@@ -132,7 +133,7 @@ export function Info({ texto }: { texto: string }) {
             width: LARGURA_DO_BALAO,
             transform: acima ? "translateY(-100%)" : undefined,
           }}
-          className="z-50 block rounded-lg border border-white/10 bg-[#161b26] px-3 py-2 text-xs leading-relaxed text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.5)] normal-case tracking-normal font-normal"
+          className="z-50 block rounded-lg border border-white/10 bg-bee-panel2 px-3 py-2 text-xs leading-relaxed text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.5)] normal-case tracking-normal font-normal"
         >
           {texto}
         </span>
@@ -292,12 +293,13 @@ export function Aviso({ children }: { children: React.ReactNode }) {
  * menu. Proporção da tela do 17 Pro Max (440×956 pontos), Dynamic Island,
  * botões laterais e o indicador de início.
  *
- * O tamanho vem da ALTURA da janela (até 900 px), e a largura sai da
- * proporção: assim o aparelho fica o maior possível sem cortar embaixo.
+ * O tamanho vem da ALTURA da janela (até 900 px), descontadas a barra do topo
+ * e a troca de lado acima dela, e a largura sai da proporção: assim o
+ * aparelho fica o maior possível sem cortar embaixo.
  */
 export function MolduraDeCelular({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative z-10 mt-6 h-[min(calc(100vh-130px),900px)] min-h-[560px] aspect-[440/956] max-w-full">
+    <div className="relative z-10 mt-5 h-[min(calc(100dvh-13.5rem),900px)] min-h-[520px] aspect-[440/956] max-w-full">
       {/* Botões laterais: ação e volume à esquerda, power à direita. */}
       <span className="absolute -left-[4px] top-[16%] w-[4px] h-[4%] rounded-l-sm bg-[#2c2c2e]" />
       <span className="absolute -left-[4px] top-[23%] w-[4px] h-[7.5%] rounded-l-sm bg-[#2c2c2e]" />
@@ -312,5 +314,69 @@ export function MolduraDeCelular({ children }: { children: React.ReactNode }) {
         </div>
       </div>
     </div>
+  );
+}
+
+/** Painel lateral dos editores: largura fixa no computador, grudado abaixo da
+ *  barra do topo e rolando por dentro; no celular ocupa a largura toda. */
+export const CLASSE_DO_PAINEL = cn(
+  "w-full lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:overflow-y-auto sem-barra",
+  "border-l border-bee-line pb-10",
+  FUNDO_DO_PAINEL,
+);
+
+/**
+ * A área da prévia dos editores (página e link).
+ *
+ * No computador é a coluna da esquerda, grudada abaixo da barra do topo, com o
+ * céu estrelado atrás. No celular ela não cabe ao lado do painel, e empilhar
+ * os dois punha a prévia 760 px abaixo — a criadora editava sem ver. Aqui ela
+ * fica escondida e abre por cima da tela inteira pelo botão "Prévia", que
+ * flutua acima da barra inferior.
+ *
+ * Os filhos (troca de lado + moldura) são montados uma vez só, aberta ou não:
+ * o `<iframe>` da prévia da página não recarrega a cada abertura.
+ */
+export function PreviaDoEditor({ children }: { children: React.ReactNode }) {
+  const [aberta, setAberta] = useState(false);
+
+  return (
+    <>
+      <section
+        aria-label="Prévia"
+        className={cn(
+          "relative flex-col items-center overflow-hidden bg-bee-bg px-4 py-5",
+          "lg:flex lg:flex-1 lg:min-w-0 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:inset-auto lg:z-auto lg:animate-none",
+          // No celular a folha SOBE da base da tela (keyframe do Tailwind);
+          // no computador a coluna é estática e não anima.
+          aberta ? "flex fixed inset-0 z-50 pt-14 animate-folha-entrar" : "hidden",
+        )}
+      >
+        <CeuEstrelado />
+        {aberta && (
+          <div className="lg:hidden absolute top-0 inset-x-0 z-20 h-14 flex items-center justify-between px-4 border-b border-bee-line bg-bee-bg/85 backdrop-blur">
+            <span className="text-sm font-medium text-white">Prévia</span>
+            <button
+              onClick={() => setAberta(false)}
+              aria-label="Fechar a prévia"
+              className="w-10 h-10 -mr-2 flex items-center justify-center rounded-lg text-white/70 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+        {children}
+      </section>
+
+      {!aberta && (
+        <button
+          onClick={() => setAberta(true)}
+          className="lg:hidden fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] z-30 flex items-center gap-2 h-11 px-4 rounded-full bg-white text-bee-bg text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
+        >
+          <Eye className="w-4 h-4" />
+          Prévia
+        </button>
+      )}
+    </>
   );
 }

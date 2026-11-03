@@ -14,6 +14,15 @@ const config: Config = {
           bg: "#0d0d0d",
           surface: "#151515",
           surface2: "#1e1e1e",
+          // Casca do painel: barra lateral e barra do topo, um tom abaixo do
+          // fundo para o conteúdo parecer "sobre" elas.
+          rail: "#0a0a0a",
+          // Painel lateral dos editores: grafite com um toque de azul, e o tom
+          // acima dele para balões e menus que abrem por cima.
+          panel: "#0d1119",
+          panel2: "#161b26",
+          // Fio de separação padrão do painel (bordas, divisórias).
+          line: "rgba(255, 255, 255, 0.06)",
           pink: "#FF3C6E",
           "pink-hot": "#FF1F57",
           "pink-dark": "#cc2050",
@@ -51,6 +60,42 @@ const config: Config = {
       // expostas como variáveis CSS, mas nunca registradas aqui — então
       // `font-bebas` (43 usos) e `font-barlow` (13 usos) eram classes
       // inexistentes e todo o texto caía no Inter do `body`.
+      // Animações em CSS para o que o Radix controla por `data-state` (diálogos,
+      // folhas) e para o brilho dos esqueletos. O resto do movimento é do
+      // Motion, com os tokens de `lib/movimento.ts`: mesma curva, mesmas
+      // durações — a curva aqui é a MD3 standard, igual à `SUAVE` de lá.
+      keyframes: {
+        "dialogo-entrar": {
+          from: { opacity: "0", transform: "translate(-50%, -50%) scale(0.95)" },
+          to: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" },
+        },
+        "dialogo-sair": {
+          from: { opacity: "1", transform: "translate(-50%, -50%) scale(1)" },
+          to: { opacity: "0", transform: "translate(-50%, -50%) scale(0.98)" },
+        },
+        "folha-entrar": {
+          from: { transform: "translateY(100%)" },
+          to: { transform: "translateY(0)" },
+        },
+        "folha-sair": {
+          from: { transform: "translateY(0)" },
+          to: { transform: "translateY(100%)" },
+        },
+        "fundo-entrar": { from: { opacity: "0" }, to: { opacity: "1" } },
+        "fundo-sair": { from: { opacity: "1" }, to: { opacity: "0" } },
+        brilhar: {
+          from: { backgroundPosition: "200% 0" },
+          to: { backgroundPosition: "-200% 0" },
+        },
+      },
+      animation: {
+        "dialogo-entrar": "dialogo-entrar 300ms cubic-bezier(0.2, 0, 0, 1) both",
+        "dialogo-sair": "dialogo-sair 200ms cubic-bezier(0.3, 0, 1, 1) both",
+        "folha-entrar": "folha-entrar 320ms cubic-bezier(0.2, 0, 0, 1) both",
+        "folha-sair": "folha-sair 220ms cubic-bezier(0.3, 0, 1, 1) both",
+        "fundo-entrar": "fundo-entrar 200ms ease-out both",
+        "fundo-sair": "fundo-sair 150ms ease-in both",
+      },
       fontFamily: {
         sans: ["var(--font-poppins)", "system-ui", "sans-serif"],
         // Opção de fonte da página pública (`FONTES` em `lib/templates.ts`).

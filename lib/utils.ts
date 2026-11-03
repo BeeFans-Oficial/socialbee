@@ -31,22 +31,6 @@ export function getPlatformColor(platform: string): string {
   return colors[platform.toLowerCase()] || "#FF3C6E";
 }
 
-export function getPlatformIcon(platform: string): string {
-  const icons: Record<string, string> = {
-    onlyfans: "💙",
-    privacy: "🔒",
-    telegram: "✈️",
-    whatsapp: "💬",
-    instagram: "📸",
-    tiktok: "🎵",
-    twitter: "🐦",
-    youtube: "▶️",
-    site: "🌐",
-    custom: "⭐",
-  };
-  return icons[platform.toLowerCase()] || "🔗";
-}
-
 /*
  * `generateShortCode` foi removida daqui.
  *
