@@ -77,6 +77,9 @@ apaga; `down -v` apaga.
    produção não é tocado.
 4. **Remoção do que saiu do git:** todo caminho que já foi versionado e não
    existe no commit é apagado na VPS (resolve o "arquivo removido não some").
+   Inclui arquivo **movido**: a lista é montada com `--no-renames`, senão o
+   caminho antigo de um rename nunca entra nela e o build do Next falha com
+   duas rotas para o mesmo endereço.
 5. `docker compose up -d --build`, com as migrations no entrypoint.
 6. **Conferência:** `/api/v1/health` e a home precisam responder; se não, o job
    falha e mostra os logs da API e do front.
