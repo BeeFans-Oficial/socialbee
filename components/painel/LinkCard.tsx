@@ -19,6 +19,7 @@ function MiniToggle({ checked, onChange }: { checked: boolean; onChange: (v: boo
       role="switch"
       aria-checked={checked}
       aria-label={checked ? "Link ativo" : "Link desativado"}
+      data-tour="ligar"
       onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
       className={cn(
         "relative flex-shrink-0 w-9 h-5 rounded-full transition-colors focus:outline-none",
@@ -101,6 +102,7 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
           {...attributes}
           {...listeners}
           aria-label="Arrastar para reordenar"
+          data-tour="arrastar"
           className="text-white/15 hover:text-white/45 cursor-grab active:cursor-grabbing transition-colors flex-shrink-0 focus:outline-none"
         >
           <GripVertical className="w-4 h-4" />
@@ -153,6 +155,7 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
         <button
           type="button"
           onClick={() => onVerMetricas(link)}
+          data-tour="cliques"
           title="Ver as métricas deste link"
           className="text-right flex-shrink-0 hidden sm:block w-16 px-2 py-1 rounded-lg hover:bg-white/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink"
         >
@@ -167,6 +170,7 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
             onClick={(e) => { e.stopPropagation(); onEditar(link); }}
             title="Editar link"
             aria-label="Editar link"
+            data-tour="editar-link"
             className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink"
           >
             <Pencil className="w-4 h-4" />
@@ -184,6 +188,7 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
             disabled={!profileSlug || !profileHost}
             title={enderecoPublico ? `Copiar ${enderecoPublico}` : "Carregando..."}
             aria-label="Copiar o link da página"
+            data-tour="copiar-pagina"
             className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink disabled:opacity-40"
           >
             <Copy className="w-4 h-4" />

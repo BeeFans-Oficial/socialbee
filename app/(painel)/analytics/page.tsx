@@ -202,7 +202,7 @@ export default function AnalyticsPage() {
           contando; o gráfico desenha em seguida; as tabelas por último. */}
       <motion.div variants={LISTA} initial="initial" animate="animate" className="space-y-8">
         {/* Métricas */}
-        <motion.div variants={LISTA} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div variants={LISTA} data-tour="metricas" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <motion.div variants={ITEM_DA_LISTA}>
             <StatsCard
               icon={Eye}
@@ -265,12 +265,12 @@ export default function AnalyticsPage() {
         )}
 
         {/* Gráfico */}
-        <motion.section variants={ITEM_DA_LISTA} className="bg-bee-surface rounded-xl p-6 border border-white/5">
+        <motion.section variants={ITEM_DA_LISTA} data-tour="grafico" className="bg-bee-surface rounded-xl p-6 border border-white/5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl text-white font-semibold">
               Desempenho em {data.days} dias
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2" data-tour="periodo">
               {(Object.keys(PERIOD_DAYS) as Period[]).map((p) => (
                 <button
                   key={p}
@@ -337,7 +337,7 @@ export default function AnalyticsPage() {
         </motion.section>
 
         {!hasTraffic && (
-          <motion.div variants={ITEM_DA_LISTA} className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
+          <motion.div variants={ITEM_DA_LISTA} data-tour="sem-trafego" className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
             <h3 className="text-2xl text-white mb-2 font-semibold">Nenhum clique ainda</h3>
             <p className="text-sm text-bee-muted max-w-md mx-auto">
               O rastreamento está ativo. Abra{" "}
@@ -422,7 +422,7 @@ export default function AnalyticsPage() {
         {/* Origem dos cliques — quebras montadas a partir do que foi medido, não
             de uma lista fixa de plataformas. */}
         {report.bySource.length > 0 && (
-          <motion.section variants={ITEM_DA_LISTA}>
+          <motion.section variants={ITEM_DA_LISTA} data-tour="origem">
             <h2 className="text-xl text-white mb-6 font-semibold">Origem dos cliques</h2>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {report.bySource.slice(0, 10).map((source) => {

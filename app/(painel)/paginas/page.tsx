@@ -85,6 +85,7 @@ export default function PaginasPage() {
         }
         acoes={
           <button
+            data-tour="nova-pagina"
             onClick={() => (noLimite ? avisarPro("Mais de uma página") : setCriando(true))}
             className="flex items-center gap-2 h-10 px-4 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
           >
@@ -99,8 +100,8 @@ export default function PaginasPage() {
         <EsqueletoDeCartoes />
       ) : (
         <motion.div variants={LISTA} initial="initial" animate="animate" className="grid gap-5 md:grid-cols-2">
-          {paginas.map((pagina) => (
-            <motion.div key={pagina.id} variants={CARTAO_DA_GRADE}>
+          {paginas.map((pagina, i) => (
+            <motion.div key={pagina.id} variants={CARTAO_DA_GRADE} data-tour={i === 0 ? "cartao-da-pagina" : undefined}>
               <CartaoDePagina
                 pagina={pagina}
                 ativa={pagina.id === idAtiva}

@@ -222,6 +222,7 @@ export default function LinksPage() {
       {/* De qual página são estes links está na barra do topo, como em toda tela. */}
       <CabecalhoDeTela
         titulo="Links"
+        dataTour="titulo-da-tela"
         descricao={
           loading
             ? "Carregando…"
@@ -229,6 +230,7 @@ export default function LinksPage() {
         }
         acoes={
           <button
+            data-tour="novo-link"
             onClick={() => router.push("/links/novo")}
             className="flex items-center gap-2 h-10 px-4 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
           >
@@ -247,7 +249,7 @@ export default function LinksPage() {
           // pula quando elas chegam.
           <EsqueletoDeLinhas />
         ) : links.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
+          <div className="flex flex-col items-center justify-center py-20" data-tour="links-vazio">
             <div className="w-16 h-16 rounded-full bg-bee-surface flex items-center justify-center mb-4">
               <LinkIcon className="w-8 h-8 text-[#333]" />
             </div>

@@ -183,6 +183,7 @@ export default function EditorDeLink() {
               />
               <CampoDeTexto
                 rotulo="Destino"
+                dataTour="destino"
                 valor={link!.destinationUrl}
                 placeholder="https://"
                 maxLength={2048}
@@ -197,7 +198,7 @@ export default function EditorDeLink() {
               <Protecao link={link!} ehPro={ehPro} salvar={salvar} />
             </Secao>
 
-            <Secao titulo="Aparência do botão">
+            <Secao titulo="Aparência do botão" dataTour="aparencia-do-botao">
               <Aparencia
                 valor={link!.appearance ?? DEFAULT_LINK_APPEARANCE}
                 onMudar={(appearance) => salvar({ appearance })}
@@ -300,7 +301,7 @@ function NovoLink({
   };
 
   return (
-    <form onSubmit={criar} className="p-4 space-y-5">
+    <form onSubmit={criar} className="p-4 space-y-5" data-tour="novo-link-form">
       <div>
         <div className="mb-2 text-sm text-white/85">Plataforma</div>
         <div className="grid grid-cols-5 gap-2">
@@ -448,6 +449,7 @@ function Protecao({
       <Grupo
         titulo="Cloaking"
         nota="Ligado, robôs e quem não deve ver o destino recebem a página segura, só com as suas redes."
+        dataTour="cloaking"
       >
         <Linha rotulo="Página segura no lugar do destino" compacta>
           <span className="flex items-center gap-2">

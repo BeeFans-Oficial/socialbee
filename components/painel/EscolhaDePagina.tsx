@@ -92,6 +92,7 @@ export function EscolhaDePagina({ className }: { className?: string }) {
   return (
     <div ref={caixa} className={cn("relative min-w-0", className)}>
       <button
+        data-tour="seletor-de-pagina"
         onClick={() => setAberto((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={aberto}

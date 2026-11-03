@@ -462,6 +462,7 @@ export default function EditorDePagina() {
                 variants={CROSSFADE}
                 initial="initial"
                 animate="animate"
+                data-tour="capa"
                 onClick={() => setModoCapa(modoCapa === "menu" ? null : "menu")}
                 aria-haspopup="menu"
                 aria-expanded={modoCapa === "menu"}
@@ -497,6 +498,7 @@ export default function EditorDePagina() {
 
           {mostraControlesDaFoto && !temFoto && (
             <label
+              data-tour="adicionar-capa"
               className="absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 whitespace-nowrap h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md text-xs font-semibold text-white shadow-md hover:bg-black/70 cursor-pointer transition-colors"
               style={{ top: naCapa(visual.capa === "faixa" ? 0.3 : 0.4) }}
             >
@@ -579,6 +581,7 @@ export default function EditorDePagina() {
                   aria-expanded={menuDoAvatar}
                   aria-label="Foto de perfil"
                   title="Foto de perfil"
+                  data-tour="foto-de-perfil"
                   className="absolute z-40 w-9 h-9 rounded-full bg-white text-bee-bg shadow-md flex items-center justify-center hover:bg-white/90 transition-colors"
                   style={{
                     top: areaDoAvatar.top + areaDoAvatar.height - 30,
@@ -590,6 +593,7 @@ export default function EditorDePagina() {
               ) : (
                 <label
                   title="Adicionar foto de perfil"
+                  data-tour="foto-de-perfil"
                   className="absolute z-30 rounded-full cursor-pointer flex flex-col items-center justify-center gap-0.5 text-white bg-black/45 hover:bg-black/60 backdrop-blur-[1px] transition-colors"
                   style={{
                     top: areaDoAvatar.top,
@@ -668,6 +672,7 @@ export default function EditorDePagina() {
               href={endereco}
               target="_blank"
               rel="noreferrer"
+              data-tour="ver-pagina"
               className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white text-bee-panel text-[15px] font-semibold hover:bg-white/90 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
@@ -707,9 +712,10 @@ export default function EditorDePagina() {
           <CampoDeEndereco slug={pagina.slug} onSalvar={(slug) => salvar({ slug })} />
         </Secao>
 
-        <Secao titulo="Proteção">
+        <Secao titulo="Proteção" dataTour="protecao">
           <Grupo
             titulo="Sair do Instagram"
+            dataTour="sair-do-instagram"
             info="Leva a fã do navegador embutido do Instagram para o navegador do celular, onde pagamento e login funcionam."
             nota={
               pagina.iab.enabled
@@ -733,6 +739,7 @@ export default function EditorDePagina() {
 
           <Grupo
             titulo="Barreira de idade"
+            dataTour="barreira-de-idade"
             info="Pede a confirmação de 18 anos ou mais antes de mostrar os links."
             nota="Quem visita confirma ter 18 anos ou mais antes de ver os seus links."
           >
@@ -895,6 +902,7 @@ export default function EditorDePagina() {
           <Grupo
             titulo="Visibilidade"
             nota="Fora do ar, a página some para o público e tudo fica guardado."
+            dataTour="no-ar"
           >
             <OpcaoLigavel
               icone={<Eye className="w-3.5 h-3.5 text-sky-400" />}

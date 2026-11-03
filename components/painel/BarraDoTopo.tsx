@@ -4,11 +4,12 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { LogOut, Settings } from "lucide-react";
+import { CircleHelp, LogOut, Settings } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
 import { EscolhaDePagina } from "@/components/painel/EscolhaDePagina";
 import { tituloDaRota } from "@/components/painel/Navegacao";
+import { useTour } from "@/components/painel/tour/Tour";
 import type { ApiPlan } from "@/lib/api/types";
 import { sairDoPainel, useSession } from "@/lib/api/use-session";
 import { SURGIR } from "@/lib/movimento";
@@ -87,6 +88,7 @@ function legendaDoPlano(plano: ApiPlan): string {
 function MenuDaConta() {
   const { session } = useSession();
   const email = session?.user.email ?? "";
+  const { iniciar, roteiroDaTela } = useTour();
   const [aberto, setAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
 
@@ -144,6 +146,19 @@ function MenuDaConta() {
             <Settings className="w-4 h-4" />
             Configurações
           </Link>
+          {roteiroDaTela && (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setAberto(false);
+                iniciar();
+              }}
+              className="flex items-center gap-2.5 w-full px-3 py-2.5 text-sm text-white/80 hover:bg-white/[0.04] hover:text-white transition-colors"
+            >
+              <CircleHelp className="w-4 h-4" />
+              Ver o guia desta tela
+            </button>
+          )}
           <button
             role="menuitem"
             onClick={() => void sairDoPainel()}

@@ -6,6 +6,7 @@ import { MotionConfig, motion } from "framer-motion";
 
 import { BarraDoTopo } from "@/components/painel/BarraDoTopo";
 import { BarraInferior, Sidebar, ehRotaDeEditor } from "@/components/painel/Navegacao";
+import { TourProvider } from "@/components/painel/tour/Tour";
 import { ENTRADA_DA_TELA, SUAVE } from "@/lib/movimento";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
   return (
     <MotionConfig reducedMotion="user" transition={{ ease: SUAVE }}>
+      <TourProvider>
       <div className="min-h-dvh bg-bee-bg">
         <Sidebar compacta={editor} />
         <div
@@ -62,6 +64,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
         <BarraInferior />
       </div>
+      </TourProvider>
     </MotionConfig>
   );
 }

@@ -20,7 +20,7 @@ export function Esqueleto({ className }: { className?: string }) {
 /** Uma lista de linhas, como a de Links. */
 export function EsqueletoDeLinhas({ linhas = 5 }: { linhas?: number }) {
   return (
-    <div className="space-y-3" role="status" aria-label="Carregando">
+    <div className="space-y-3" role="status" aria-label="Carregando" data-esqueleto>
       {Array.from({ length: linhas }, (_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl border border-bee-line bg-bee-surface">
           <Esqueleto className="w-4 h-4 rounded" />
@@ -40,7 +40,7 @@ export function EsqueletoDeLinhas({ linhas = 5 }: { linhas?: number }) {
 /** Uma grade de cartões, como a de Páginas. */
 export function EsqueletoDeCartoes({ cartoes = 2 }: { cartoes?: number }) {
   return (
-    <div className="grid gap-5 md:grid-cols-2" role="status" aria-label="Carregando">
+    <div className="grid gap-5 md:grid-cols-2" role="status" aria-label="Carregando" data-esqueleto>
       {Array.from({ length: cartoes }, (_, i) => (
         <div key={i} className="rounded-2xl border border-bee-line bg-bee-surface overflow-hidden">
           <Esqueleto className="h-44 rounded-none" />
@@ -61,7 +61,7 @@ export function EsqueletoDeCartoes({ cartoes = 2 }: { cartoes?: number }) {
 /** O editor: o celular à esquerda e as linhas do painel à direita. */
 export function EsqueletoDeEditor() {
   return (
-    <div className="flex flex-col lg:flex-row" role="status" aria-label="Carregando o editor">
+    <div className="flex flex-col lg:flex-row" role="status" aria-label="Carregando o editor" data-esqueleto>
       <section className="hidden lg:flex flex-1 flex-col items-center px-4 py-5 lg:h-[calc(100dvh-4rem)]">
         <Esqueleto className="h-10 w-64 rounded-full" />
         <Esqueleto className="mt-5 h-[min(calc(100dvh-13.5rem),900px)] min-h-[520px] aspect-[440/956] rounded-[68px]" />

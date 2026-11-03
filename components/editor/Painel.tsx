@@ -21,15 +21,18 @@ export const FUNDO_DO_PAINEL = "bg-bee-panel";
 export function Secao({
   titulo,
   info,
+  dataTour,
   children,
 }: {
   titulo: string;
   /** Explicação da seção inteira, no ⓘ ao lado do título. */
   info?: string;
+  /** Alvo do tour guiado (`data-tour`). */
+  dataTour?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="px-4 pt-6 pb-2">
+    <section className="px-4 pt-6 pb-2" data-tour={dataTour}>
       <div className="flex items-center gap-3 mb-3">
         <span className="text-[11px] font-semibold tracking-[0.16em] text-white/50 uppercase">
           {titulo}
@@ -146,15 +149,18 @@ export function Grupo({
   titulo,
   nota,
   info,
+  dataTour,
   children,
 }: {
   titulo: string;
   nota?: string;
   info?: string;
+  /** Alvo do tour guiado (`data-tour`). */
+  dataTour?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="pt-1 pb-4">
+    <div className="pt-1 pb-4" data-tour={dataTour}>
       <div className="flex items-center justify-between px-1 mb-2">
         <span className="text-[15px] font-semibold text-white">{titulo}</span>
         {info && <Info texto={info} />}
@@ -244,12 +250,15 @@ export function CampoDeTexto({
   valor,
   placeholder,
   maxLength,
+  dataTour,
   onSalvar,
 }: {
   rotulo: string;
   valor: string;
   placeholder?: string;
   maxLength: number;
+  /** Alvo do tour guiado (`data-tour`). */
+  dataTour?: string;
   onSalvar: (v: string) => Promise<boolean>;
 }) {
   const [rascunho, setRascunho] = useState(valor);
@@ -261,7 +270,7 @@ export function CampoDeTexto({
   };
 
   return (
-    <label className="flex items-center justify-between gap-3 px-2 py-3">
+    <label className="flex items-center justify-between gap-3 px-2 py-3" data-tour={dataTour}>
       <span className="text-[15px] text-white/85 flex-shrink-0">{rotulo}</span>
       <input
         value={rascunho}
@@ -344,6 +353,7 @@ export function PreviaDoEditor({ children }: { children: React.ReactNode }) {
     <>
       <section
         aria-label="Prévia"
+        data-tour="previa"
         className={cn(
           "relative flex-col items-center overflow-hidden bg-bee-bg px-4 py-5",
           "lg:flex lg:flex-1 lg:min-w-0 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:inset-auto lg:z-auto lg:animate-none",
@@ -370,6 +380,7 @@ export function PreviaDoEditor({ children }: { children: React.ReactNode }) {
 
       {!aberta && (
         <button
+          data-tour="botao-previa"
           onClick={() => setAberta(true)}
           className="lg:hidden fixed right-4 bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] z-30 flex items-center gap-2 h-11 px-4 rounded-full bg-white text-bee-bg text-sm font-semibold shadow-[0_8px_24px_rgba(0,0,0,0.5)]"
         >

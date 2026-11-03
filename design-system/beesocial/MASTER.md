@@ -121,6 +121,22 @@ Regras:
 - `prefers-reduced-motion`: o `MotionConfig` da casca troca transformações por fade e o CSS
   desliga keyframes e brilho. Nada depende de `animationend` para ficar certo.
 
+## Tour guiado
+
+Motor próprio em `components/painel/tour/Tour.tsx`; conteúdo em `roteiros.ts`, um roteiro por
+tela, de três a sete passos. Alvos são elementos com `data-tour="..."`.
+
+- Holofote: quatro retângulos escuros (60%) e desfocados (3px) em volta do recorte, com 8px de
+  folga e aro branco. O recorte **desliza** até o alvo seguinte (`MOLA`); o balão nasce do lado
+  do alvo (embaixo, em cima, à direita ou à esquerda, nessa ordem, o primeiro que couber) e vira
+  folha na base da tela abaixo de 640px.
+- O alvo continua clicável durante o passo. Pular sempre visível, Esc sai, setas navegam, o
+  botão Próximo recebe o foco, o passo é anunciado por `aria-live`.
+- Começa sozinho na primeira visita à tela, depois que ela carregou. Alvo que não existe no
+  contexto (sem foto de capa, sem links) é pulado. Visto ou pulado, não volta sozinho; "Ver o guia
+  desta tela" no menu da conta e na folha "Mais" reabre.
+- Texto: uma ideia por passo, até duas linhas, dizendo o que a pessoa ganha, não o nome do botão.
+
 ## Componentes
 
 - Botão primário: `h-10 px-4 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold`.
