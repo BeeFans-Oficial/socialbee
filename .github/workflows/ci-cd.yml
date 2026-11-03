@@ -189,8 +189,15 @@ jobs:
         # uma página movida de lugar deixaria duas rotas para o mesmo endereço
         # e o build do Next falharia. Arquivo que nunca esteve no git (o .env)
         # nunca entra nesta lista.
+        #
+        # `--no-renames`: sem ele o git mostra um arquivo MOVIDO como rename
+        # (status R), e o filtro `D` não o lista — foi assim que as páginas
+        # antigas de `app/analytics`, `app/links` e `app/paginas` ficaram na
+        # VPS quando passaram para `app/(painel)`, e o build caiu com "two
+        # parallel pages that resolve to the same path". Com `--no-renames`
+        # o caminho antigo aparece como apagado, que é o que ele é na VPS.
         run: |
-          git log --diff-filter=D --name-only --pretty=format: HEAD | sort -u \
+          git log --no-renames --diff-filter=D --name-only --pretty=format: HEAD | sort -u \
             | while IFS= read -r caminho; do
                 [ -n "$caminho" ] || continue
                 git cat-file -e "HEAD:$caminho" 2>/dev/null || printf '%s\n' "$caminho"
