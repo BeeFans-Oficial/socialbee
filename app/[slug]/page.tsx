@@ -247,7 +247,16 @@ export default async function ProfilePage({
    */
   const escapou = fora === "1";
   const iab = view.profile.iab;
-  const mostrarChegada = forcarChegadaNaPrevia || (iab?.enabled === true && !escapou);
+  /**
+   * A prévia da PÁGINA no editor (`?preview=pagina`) nunca recebe a chegada:
+   * ela existe para a dona ver a página por trás. Enquanto a chegada só
+   * aparecia em navegador embutido isso vinha de graça (o iframe do painel
+   * não é um); com a chegada para todo visitante, precisa ser explícito —
+   * sem isto, a prévia mostrava a tela de rolagem por cima do avatar e da
+   * capa que a criadora acabou de trocar.
+   */
+  const mostrarChegada =
+    forcarChegadaNaPrevia || (iab?.enabled === true && !escapou && !previaDaPagina);
 
   /**
    * Humano: a página real, já renderizada no servidor.
