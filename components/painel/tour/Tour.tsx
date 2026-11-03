@@ -322,7 +322,10 @@ function TourAtivo({
 
   return (
     <motion.div
-      className="fixed inset-0 z-[80]"
+      // `pointer-events-none` na raiz: o que captura clique são os quatro
+      // retângulos escuros e o balão. O recorte fica livre, e o alvo
+      // continua clicável durante o passo.
+      className="fixed inset-0 z-[80] pointer-events-none"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { duration: DURACAO.base, ease: SUAVE } }}
       exit={{ opacity: 0, transition: { duration: DURACAO.rapida, ease: SAIDA } }}
@@ -376,7 +379,7 @@ function Holofote({ recorte, janela }: { recorte: Caixa | null; janela: { w: num
       {pedacos.map((p, i) => (
         <motion.div
           key={i}
-          className="fixed bg-black/60 backdrop-blur-[3px]"
+          className="fixed bg-black/60 backdrop-blur-[3px] pointer-events-auto"
           initial={false}
           animate={p}
           transition={MOLA}
@@ -473,7 +476,7 @@ function Balao({
       ref={ref}
       role="dialog"
       aria-labelledby={`tour-titulo-${indice}`}
-      className="fixed z-[81] rounded-2xl border border-white/10 bg-bee-surface p-4 text-white shadow-[0_16px_48px_rgba(0,0,0,0.6)]"
+      className="fixed z-[81] rounded-2xl border border-white/10 bg-bee-surface p-4 text-white shadow-[0_16px_48px_rgba(0,0,0,0.6)] pointer-events-auto"
       style={{ ...estilo, transformOrigin: celular ? "bottom center" : origem }}
       initial={{ opacity: 0, scale: 0.96, ...(celular ? { y: 12 } : deslocamentoInicial) }}
       animate={{ opacity: 1, scale: 1, x: 0, y: 0, transition: { duration: DURACAO.base, ease: SUAVE, delay: 0.06 } }}
