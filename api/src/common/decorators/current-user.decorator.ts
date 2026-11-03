@@ -21,6 +21,9 @@ export interface AuthContext {
   /** Plano da CONTA, resolvido junto com a sessão. É da conta e não da página:
    *  quem assina libera todas as páginas dela. */
   plano: PlanoId;
+  /** Papel da conta, lido do banco junto com a sessão. O `RolesGuard` o
+   *  compara com o `@Roles()` da rota. */
+  role: "creator" | "admin";
 }
 
 /**

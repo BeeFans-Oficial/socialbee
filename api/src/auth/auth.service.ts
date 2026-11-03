@@ -29,6 +29,9 @@ export interface AuthenticatedUserView {
   isAdultConfirmed: boolean;
   createdAt: string;
   plan: PlanView;
+  /** O app usa para mostrar (ou não) a entrada do painel admin. A regra de
+   *  verdade é o `RolesGuard` na API. */
+  role: "creator" | "admin";
 }
 
 export interface PlanView {
@@ -52,6 +55,7 @@ export interface ResolvedSession {
   sessionId: string;
   email: string;
   plano: PlanoId;
+  role: "creator" | "admin";
 }
 
 /**
@@ -225,7 +229,7 @@ export class AuthService {
         userId: true,
         expiresAt: true,
         revokedAt: true,
-        user: { id: true, proUntil: true },
+        user: { id: true, proUntil: true, role: true },
       },
     });
     if (!session || session.revokedAt || session.expiresAt.getTime() <= Date.now()) {
@@ -244,6 +248,7 @@ export class AuthService {
       sessionId: session.id,
       email: payload.email ?? "",
       plano: planoDe(session.user?.proUntil),
+      role: session.user.role ?? "creator",
     };
   }
 
@@ -286,6 +291,7 @@ export function toUserView(user: User): AuthenticatedUserView {
     isAdultConfirmed: Boolean(user.ageConfirmedAt),
     createdAt: user.createdAt.toISOString(),
     plan: toPlanView(user.proUntil),
+    role: user.role ?? "creator",
   };
 }
 

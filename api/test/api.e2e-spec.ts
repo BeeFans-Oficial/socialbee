@@ -834,3 +834,71 @@ describe("logout", () => {
     expect(recusado.body.error.code).toBe("session_revoked");
   });
 });
+
+describe("painel admin", () => {
+  it("conta comum não alcança /v1/admin/*", async () => {
+    const recusado = await servidor
+      .get("/v1/admin/visao-geral")
+      .set("authorization", `Bearer ${tokenBella}`)
+      .expect(403);
+    expect(recusado.body.error.code).toBe("papel_necessario");
+  });
+
+  it("admin vê a visão geral, busca contas, libera e rebaixa o Pro com auditoria", async () => {
+    // Promove direto no banco, como o script `admin:promover` faria. O papel
+    // é lido a cada requisição, então o token de antes já vale como admin.
+    await dataSource.query(`UPDATE "socialbee_test"."users" SET role = 'admin' WHERE email = $1`, ["luna@teste.app"]);
+
+    const eu = await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(eu.body.user.role).toBe("admin");
+
+    const visao = await servidor.get("/v1/admin/visao-geral").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(visao.body.contas.total).toBeGreaterThanOrEqual(2);
+    expect(visao.body.contas.admins).toBe(1);
+
+    const busca = await servidor
+      .get("/v1/admin/contas")
+      .query({ q: "bella" })
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .expect(200);
+    expect(busca.body.total).toBe(1);
+    const bella = busca.body.itens[0];
+    expect(bella.email).toBe("bella@teste.app");
+
+    // Motivo é obrigatório.
+    await servidor
+      .post(`/v1/admin/contas/${bella.id}/plano/liberar`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ dias: 30, motivo: "" })
+      .expect(400);
+
+    const liberado = await servidor
+      .post(`/v1/admin/contas/${bella.id}/plano/liberar`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ dias: 30, motivo: "parceria de teste" })
+      .expect(201);
+    expect(liberado.body.id).toBe("pro");
+
+    const rebaixado = await servidor
+      .post(`/v1/admin/contas/${bella.id}/plano/rebaixar`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ motivo: "fim do teste" })
+      .expect(201);
+    expect(rebaixado.body.id).toBe("free");
+
+    const detalhe = await servidor.get(`/v1/admin/contas/${bella.id}`).set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(detalhe.body.acoes.map((a: { action: string }) => a.action)).toEqual(["plano.rebaixar", "plano.liberar"]);
+    expect(detalhe.body.acoes[0].admin.email).toBe("luna@teste.app");
+
+    const auditoria = await servidor.get("/v1/admin/auditoria").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(auditoria.body.total).toBeGreaterThanOrEqual(2);
+
+    // Ninguém muda o próprio papel.
+    const luna = (await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenLuna}`)).body.user;
+    await servidor
+      .post(`/v1/admin/contas/${luna.id}/papel`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ papel: "creator", motivo: "tentativa" })
+      .expect(400);
+  });
+});
