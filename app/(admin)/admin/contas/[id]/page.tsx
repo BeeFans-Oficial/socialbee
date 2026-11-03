@@ -80,7 +80,7 @@ export default function ContaPage() {
     <TelaAdmin>
       <CabecalhoAdmin
         voltar={
-          <Link href="/admin/contas" className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 mb-3 transition-colors">
+          <Link href="/admin/contas" className="inline-flex items-center gap-1.5 text-xs text-admin-muted hover:text-admin-ink mb-3 transition-colors">
             <ArrowLeft className="w-3.5 h-3.5" />
             Contas
           </Link>
@@ -96,10 +96,10 @@ export default function ContaPage() {
             {ehPro ? (
               <>
                 <SeloProAdmin />
-                <span className="text-sm text-zinc-900">até {data(conta.plan.proUntil)}</span>
+                <span className="text-sm text-admin-ink">até {data(conta.plan.proUntil)}</span>
               </>
             ) : (
-              <span className="text-sm text-zinc-900">Free{conta.plan.proUntil ? ` · Pro venceu em ${data(conta.plan.proUntil)}` : ""}</span>
+              <span className="text-sm text-admin-ink">Free{conta.plan.proUntil ? ` · Pro venceu em ${data(conta.plan.proUntil)}` : ""}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -111,14 +111,14 @@ export default function ContaPage() {
             )}
           </div>
           {conta.concessoes.length > 0 && (
-            <ul className="mt-4 divide-y divide-zinc-200 text-xs">
+            <ul className="mt-4 divide-y divide-admin-line text-xs">
               {conta.concessoes.map((c) => (
                 <li key={c.id} className="py-2 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
-                  <span className="text-zinc-800 tabular-nums">
+                  <span className="text-admin-ink tabular-nums">
                     {data(c.startsAt)} → {data(c.endsAt)}
                   </span>
-                  <span className="text-zinc-400">{c.source === "manual" ? "manual" : "assinatura"}</span>
-                  {c.reason && <span className="text-zinc-500 min-w-0 truncate">“{c.reason}”</span>}
+                  <span className="text-admin-faint">{c.source === "manual" ? "manual" : "assinatura"}</span>
+                  {c.reason && <span className="text-admin-muted min-w-0 truncate">“{c.reason}”</span>}
                 </li>
               ))}
             </ul>
@@ -126,7 +126,7 @@ export default function ContaPage() {
         </CartaoAdmin>
 
         <CartaoAdmin titulo="Acesso">
-          <p className="text-sm text-zinc-900 mb-4">
+          <p className="text-sm text-admin-ink mb-4">
             {conta.sessoesAtivas} {conta.sessoesAtivas === 1 ? "sessão aberta" : "sessões abertas"}
           </p>
           <div className="flex flex-wrap gap-2">
@@ -144,25 +144,25 @@ export default function ContaPage() {
                 </BotaoAdmin>
               ))}
           </div>
-          {souEu && <p className="mt-3 text-xs text-zinc-500">Você não pode mudar o seu próprio papel.</p>}
+          {souEu && <p className="mt-3 text-xs text-admin-muted">Você não pode mudar o seu próprio papel.</p>}
         </CartaoAdmin>
 
         <CartaoAdmin titulo={`Páginas (${conta.paginasLista.length})`} larga>
           {conta.paginasLista.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nenhuma página.</p>
+            <p className="text-sm text-admin-muted">Nenhuma página.</p>
           ) : (
-            <ul className="divide-y divide-zinc-200">
+            <ul className="divide-y divide-admin-line">
               {conta.paginasLista.map((p) => (
                 <li key={p.id} className="py-2.5 flex items-center gap-3 text-sm">
-                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", p.published ? "bg-emerald-500" : "bg-zinc-300")} title={p.published ? "No ar" : "Fora do ar"} />
+                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", p.published ? "bg-admin-ok" : "bg-admin-faint")} title={p.published ? "No ar" : "Fora do ar"} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-zinc-900 truncate">{p.displayName}</span>
-                    <span className="block font-mono text-[11px] text-zinc-400 truncate">
+                    <span className="block text-admin-ink truncate">{p.displayName}</span>
+                    <span className="block font-mono text-[11px] text-admin-faint truncate">
                       {p.host ?? "(domínio padrão)"}/{p.slug} · {p.links} {p.links === 1 ? "link" : "links"} · desde {data(p.createdAt)}
                     </span>
                   </span>
                   {p.host && (
-                    <a href={urlDaPagina(p.host, p.slug)} target="_blank" rel="noreferrer" title="Abrir a página" className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 transition-colors">
+                    <a href={urlDaPagina(p.host, p.slug)} target="_blank" rel="noreferrer" title="Abrir a página" className="w-9 h-9 flex items-center justify-center rounded-lg text-admin-faint hover:text-admin-ink hover:bg-admin-hover transition-colors">
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   )}
@@ -174,11 +174,11 @@ export default function ContaPage() {
 
         {conta.dominiosProprios.length > 0 && (
           <CartaoAdmin titulo="Domínios próprios" larga>
-            <ul className="divide-y divide-zinc-200 text-sm">
+            <ul className="divide-y divide-admin-line text-sm">
               {conta.dominiosProprios.map((d) => (
                 <li key={d.id} className="py-2 flex items-center gap-3">
-                  <span className="font-mono text-zinc-900">{d.host}</span>
-                  <span className={cn("text-xs", d.status === "active" ? "text-emerald-600" : "text-amber-700")}>
+                  <span className="font-mono text-admin-ink">{d.host}</span>
+                  <span className={cn("text-xs", d.status === "active" ? "text-admin-ok" : "text-admin-accent")}>
                     {d.status === "active" ? "ativo" : "aguardando ativação"}
                   </span>
                 </li>
@@ -189,9 +189,9 @@ export default function ContaPage() {
 
         <CartaoAdmin titulo="Ações de admin nesta conta" larga>
           {conta.acoes.length === 0 ? (
-            <p className="text-sm text-zinc-500">Nenhuma ainda.</p>
+            <p className="text-sm text-admin-muted">Nenhuma ainda.</p>
           ) : (
-            <ul className="divide-y divide-zinc-200">
+            <ul className="divide-y divide-admin-line">
               {conta.acoes.map((a) => (
                 <li key={a.id} className="py-2.5">
                   <LinhaDeAcao acao={a} semAlvo />

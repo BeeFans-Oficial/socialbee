@@ -43,10 +43,10 @@ export default function AuditoriaPage() {
       {!dados ? (
         <EsqueletoDeLinhasAdmin />
       ) : dados.itens.length === 0 ? (
-        <p className="py-16 text-center text-sm text-zinc-500">Nenhuma ação ainda.</p>
+        <p className="py-16 text-center text-sm text-admin-muted">Nenhuma ação ainda.</p>
       ) : (
-        <div className="rounded-xl border border-zinc-300 bg-admin-card shadow-sm overflow-hidden">
-          <ul className="divide-y divide-zinc-200">
+        <div className="rounded-xl border border-admin-line bg-admin-card overflow-hidden">
+          <ul className="divide-y divide-admin-line">
             {dados.itens.map((a) => (
               <li key={a.id} className="px-4 py-3">
                 <LinhaDeAcao acao={a} />
@@ -68,23 +68,23 @@ export function LinhaDeAcao({ acao, semAlvo }: { acao: AdminAcao; semAlvo?: bool
   if (typeof acao.details.revogadas === "number") detalhes.push(`${acao.details.revogadas} ${acao.details.revogadas === 1 ? "sessão" : "sessões"}`);
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 text-sm">
-      <span className="text-xs text-zinc-400 tabular-nums sm:w-28 flex-shrink-0">{quando(acao.createdAt)}</span>
+      <span className="text-xs text-admin-faint tabular-nums sm:w-28 flex-shrink-0">{quando(acao.createdAt)}</span>
       <span className="min-w-0 flex-1">
-        <span className="text-zinc-900 font-medium">{nomeDaAcao(acao.action)}</span>
-        {detalhes.length > 0 && <span className="text-zinc-500"> · {detalhes.join(" · ")}</span>}
+        <span className="text-admin-ink font-medium">{nomeDaAcao(acao.action)}</span>
+        {detalhes.length > 0 && <span className="text-admin-muted"> · {detalhes.join(" · ")}</span>}
         {!semAlvo && acao.alvo.email && (
           <>
-            <span className="text-zinc-400"> em </span>
+            <span className="text-admin-faint"> em </span>
             {acao.alvo.id ? (
-              <Link href={`/admin/contas/${acao.alvo.id}`} className="text-zinc-800 underline decoration-dotted underline-offset-2 hover:text-amber-700">
+              <Link href={`/admin/contas/${acao.alvo.id}`} className="text-admin-ink underline decoration-dotted underline-offset-2 hover:text-admin-accent">
                 {acao.alvo.email}
               </Link>
             ) : (
-              <span className="text-zinc-500">{acao.alvo.email} (conta apagada)</span>
+              <span className="text-admin-muted">{acao.alvo.email} (conta apagada)</span>
             )}
           </>
         )}
-        <span className="block text-xs text-zinc-500 mt-0.5">
+        <span className="block text-xs text-admin-muted mt-0.5">
           por {acao.admin.email ?? "script"} · “{acao.reason}”
         </span>
       </span>

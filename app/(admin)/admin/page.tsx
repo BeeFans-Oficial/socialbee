@@ -28,7 +28,7 @@ export default function VisaoGeralPage() {
       {!dados ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4" role="status" aria-label="Carregando" data-esqueleto>
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-[172px] rounded-xl border border-zinc-300 bg-admin-card p-5 space-y-4">
+            <div key={i} className="h-[172px] rounded-xl border border-admin-line bg-admin-card p-5 space-y-4">
               <EsqueletoAdmin className="w-10 h-10" />
               <EsqueletoAdmin className="h-8 w-16" />
               <EsqueletoAdmin className="h-3 w-24" />

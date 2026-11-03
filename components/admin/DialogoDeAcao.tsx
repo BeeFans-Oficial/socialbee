@@ -66,13 +66,13 @@ export function DialogoDeAcao({
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && !executando && onFechar()}>
-      <DialogContent className="bg-admin-card border-zinc-300 text-zinc-900 max-w-md" style={{ colorScheme: "light" }}>
-        <DialogTitle className="text-zinc-900">{titulo}</DialogTitle>
-        <p className="text-sm text-zinc-500">{descricao}</p>
+      <DialogContent className="bg-admin-card border-admin-line text-admin-ink max-w-md" style={{ colorScheme: "light" }}>
+        <DialogTitle className="text-admin-ink">{titulo}</DialogTitle>
+        <p className="text-sm text-admin-muted">{descricao}</p>
         <form onSubmit={confirmar} className="space-y-3">
           {campos}
           <label className="block">
-            <span className="block mb-1.5 text-xs text-zinc-600">Motivo (fica registrado na auditoria)</span>
+            <span className="block mb-1.5 text-xs text-admin-muted">Motivo (fica registrado na auditoria)</span>
             <textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
@@ -80,16 +80,16 @@ export function DialogoDeAcao({
               rows={3}
               autoFocus
               placeholder="Ex.: parceria com a agência X até o fim do ano"
-              className="w-full px-3 py-2 rounded-lg bg-admin-card border border-zinc-300 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200"
+              className="w-full px-3 py-2 rounded-lg bg-admin-card border border-admin-line text-sm text-admin-ink placeholder:text-admin-faint focus:outline-none focus:border-admin-accent focus:ring-2 focus:ring-admin-accent/20"
             />
           </label>
-          {erro && <p className="text-xs text-red-600">{erro}</p>}
+          {erro && <p className="text-xs text-admin-danger">{erro}</p>}
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={onFechar}
               disabled={executando}
-              className="flex-1 h-11 rounded-lg border border-zinc-300 text-sm text-zinc-700 hover:bg-zinc-200 transition-colors disabled:opacity-50"
+              className="flex-1 h-11 rounded-lg border border-admin-line text-sm text-admin-ink/85 hover:bg-admin-hover transition-colors disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -98,7 +98,7 @@ export function DialogoDeAcao({
               disabled={executando}
               className={cn(
                 "flex-1 h-11 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2",
-                perigo ? "bg-red-600 hover:bg-red-700 text-white" : "bg-zinc-900 hover:bg-zinc-800 text-white",
+                perigo ? "bg-admin-danger hover:bg-admin-danger-hover text-white" : "bg-admin-primary hover:bg-admin-primary-hover text-white",
               )}
             >
               {executando && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -115,7 +115,7 @@ export function DialogoDeAcao({
 export function CampoDoDialogo({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
   return (
     <label className="block">
-      <span className="block mb-1.5 text-xs text-zinc-600">{rotulo}</span>
+      <span className="block mb-1.5 text-xs text-admin-muted">{rotulo}</span>
       {children}
     </label>
   );

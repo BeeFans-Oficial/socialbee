@@ -48,11 +48,11 @@ export function CabecalhoAdmin({
       {voltar}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-2xl lg:text-[28px] font-semibold text-zinc-900 leading-tight break-all">
+          <h1 className="flex items-center gap-2 text-2xl lg:text-[28px] font-semibold text-admin-ink leading-tight break-all">
             {titulo}
             {selo}
           </h1>
-          {descricao && <p className="text-sm text-zinc-500 mt-1">{descricao}</p>}
+          {descricao && <p className="text-sm text-admin-muted mt-1">{descricao}</p>}
         </div>
         {acoes && <div className="flex items-center gap-2 flex-shrink-0">{acoes}</div>}
       </div>
@@ -72,8 +72,8 @@ export function CartaoAdmin({
   children: React.ReactNode;
 }) {
   return (
-    <section className={cn("rounded-xl border border-zinc-300 bg-admin-card p-5 shadow-sm", larga && "lg:col-span-2", className)}>
-      {titulo && <h2 className="text-[11px] font-semibold tracking-[0.14em] uppercase text-zinc-400 mb-3">{titulo}</h2>}
+    <section className={cn("rounded-xl border border-admin-line bg-admin-card p-5", larga && "lg:col-span-2", className)}>
+      {titulo && <h2 className="text-[11px] font-semibold tracking-[0.14em] uppercase text-admin-faint mb-3">{titulo}</h2>}
       {children}
     </section>
   );
@@ -91,27 +91,27 @@ export function StatAdmin({
   nota?: string;
 }) {
   return (
-    <div className="rounded-xl border border-zinc-300 bg-admin-card p-5 shadow-sm">
-      <div className="w-10 h-10 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center mb-4">
+    <div className="rounded-xl border border-admin-line bg-admin-card p-5">
+      <div className="w-10 h-10 rounded-lg bg-admin-accent-soft text-admin-accent flex items-center justify-center mb-4">
         <Icone className="w-5 h-5" />
       </div>
-      <div className="text-[32px] leading-none font-semibold text-zinc-900 tabular-nums">
+      <div className="text-[32px] leading-none font-semibold text-admin-ink tabular-nums">
         <NumeroAnimado valor={valor} />
       </div>
-      <div className="text-xs text-zinc-500 mt-1">{rotulo}</div>
-      {nota && <div className="inline-block mt-2 px-2 py-0.5 rounded bg-zinc-200 text-[10px] font-medium text-zinc-600">{nota}</div>}
+      <div className="text-xs text-admin-muted mt-1">{rotulo}</div>
+      {nota && <div className="inline-block mt-2 px-2 py-0.5 rounded bg-admin-hover text-[10px] font-medium text-admin-muted">{nota}</div>}
     </div>
   );
 }
 
 /** Bloco de esqueleto claro. O brilho do painel escuro some no branco. */
 export function EsqueletoAdmin({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("rounded-lg bg-zinc-300/80 animate-pulse", className)} />;
+  return <div aria-hidden className={cn("rounded-lg bg-admin-line/80 animate-pulse", className)} />;
 }
 
 export function EsqueletoDeLinhasAdmin({ linhas = 6 }: { linhas?: number }) {
   return (
-    <div className="rounded-xl border border-zinc-300 bg-admin-card divide-y divide-zinc-200" role="status" aria-label="Carregando" data-esqueleto>
+    <div className="rounded-xl border border-admin-line bg-admin-card divide-y divide-admin-line" role="status" aria-label="Carregando" data-esqueleto>
       {Array.from({ length: linhas }, (_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3.5">
           <EsqueletoAdmin className="h-3.5 w-1/3" />
@@ -148,10 +148,10 @@ export function BotaoAdmin({
       className={cn(
         "inline-flex items-center justify-center gap-2 h-9 px-3.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40",
         perigo
-          ? "border border-red-300 text-red-700 hover:bg-red-50"
+          ? "border border-admin-danger-line text-admin-danger hover:bg-admin-danger-soft"
           : secundario
-            ? "border border-zinc-300 text-zinc-700 hover:bg-zinc-200"
-            : "bg-zinc-900 text-white hover:bg-zinc-800",
+            ? "border border-admin-line text-admin-ink/85 hover:bg-admin-hover"
+            : "bg-admin-primary text-white hover:bg-admin-primary-hover",
         className,
       )}
     >
@@ -174,7 +174,7 @@ export function Paginacao({
   const totalDePaginas = Math.max(1, Math.ceil(total / porPagina));
   if (totalDePaginas <= 1) return null;
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-t border-zinc-300 text-xs text-zinc-500">
+    <div className="flex items-center justify-between px-4 py-3 border-t border-admin-line text-xs text-admin-muted">
       <span>
         Página {pagina} de {totalDePaginas}
       </span>
@@ -192,7 +192,7 @@ export function Paginacao({
 
 export function SeloAdmin() {
   return (
-    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-100 text-amber-800 border border-amber-200">
+    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-admin-accent-soft text-admin-accent-ink border border-admin-accent-line">
       ADMIN
     </span>
   );
@@ -200,11 +200,11 @@ export function SeloAdmin() {
 
 export function SeloProAdmin() {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider bg-bee-pink/10 text-bee-pink-dark border border-bee-pink/30">
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider bg-admin-pro-soft text-admin-pro border border-admin-pro/25">
       PRO
     </span>
   );
 }
 
 export const CLASSE_DO_CAMPO_ADMIN =
-  "w-full h-11 px-3 rounded-lg bg-admin-card border border-zinc-300 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200";
+  "w-full h-11 px-3 rounded-lg bg-admin-card border border-admin-line text-sm text-admin-ink placeholder:text-admin-faint focus:outline-none focus:border-admin-accent focus:ring-2 focus:ring-admin-accent/20";

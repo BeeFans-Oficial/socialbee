@@ -34,11 +34,30 @@ const config: Config = {
         },
 
         // Painel admin: claro de propósito, para ninguém confundir com o painel
-        // da criadora. Branco puro estourava; é um cinza-claro com cartões um
-        // tom acima, e o resto vem dos cinzas do Tailwind (ver components/admin/Ui.tsx).
+        // da criadora. Paleta slate dessaturada (ferramenta de trabalho, baixa
+        // fadiga): um único acento azul-aço, grafite nos botões em vez de preto,
+        // vermelho e verde abafados, sem sombra. Ver components/admin/Ui.tsx.
         admin: {
-          bg: "#e6e7eb",
-          card: "#f3f3f5",
+          bg: "#EEF0F3",
+          card: "#F8F9FB",
+          hover: "#E4E7EC",
+          line: "#DCE0E6",
+          ink: "#1F2A3A",
+          muted: "#56616F",
+          faint: "#65707F",
+          primary: "#3A4656",
+          "primary-hover": "#2B3542",
+          accent: "#4F6B95",
+          "accent-ink": "#34507A",
+          "accent-soft": "#E6EBF3",
+          "accent-line": "#CBD5E4",
+          danger: "#A8433E",
+          "danger-hover": "#8F3732",
+          "danger-soft": "#F6ECEB",
+          "danger-line": "#E3C3C0",
+          ok: "#4C8C6E",
+          pro: "#B03D5E",
+          "pro-soft": "#F5E6EB",
         },
 
         // Tokens que os componentes do shadcn/ui esperam.

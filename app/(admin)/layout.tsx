@@ -40,7 +40,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   return (
     <>
-      <Toaster position="top-center" richColors />
+      <Toaster position="top-center" theme="light" />
       <ShellAdmin>{children}</ShellAdmin>
     </>
   );
