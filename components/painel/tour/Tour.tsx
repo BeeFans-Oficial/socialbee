@@ -95,6 +95,32 @@ function ehCelular(): boolean {
   return typeof window !== "undefined" && window.innerWidth < 1024;
 }
 
+/** O alvo de um passo está na tela agora? */
+function alvoExiste(alvo: string): boolean {
+  const el = document.querySelector<HTMLElement>(`[data-tour="${alvo}"]`);
+  return el !== null && el.getClientRects().length > 0;
+}
+
+/** A tela ainda mostra esqueleto? Aí um alvo ausente pode só não ter chegado. */
+function telaCarregando(): boolean {
+  return document.querySelector('[role="status"][aria-label^="Carregando"]') !== null;
+}
+
+/**
+ * O próximo índice com alvo na tela, a partir de `de`, na direção `delta`.
+ * Com a tela carregada, passo sem alvo é pulado na hora (página sem links não
+ * tem alça de arrastar, por exemplo); carregando, confia na ordem e deixa a
+ * busca com espera do passo decidir. Devolve -1 antes do início e
+ * `passos.length` depois do fim.
+ */
+function proximoComAlvo(passos: Passo[], de: number, delta: 1 | -1): number {
+  let i = de;
+  if (!telaCarregando()) {
+    while (i >= 0 && i < passos.length && !alvoExiste(passos[i].alvo)) i += delta;
+  }
+  return i;
+}
+
 interface Andamento {
   roteiro: Roteiro;
   passos: Passo[];
@@ -130,7 +156,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     (delta: 1 | -1) => {
       setAndamento((atual) => {
         if (!atual) return null;
-        const proximo = atual.indice + delta;
+        const proximo = proximoComAlvo(atual.passos, atual.indice + delta, delta);
         if (proximo < 0) return atual;
         if (proximo >= atual.passos.length) {
           if (userId) marcarVisto(userId, atual.roteiro.id);
@@ -287,7 +313,11 @@ function TourAtivo({
   const recorteDoPasso: Caixa | null = medido
     ? { x: medido.x - FOLGA, y: medido.y - FOLGA, w: medido.w + FOLGA * 2, h: medido.h + FOLGA * 2 }
     : null;
-  const ultimo = indice === passos.length - 1;
+  // "Entendi" em vez de "Próximo" quando nenhum passo à frente tem alvo na
+  // tela: numa página sem links, o tour de Links é um passo só.
+  const ultimo =
+    indice === passos.length - 1 ||
+    (!telaCarregando() && !passos.slice(indice + 1).some((p) => alvoExiste(p.alvo)));
   const celular = janela.w > 0 && janela.w < LARGURA_DE_CELULAR;
 
   return (
