@@ -87,8 +87,8 @@ export function Sidebar({ compacta }: { compacta: boolean }) {
   const pathname = usePathname();
   const { session } = useSession();
   const plano = session?.user.plan ?? null;
-  const slug = session?.profile.slug ?? "";
-  const host = session?.profile.host ?? "";
+  const slug = session?.profile?.slug ?? "";
+  const host = session?.profile?.host ?? "";
 
   return (
     <aside
@@ -276,8 +276,8 @@ function MenuMais({ aberto, onFechar }: { aberto: boolean; onFechar: () => void 
   const pathname = usePathname();
   const { session } = useSession();
   const plano = session?.user.plan ?? null;
-  const slug = session?.profile.slug ?? "";
-  const host = session?.profile.host ?? "";
+  const slug = session?.profile?.slug ?? "";
+  const host = session?.profile?.host ?? "";
   const { iniciar, roteiroDaTela } = useTour();
 
   return (

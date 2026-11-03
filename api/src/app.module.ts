@@ -3,7 +3,9 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from "@nestjs/core";
 import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
+import { AdminModule } from "./admin/admin.module";
 import { AuthModule } from "./auth/auth.module";
+import { RolesGuard } from "./common/guards/roles.guard";
 import { StorageModule } from "./common/storage/storage.module";
 import { JwtAuthGuard } from "./auth/jwt-auth.guard";
 import { AllExceptionsFilter } from "./common/filters/all-exceptions.filter";
@@ -49,11 +51,14 @@ import { TrackingModule } from "./tracking/tracking.module";
     ProfilesModule,
     LinksModule,
     TrackingModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    // Depois da sessão: compara o papel da conta com o `@Roles()` da rota.
+    { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_INTERCEPTOR, useClass: RequestLogInterceptor },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
   ],

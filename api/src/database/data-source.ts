@@ -20,6 +20,8 @@ import { HostDeChegadaNoEvento1790500000000 } from "./migrations/1790500000000-H
 import { PlanoPro1790700000000 } from "./migrations/1790700000000-PlanoPro";
 import { DominioProprio1790800000000 } from "./migrations/1790800000000-DominioProprio";
 import { ImagensComoChave1790900000000 } from "./migrations/1790900000000-ImagensComoChave";
+import { PapelDeAdmin1791000000000 } from "./migrations/1791000000000-PapelDeAdmin";
+import { AdminAction } from "../admin/entities/admin-action.entity";
 
 /**
  * Conexão e lista de migrations.
@@ -64,6 +66,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       SafePageSocialLink,
       TrackingEvent,
       LinkCounter,
+      AdminAction,
     ],
     migrations: [
       InitialSchema1788912000000,
@@ -76,6 +79,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       PlanoPro1790700000000,
       DominioProprio1790800000000,
       ImagensComoChave1790900000000,
+      PapelDeAdmin1791000000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,

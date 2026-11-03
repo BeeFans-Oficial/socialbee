@@ -21,6 +21,72 @@ export interface ApiUser {
   isAdultConfirmed: boolean;
   createdAt: string;
   plan: ApiPlan;
+  /** `creator` (toda conta) ou `admin` (opera a plataforma). O app usa só
+   *  para mostrar a entrada do painel admin; a regra é da API. */
+  role: "creator" | "admin";
+}
+
+// ── Painel admin ─────────────────────────────────────────────────────────────
+
+export interface AdminVisaoGeral {
+  contas: { total: number; novas7d: number; novas30d: number; pro: number; admins: number };
+  paginas: { total: number; noAr: number };
+  links: { total: number; ativos: number };
+  dominios: { pool: number; propriosPendentes: number; propriosAtivos: number };
+  hoje: { visitas: number; cliques: number };
+}
+
+export interface AdminContaResumo {
+  id: string;
+  email: string;
+  role: "creator" | "admin";
+  plan: ApiPlan;
+  createdAt: string;
+  lastLoginAt: string | null;
+  paginas: number;
+  slug: string | null;
+  displayName: string | null;
+}
+
+export interface AdminAcao {
+  id: string;
+  action: string;
+  reason: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+  admin: { id: string | null; email: string | null };
+  alvo: { id: string | null; email: string | null };
+}
+
+export interface AdminContaDetalhe extends AdminContaResumo {
+  isAdultConfirmed: boolean;
+  paginasLista: {
+    id: string;
+    slug: string;
+    displayName: string;
+    host: string | null;
+    published: boolean;
+    links: number;
+    createdAt: string;
+  }[];
+  concessoes: {
+    id: string;
+    source: string;
+    startsAt: string;
+    endsAt: string;
+    reason: string | null;
+    createdAt: string;
+  }[];
+  sessoesAtivas: number;
+  dominiosProprios: { id: string; host: string; status: string }[];
+  acoes: AdminAcao[];
+}
+
+export interface AdminPagina<T> {
+  itens: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
 }
 
 /**

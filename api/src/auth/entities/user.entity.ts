@@ -37,6 +37,11 @@ export class User {
   @Column({ name: "pro_until", type: "timestamptz", nullable: true })
   proUntil: Date | null;
 
+  /** `creator` (toda conta) ou `admin` (opera a plataforma). Ver a migration
+   *  `1791000000000-PapelDeAdmin`. Lido do banco a cada requisição. */
+  @Column({ name: "role", type: "text", default: "creator" })
+  role: "creator" | "admin";
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 

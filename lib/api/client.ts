@@ -16,6 +16,12 @@
  */
 
 import type {
+  ApiPlan,
+  AdminAcao,
+  AdminContaDetalhe,
+  AdminContaResumo,
+  AdminPagina,
+  AdminVisaoGeral,
   ApiCustomDomain,
   ApiLinkReport,
   ApiDnsCheck,
@@ -150,7 +156,8 @@ export const api = {
 
   logout: () => request<void>("/auth/logout", { method: "POST" }),
 
-  me: () => request<{ user: ApiUser; profile: ApiProfile }>("/auth/me"),
+  // `profile` é `null` para a conta que ainda não criou a primeira página.
+  me: () => request<{ user: ApiUser; profile: ApiProfile | null }>("/auth/me"),
 
   // ------------------------------------------------------------------- perfil
   profile: () => request<ApiProfile>("/me/profile"),
@@ -256,4 +263,37 @@ export const api = {
   /** Métricas de um link só. Do Pro, como o relatório. */
   linkReport: (linkId: string, days: number) =>
     request<{ days: number; report: ApiLinkReport }>(`/me/tracking/links/${linkId}?days=${days}`),
+
+  // -------------------------------------------------------------- painel admin
+  // Toda rota aqui exige `role = 'admin'` na API (`RolesGuard`); para uma
+  // conta comum a resposta é 403, e o app nem mostra as telas.
+  admin: {
+    visaoGeral: () => request<AdminVisaoGeral>("/admin/visao-geral"),
+    contas: (q: string, pagina = 1) =>
+      request<AdminPagina<AdminContaResumo>>(
+        `/admin/contas?q=${encodeURIComponent(q)}&pagina=${pagina}`,
+      ),
+    conta: (id: string) => request<AdminContaDetalhe>(`/admin/contas/${id}`),
+    criarConta: (input: { email: string; password: string; motivo: string }) =>
+      request<{ id: string }>("/admin/contas", { method: "POST", body: JSON.stringify(input) }),
+    editarConta: (id: string, input: { email?: string; novaSenha?: string; motivo: string }) =>
+      request<{ email: string }>(`/admin/contas/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apagarConta: (id: string, input: { confirmacao: string; motivo: string }) =>
+      request<{ apagada: true }>(`/admin/contas/${id}`, { method: "DELETE", body: JSON.stringify(input) }),
+    liberarPro: (id: string, input: { dias?: number; ate?: string; motivo: string }) =>
+      request<ApiPlan>(`/admin/contas/${id}/plano/liberar`, { method: "POST", body: JSON.stringify(input) }),
+    rebaixarPro: (id: string, motivo: string) =>
+      request<ApiPlan>(`/admin/contas/${id}/plano/rebaixar`, { method: "POST", body: JSON.stringify({ motivo }) }),
+    revogarSessoes: (id: string, motivo: string) =>
+      request<{ revogadas: number }>(`/admin/contas/${id}/sessoes/revogar`, {
+        method: "POST",
+        body: JSON.stringify({ motivo }),
+      }),
+    definirPapel: (id: string, papel: "creator" | "admin", motivo: string) =>
+      request<{ role: "creator" | "admin" }>(`/admin/contas/${id}/papel`, {
+        method: "POST",
+        body: JSON.stringify({ papel, motivo }),
+      }),
+    auditoria: (pagina = 1) => request<AdminPagina<AdminAcao>>(`/admin/auditoria?pagina=${pagina}`),
+  },
 };

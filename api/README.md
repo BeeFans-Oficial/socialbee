@@ -94,6 +94,24 @@ Todas sob `/v1`. Erro sempre com o mesmo formato:
 
 Nenhuma rota aceita `profileId` do cliente. O perfil sai **sempre** da sessão.
 
+### Admin (`role = 'admin'`)
+
+Todas exigem sessão **e** papel admin (`RolesGuard`); conta comum recebe 403
+`papel_necessario`. Toda escrita exige `motivo` e grava em `admin_actions`.
+
+| Rota | O que faz |
+| --- | --- |
+| `GET /v1/admin/visao-geral` | Contagens da plataforma: contas, Pro, páginas, links, domínios, visitas e cliques de hoje |
+| `GET /v1/admin/contas?q=&pagina=` | Busca por e-mail, nome ou endereço |
+| `GET /v1/admin/contas/:id` | Conta, páginas, concessões, sessões abertas, domínios e ações de admin nela |
+| `POST /v1/admin/contas/:id/plano/liberar` | `{ dias \| ate, motivo }` — mesma regra do `plano:liberar` |
+| `POST /v1/admin/contas/:id/plano/rebaixar` | `{ motivo }` |
+| `POST /v1/admin/contas/:id/sessoes/revogar` | `{ motivo }` |
+| `POST /v1/admin/contas/:id/papel` | `{ papel: "admin" \| "creator", motivo }` — nunca o próprio |
+| `GET /v1/admin/auditoria?pagina=` | As ações, da mais recente à mais antiga |
+
+Primeiro admin: `npm run admin:promover -- --email ...` (ver `seeds/promover-admin.ts`).
+
 ## Decisões que valem saber
 
 **O guard de sessão é global.** Rota nova nasce fechada; abrir exige o decorator

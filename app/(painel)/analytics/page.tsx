@@ -341,7 +341,7 @@ export default function AnalyticsPage() {
             <h3 className="text-2xl text-white mb-2 font-semibold">Nenhum clique ainda</h3>
             <p className="text-sm text-bee-muted max-w-md mx-auto">
               O rastreamento está ativo. Abra{" "}
-              <span className="text-bee-pink">/{session?.profile.slug ?? "sua-pagina"}</span> e toque
+              <span className="text-bee-pink">/{session?.profile?.slug ?? "sua-pagina"}</span> e toque
               em um link — o clique aparece aqui na hora.
             </p>
           </motion.div>

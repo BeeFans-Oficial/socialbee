@@ -1,12 +1,13 @@
 "use client";
 
-import React from "react";
-import { usePathname } from "next/navigation";
+import React, { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { MotionConfig, motion } from "framer-motion";
 
 import { BarraDoTopo } from "@/components/painel/BarraDoTopo";
 import { BarraInferior, Sidebar, ehRotaDeEditor } from "@/components/painel/Navegacao";
 import { TourProvider } from "@/components/painel/tour/Tour";
+import { useSession } from "@/lib/api/use-session";
 import { ENTRADA_DA_TELA, SUAVE } from "@/lib/movimento";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +36,15 @@ export const LARGURA_DO_TRILHO = 72;
  */
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const editor = ehRotaDeEditor(pathname);
+
+  // Conta sem página ainda (aberta pelo admin): toda outra tela depende de
+  // uma página, então o painel fica em "Páginas" até ela criar a primeira.
+  const { session } = useSession();
+  useEffect(() => {
+    if (session && session.profile === null && pathname !== "/paginas") router.replace("/paginas");
+  }, [session, pathname, router]);
 
   return (
     <MotionConfig reducedMotion="user" transition={{ ease: SUAVE }}>

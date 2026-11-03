@@ -3,6 +3,7 @@ import { Throttle } from "@nestjs/throttler";
 import type { Request, Response } from "express";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
+import { SemPagina } from "../common/decorators/sem-pagina.decorator";
 import { Public } from "../common/decorators/public.decorator";
 import { clientIP } from "../tracking/attribution";
 import { AuthService, type SessionMeta } from "./auth.service";
@@ -69,6 +70,7 @@ export class AuthController {
    */
   @Post("logout")
   @HttpCode(204)
+  @SemPagina()
   async logout(
     @CurrentUser() auth: AuthContext,
     @Res({ passthrough: true }) response: Response,
@@ -78,8 +80,9 @@ export class AuthController {
   }
 
   @Get("me")
+  @SemPagina()
   async me(@CurrentUser() auth: AuthContext) {
-    return this.authService.me(auth.profileId);
+    return this.authService.me(auth.userId, auth.profileId || null);
   }
 }
 

@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from "@nestjs/common";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
+import { SemPagina } from "../common/decorators/sem-pagina.decorator";
 import { CreateProfileDto } from "./dto/create-profile.dto";
 import { ProfilesService } from "./profiles.service";
 
@@ -24,6 +25,8 @@ import { ProfilesService } from "./profiles.service";
  * única página da conta.
  */
 @Controller("me/profiles")
+// Tudo aqui é por conta, não por página: é por onde a conta vazia cria a primeira.
+@SemPagina()
 export class MyProfilesController {
   constructor(private readonly profilesService: ProfilesService) {}
 
