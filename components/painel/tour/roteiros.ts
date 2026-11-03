@@ -104,9 +104,16 @@ export const ROTEIROS: Roteiro[] = [
         texto: "Toque no círculo para escolher ou trocar a foto. Ela sobe na hora.",
       },
       {
-        alvo: "protecao",
-        titulo: "Proteção",
-        texto: "Sair do Instagram leva a fã ao navegador do celular, onde pagamento e login funcionam. A barreira pede 18+.",
+        alvo: "sair-do-instagram",
+        titulo: "Por que sair do Instagram",
+        texto:
+          "Quem toca no seu link de dentro do Instagram abre a página num navegador escondido do app, onde login e pagamento costumam falhar. Em Automático, a fã vê primeiro uma tela com a sua foto e um botão que abre a página no navegador do celular, onde tudo funciona. Em Manual, ela entra direto, ainda dentro do Instagram.",
+      },
+      {
+        alvo: "barreira-de-idade",
+        titulo: "Barreira de idade",
+        texto:
+          "Ligada, a fã precisa confirmar que tem 18 anos ou mais antes de ver os seus botões. É a sua proteção para conteúdo adulto, e vale para quem chega por qualquer caminho.",
       },
       {
         alvo: "no-ar",

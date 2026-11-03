@@ -715,6 +715,7 @@ export default function EditorDePagina() {
         <Secao titulo="Proteção" dataTour="protecao">
           <Grupo
             titulo="Sair do Instagram"
+            dataTour="sair-do-instagram"
             info="Leva a fã do navegador embutido do Instagram para o navegador do celular, onde pagamento e login funcionam."
             nota={
               pagina.iab.enabled
@@ -738,6 +739,7 @@ export default function EditorDePagina() {
 
           <Grupo
             titulo="Barreira de idade"
+            dataTour="barreira-de-idade"
             info="Pede a confirmação de 18 anos ou mais antes de mostrar os links."
             nota="Quem visita confirma ter 18 anos ou mais antes de ver os seus links."
           >
