@@ -108,6 +108,7 @@ Postgres 16 · TypeORM com migrations de SQL escrito à mão · JWT em cookie
 | `/analytics` | Métricas e gráficos sobre dados **reais** do rastreamento (Pro) |
 | `/dominios` | Domínio próprio (Pro) |
 | `/configuracoes` | A conta: email, plano e sair |
+| `/admin` · `/admin/contas` · `/admin/contas/[id]` · `/admin/auditoria` | Painel de operação, só para contas com `role = 'admin'`. Para as outras a rota responde 404 |
 | `/api/v1/*` | Proxy para a API, no servidor do Next (é o que mantém o cookie de sessão same-origin) |
 | `/[slug]` | Perfil público de qualquer criadora cadastrada. Barreira de idade + registro de visualização |
 | `/r/[code]` | Redirecionador real: registra o clique e faz 302 para o destino |
@@ -125,6 +126,31 @@ margens e o título — cada tela escolhia as suas. As regras visuais estão em
 (`lib/movimento.ts`, com framer-motion) que toda animação do painel usa. O tour
 guiado de cada tela (`components/painel/tour/`) aponta para elementos marcados
 com `data-tour` e começa sozinho na primeira visita.
+
+## Painel admin
+
+Mesmo app, mesma API. A diferença está no papel da conta: `users.role` é
+`creator` (padrão) ou `admin`. Ninguém vira admin pelo cadastro; o primeiro é
+promovido por script, e os seguintes pelo próprio painel, com registro:
+
+```bash
+npm --prefix api run admin:promover -- --email equipe@beesocial.bio
+npm --prefix api run admin:promover -- --email equipe@beesocial.bio --rebaixar
+# produção, dentro do container da API:
+node dist/database/seeds/promover-admin.js --email equipe@beesocial.bio
+```
+
+Quem decide o que a pessoa vê é a **API**: `proxy.ts` pergunta `/v1/auth/me`
+antes de servir qualquer rota `/admin/*` e devolve 404 a quem não é admin, e o
+layout `app/(admin)` repete a pergunta no servidor. Os dados vêm de
+`/v1/admin/*`, que o `RolesGuard` (`@Roles("admin")`) protege por conta
+própria — as duas checagens do app só decidem o que desenhar.
+
+O que o painel faz hoje: visão geral da plataforma, busca e detalhe de contas,
+liberar e tirar o Pro (substitui `plano:liberar`), revogar sessões, promover e
+rebaixar admins. Toda ação exige motivo e fica em `admin_actions`, visível na
+tela Auditoria. O que ainda não faz está em
+`01 - Produto/Painel admin — funcionalidades` no vault do produto.
 
 ## Arquitetura
 
@@ -205,6 +231,7 @@ Para liberar ou tirar o Pro manualmente (cada mudança fica registrada em
 npm --prefix api run plano:liberar -- --email ana@x.com --dias 30 --motivo "parceria"
 npm --prefix api run plano:liberar -- --email ana@x.com --ate 2026-12-31 --motivo "cortesia"
 npm --prefix api run plano:liberar -- --email ana@x.com --rebaixar --motivo "fim da parceria"
+# ou pelo painel admin, em /admin/contas, com o mesmo registro em plan_grants
 # produção, dentro do container da API:
 node dist/database/seeds/liberar-pro.js --email ana@x.com --dias 30 --motivo "parceria"
 ```

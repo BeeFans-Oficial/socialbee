@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { CircleHelp, LogOut, Settings } from "lucide-react";
+import { CircleHelp, LogOut, Settings, ShieldCheck } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
 import { EscolhaDePagina } from "@/components/painel/EscolhaDePagina";
@@ -137,6 +137,19 @@ function MenuDaConta() {
               {email}
             </div>
           </div>
+          {/* Só para quem a API diz que é admin: para os outros a rota nem
+              existe (ver `proxy.ts`). */}
+          {session?.user.role === "admin" && (
+            <Link
+              href="/admin"
+              role="menuitem"
+              onClick={() => setAberto(false)}
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-amber-300 hover:bg-amber-400/10 transition-colors"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Painel admin
+            </Link>
+          )}
           <Link
             href="/configuracoes"
             role="menuitem"

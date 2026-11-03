@@ -16,6 +16,12 @@
  */
 
 import type {
+  ApiPlan,
+  AdminAcao,
+  AdminContaDetalhe,
+  AdminContaResumo,
+  AdminPagina,
+  AdminVisaoGeral,
   ApiCustomDomain,
   ApiLinkReport,
   ApiDnsCheck,
@@ -256,4 +262,31 @@ export const api = {
   /** Métricas de um link só. Do Pro, como o relatório. */
   linkReport: (linkId: string, days: number) =>
     request<{ days: number; report: ApiLinkReport }>(`/me/tracking/links/${linkId}?days=${days}`),
+
+  // -------------------------------------------------------------- painel admin
+  // Toda rota aqui exige `role = 'admin'` na API (`RolesGuard`); para uma
+  // conta comum a resposta é 403, e o app nem mostra as telas.
+  admin: {
+    visaoGeral: () => request<AdminVisaoGeral>("/admin/visao-geral"),
+    contas: (q: string, pagina = 1) =>
+      request<AdminPagina<AdminContaResumo>>(
+        `/admin/contas?q=${encodeURIComponent(q)}&pagina=${pagina}`,
+      ),
+    conta: (id: string) => request<AdminContaDetalhe>(`/admin/contas/${id}`),
+    liberarPro: (id: string, input: { dias?: number; ate?: string; motivo: string }) =>
+      request<ApiPlan>(`/admin/contas/${id}/plano/liberar`, { method: "POST", body: JSON.stringify(input) }),
+    rebaixarPro: (id: string, motivo: string) =>
+      request<ApiPlan>(`/admin/contas/${id}/plano/rebaixar`, { method: "POST", body: JSON.stringify({ motivo }) }),
+    revogarSessoes: (id: string, motivo: string) =>
+      request<{ revogadas: number }>(`/admin/contas/${id}/sessoes/revogar`, {
+        method: "POST",
+        body: JSON.stringify({ motivo }),
+      }),
+    definirPapel: (id: string, papel: "creator" | "admin", motivo: string) =>
+      request<{ role: "creator" | "admin" }>(`/admin/contas/${id}/papel`, {
+        method: "POST",
+        body: JSON.stringify({ papel, motivo }),
+      }),
+    auditoria: (pagina = 1) => request<AdminPagina<AdminAcao>>(`/admin/auditoria?pagina=${pagina}`),
+  },
 };
