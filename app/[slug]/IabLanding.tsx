@@ -106,7 +106,14 @@ export function IabLanding({
     }
     if (escapou) return;
     const d = detectIAB();
-    if (d.isIAB) setAparelho(d);
+    // POR ENQUANTO, a chegada aparece para TODO MUNDO, e não só dentro de um
+    // navegador embutido: decisão de produto de 03/11/2026, para a fã sempre
+    // passar pela tela de rolagem antes dos botões. A detecção continua sendo
+    // feita, porque é ela que escolhe o esquema de saída (intent://,
+    // extbrowser) quando a pessoa ESTÁ num app; num navegador comum o botão
+    // só segue para a página. Para voltar a mostrar só em app, troque por:
+    //   if (d.isIAB) setAparelho(d);
+    setAparelho(d);
   }, [preview, escapou]);
 
   if (!aparelho) return null;
@@ -121,6 +128,7 @@ export function IabLanding({
       rotulo={buttonLabel?.trim() || `Continuar para ${displayName}`}
       plataforma={plataformaDe(aparelho)}
       app={aparelho.source}
+      dentroDeApp={aparelho.isIAB}
       preview={preview}
     />
   );
@@ -138,6 +146,7 @@ function Tela({
   rotulo,
   plataforma,
   app,
+  dentroDeApp,
   preview,
 }: {
   slug: string;
@@ -148,6 +157,9 @@ function Tela({
   rotulo: string;
   plataforma: Plataforma;
   app: IABDetection["source"];
+  /** Navegador embutido de um app? Decide se o botão tenta sair do app ou
+   *  só segue para a página. */
+  dentroDeApp: boolean;
   preview: boolean;
 }) {
   const [interagiu, setInteragiu] = useState(false);
@@ -252,6 +264,12 @@ function Tela({
   const abrir = () => {
     if (preview) return;
     const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
+    // Num navegador comum não há de onde sair: o botão só segue para a
+    // página, sem esquema de intent/extbrowser e sem a instrução do menu.
+    if (!dentroDeApp) {
+      window.location.replace(destino);
+      return;
+    }
     // O pedido parte exclusivamente da ativação explícita do botão.
     window.location.replace(urlDeSaida(destino, plataforma, app));
     setMostrarInstrucao(true);
