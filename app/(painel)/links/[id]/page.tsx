@@ -301,7 +301,7 @@ function NovoLink({
   };
 
   return (
-    <form onSubmit={criar} className="p-4 space-y-5">
+    <form onSubmit={criar} className="p-4 space-y-5" data-tour="novo-link-form">
       <div>
         <div className="mb-2 text-sm text-white/85">Plataforma</div>
         <div className="grid grid-cols-5 gap-2">

@@ -337,7 +337,7 @@ export default function AnalyticsPage() {
         </motion.section>
 
         {!hasTraffic && (
-          <motion.div variants={ITEM_DA_LISTA} className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
+          <motion.div variants={ITEM_DA_LISTA} data-tour="sem-trafego" className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
             <h3 className="text-2xl text-white mb-2 font-semibold">Nenhum clique ainda</h3>
             <p className="text-sm text-bee-muted max-w-md mx-auto">
               O rastreamento está ativo. Abra{" "}

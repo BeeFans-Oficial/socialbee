@@ -38,16 +38,19 @@ export function CabecalhoDeTela({
   descricao,
   selo,
   acoes,
+  dataTour,
 }: {
   titulo: string;
   descricao?: React.ReactNode;
   /** Algo colado ao título (um selo PRO, por exemplo). */
   selo?: React.ReactNode;
   acoes?: React.ReactNode;
+  /** Alvo do tour guiado no bloco do título (`data-tour`). */
+  dataTour?: string;
 }) {
   return (
     <div className="mb-6 lg:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-      <div className="min-w-0">
+      <div className="min-w-0" data-tour={dataTour}>
         <h1 className="flex items-center gap-2 text-2xl lg:text-[28px] font-semibold text-white leading-tight">
           {titulo}
           {selo}

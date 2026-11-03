@@ -17,6 +17,13 @@ export interface Passo {
   texto: string;
   /** Só aparece nesta largura de tela. Sem valor: nas duas. */
   so?: "celular" | "computador";
+  /**
+   * Passo de reserva para o estado VAZIO: só entra quando este outro alvo
+   * NÃO está na tela. Numa página sem links, a alça de arrastar não existe,
+   * mas a caixa "Nenhum link ainda" existe — e é nela que se explica o que a
+   * lista vai permitir. Sem isso, o tour de uma tela vazia era um passo só.
+   */
+  exigeAusente?: string;
 }
 
 export interface Roteiro {
@@ -86,6 +93,12 @@ export const ROTEIROS: Roteiro[] = [
         texto: "Toque em Capa para ajustar a posição arrastando a foto, trocar ou remover.",
       },
       {
+        alvo: "adicionar-capa",
+        exigeAusente: "capa",
+        titulo: "Comece pela foto de capa",
+        texto: "Toque aqui para escolher uma foto. Depois dá para ajustar a posição arrastando, trocar ou remover.",
+      },
+      {
         alvo: "foto-de-perfil",
         titulo: "Sua foto de perfil",
         texto: "Toque no círculo para escolher ou trocar a foto. Ela sobe na hora.",
@@ -111,32 +124,52 @@ export const ROTEIROS: Roteiro[] = [
     id: "links",
     rota: /^\/links$/,
     nome: "Links",
+    // Escrito para quem nunca viu um "link na bio": primeiro o que a tela é,
+    // depois o gesto principal, depois o resto. Sem jargão: "botão" em vez de
+    // "link" sempre que dá, "para onde leva" em vez de "destino".
     passos: [
       {
+        alvo: "titulo-da-tela",
+        titulo: "Esta tela é a lista dos seus botões",
+        texto: "Cada botão fica na sua página e leva a fã para um lugar: seu OnlyFans, WhatsApp, Telegram, o que você quiser.",
+      },
+      {
         alvo: "novo-link",
-        titulo: "Seus botões nascem aqui",
-        texto: "Cada link vira um botão na sua página. Escolha a plataforma, o título e o destino.",
+        titulo: "Comece criando um botão",
+        texto: "Toque em Novo link, escolha onde ele leva, dê um nome e cole o endereço. Pronto, ele já aparece na sua página.",
+      },
+      {
+        alvo: "links-vazio",
+        exigeAusente: "arrastar",
+        titulo: "Seus botões vão aparecer aqui",
+        texto: "Depois de criar, cada botão vira uma linha nesta lista, na mesma ordem em que aparece na sua página.",
       },
       {
         alvo: "arrastar",
-        titulo: "A ordem é a da página",
-        texto: "Segure e arraste pela alça para reordenar. A nova ordem é salva sozinha.",
+        titulo: "A ordem daqui é a ordem da página",
+        texto: "Segure esta alça e arraste para cima ou para baixo. O primeiro da lista é o primeiro que a fã vê.",
       },
       {
         alvo: "ligar",
-        titulo: "Ligue e desligue",
-        texto: "Desligado, o botão some da página mas continua aqui. Nada é apagado.",
+        titulo: "Esconda sem apagar",
+        texto: "Desligado, o botão some da página mas fica guardado aqui. Ligue de novo quando quiser.",
       },
       {
         alvo: "cliques",
-        titulo: "Quantos cliques",
-        texto: "Toque no número para ver origem, dispositivo e país de quem clicou. É do plano Pro.",
+        titulo: "Quantas pessoas clicaram",
+        texto: "Este número é de pessoas de verdade. Toque nele para ver de onde vieram e pelo que entraram. É do plano Pro.",
         so: "computador",
       },
       {
         alvo: "editar-link",
-        titulo: "Editar o link",
-        texto: "Destino, proteção e aparência do botão ficam no editor, com a prévia ao lado.",
+        titulo: "Mude o botão quando quiser",
+        texto: "Nome, endereço, proteção e a cor do botão ficam no editor, com a prévia da sua página ao lado.",
+      },
+      {
+        alvo: "copiar-pagina",
+        titulo: "Este é o endereço que vai na bio",
+        texto: "Copia o link da SUA página, com todos os botões. É ele que você cola no Instagram, não o endereço de um botão só.",
+        so: "computador",
       },
     ],
   },
@@ -145,6 +178,12 @@ export const ROTEIROS: Roteiro[] = [
     rota: /^\/links\/[^/]+$/,
     nome: "Editor do link",
     passos: [
+      {
+        alvo: "novo-link-form",
+        exigeAusente: "destino",
+        titulo: "Crie o seu link",
+        texto: "Escolha a plataforma, dê um título e cole o destino. Proteção e aparência do botão vêm logo depois de criar.",
+      },
       {
         alvo: "destino",
         titulo: "Para onde o botão leva",
@@ -181,6 +220,12 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "grafico",
         titulo: "Dia a dia",
         texto: "Visualizações em cinza, cliques em rosa. Passe o dedo ou o mouse para ver cada dia.",
+      },
+      {
+        alvo: "sem-trafego",
+        exigeAusente: "origem",
+        titulo: "Ainda sem cliques",
+        texto: "Abra a sua página e toque num link: ele aparece aqui na hora. Com cliques, você vê também de onde cada um veio.",
       },
       {
         alvo: "origem",

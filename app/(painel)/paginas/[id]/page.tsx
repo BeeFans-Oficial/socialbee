@@ -498,6 +498,7 @@ export default function EditorDePagina() {
 
           {mostraControlesDaFoto && !temFoto && (
             <label
+              data-tour="adicionar-capa"
               className="absolute left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 whitespace-nowrap h-9 px-3.5 rounded-full bg-black/55 backdrop-blur-md text-xs font-semibold text-white shadow-md hover:bg-black/70 cursor-pointer transition-colors"
               style={{ top: naCapa(visual.capa === "faixa" ? 0.3 : 0.4) }}
             >

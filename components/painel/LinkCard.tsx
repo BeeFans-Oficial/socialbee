@@ -188,6 +188,7 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
             disabled={!profileSlug || !profileHost}
             title={enderecoPublico ? `Copiar ${enderecoPublico}` : "Carregando..."}
             aria-label="Copiar o link da página"
+            data-tour="copiar-pagina"
             className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink disabled:opacity-40"
           >
             <Copy className="w-4 h-4" />

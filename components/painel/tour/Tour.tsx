@@ -101,6 +101,12 @@ function alvoExiste(alvo: string): boolean {
   return el !== null && el.getClientRects().length > 0;
 }
 
+/** O passo cabe na tela agora: o alvo existe e, se ele é de reserva para o
+ *  estado vazio (`exigeAusente`), o outro alvo não está lá. */
+function passoDisponivel(p: Passo): boolean {
+  return alvoExiste(p.alvo) && (!p.exigeAusente || !alvoExiste(p.exigeAusente));
+}
+
 /**
  * A tela ainda mostra esqueleto? Aí um alvo ausente pode só não ter chegado.
  *
@@ -123,7 +129,7 @@ function telaCarregando(): boolean {
 function proximoComAlvo(passos: Passo[], de: number, delta: 1 | -1): number {
   let i = de;
   if (!telaCarregando()) {
-    while (i >= 0 && i < passos.length && !alvoExiste(passos[i].alvo)) i += delta;
+    while (i >= 0 && i < passos.length && !passoDisponivel(passos[i])) i += delta;
   }
   return i;
 }
@@ -253,6 +259,11 @@ function TourAtivo({
     const procurar = () => {
       if (cancelado) return;
       const el = document.querySelector<HTMLElement>(`[data-tour="${passo.alvo}"]`);
+      // Passo de reserva com o alvo "cheio" presente: não é deste contexto.
+      if (passo.exigeAusente && alvoExiste(passo.exigeAusente) && !telaCarregando()) {
+        onProximo();
+        return;
+      }
       if (el && el.getClientRects().length > 0) {
         el.scrollIntoView({ block: "center", inline: "nearest", behavior: reduzido ? "auto" : "smooth" });
         const medir = () => {
@@ -326,7 +337,7 @@ function TourAtivo({
    * inteiro — senão o balão prometia cinco passos e fechava no primeiro.
    * Enquanto a tela carrega, a lista é o roteiro todo (os alvos ainda vêm).
    */
-  const alcancaveis = telaCarregando() ? passos : passos.filter((p) => alvoExiste(p.alvo));
+  const alcancaveis = telaCarregando() ? passos : passos.filter(passoDisponivel);
   const posicao = Math.max(0, alcancaveis.indexOf(passo));
   const total = Math.max(1, alcancaveis.length);
   const ultimo = posicao >= total - 1;
