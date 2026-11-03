@@ -319,11 +319,17 @@ function TourAtivo({
   const recorteDoPasso: Caixa | null = medido
     ? { x: medido.x - FOLGA, y: medido.y - FOLGA, w: medido.w + FOLGA * 2, h: medido.h + FOLGA * 2 }
     : null;
-  // "Entendi" em vez de "Próximo" quando nenhum passo à frente tem alvo na
-  // tela: numa página sem links, o tour de Links é um passo só.
-  const ultimo =
-    indice === passos.length - 1 ||
-    (!telaCarregando() && !passos.slice(indice + 1).some((p) => alvoExiste(p.alvo)));
+  /**
+   * Os passos que EXISTEM nesta tela, agora: numa página sem links o tour de
+   * Links é um passo só, e sem cliques o de Analytics não tem a seção de
+   * origem. Os pontinhos e o "Entendi" seguem esta lista, não o roteiro
+   * inteiro — senão o balão prometia cinco passos e fechava no primeiro.
+   * Enquanto a tela carrega, a lista é o roteiro todo (os alvos ainda vêm).
+   */
+  const alcancaveis = telaCarregando() ? passos : passos.filter((p) => alvoExiste(p.alvo));
+  const posicao = Math.max(0, alcancaveis.indexOf(passo));
+  const total = Math.max(1, alcancaveis.length);
+  const ultimo = posicao >= total - 1;
   const celular = janela.w > 0 && janela.w < LARGURA_DE_CELULAR;
 
   return (
@@ -339,7 +345,7 @@ function TourAtivo({
     >
       {/* Anúncio para leitor de tela, fora do balão para não repetir o título. */}
       <span className="sr-only" aria-live="polite">
-        Passo {indice + 1} de {passos.length}: {passo.titulo}
+        Passo {posicao + 1} de {total}: {passo.titulo}
       </span>
 
       <Holofote recorte={recorte} janela={janela} />
@@ -349,8 +355,8 @@ function TourAtivo({
           <Balao
             key={indice}
             passo={passo}
-            indice={indice}
-            total={passos.length}
+            indice={posicao}
+            total={total}
             recorte={recorteDoPasso}
             janela={janela}
             celular={celular}
