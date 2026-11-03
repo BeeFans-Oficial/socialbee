@@ -101,9 +101,16 @@ function alvoExiste(alvo: string): boolean {
   return el !== null && el.getClientRects().length > 0;
 }
 
-/** A tela ainda mostra esqueleto? Aí um alvo ausente pode só não ter chegado. */
+/**
+ * A tela ainda mostra esqueleto? Aí um alvo ausente pode só não ter chegado.
+ *
+ * Procura o marcador dos NOSSOS esqueletos (`data-esqueleto`), e não qualquer
+ * `role="status"` da página: extensão do navegador que injete um aviso de
+ * "Carregando" faria o tour esperar 4 s por passo achando que a tela não
+ * carregou — e "Próximo" pareceria não fazer nada.
+ */
 function telaCarregando(): boolean {
-  return document.querySelector('[role="status"][aria-label^="Carregando"]') !== null;
+  return document.querySelector("[data-esqueleto]") !== null;
 }
 
 /**
@@ -268,8 +275,7 @@ function TourAtivo({
         };
         return;
       }
-      const carregando = document.querySelector('[role="status"][aria-label^="Carregando"]') !== null;
-      if (Date.now() - inicio > (carregando ? ESPERA_CARREGANDO_MS : ESPERA_PRONTA_MS)) {
+      if (Date.now() - inicio > (telaCarregando() ? ESPERA_CARREGANDO_MS : ESPERA_PRONTA_MS)) {
         // O alvo não existe nesta tela agora (sem foto de capa, por exemplo).
         onProximo();
         return;
