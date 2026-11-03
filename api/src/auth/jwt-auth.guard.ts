@@ -1,8 +1,9 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, CanActivate, ExecutionContext, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Reflector } from "@nestjs/core";
 import type { Request } from "express";
 
 import { IS_PUBLIC_KEY } from "../common/decorators/public.decorator";
+import { PODE_SEM_PAGINA_KEY } from "../common/decorators/sem-pagina.decorator";
 import type { AuthContext } from "../common/decorators/current-user.decorator";
 import { readSessionCookie } from "./cookies";
 import { AuthService } from "./auth.service";
@@ -72,9 +73,26 @@ export class JwtAuthGuard implements CanActivate {
       if (eDela) profileId = pedida;
     }
 
+    /**
+     * Token sem página (conta aberta pelo admin, que entrou antes de criar a
+     * primeira): procura a primeira página de agora. Assim a página criada
+     * nesta mesma sessão passa a valer sem novo login. Se ainda não há
+     * nenhuma, só as rotas marcadas com `@SemPagina()` seguem.
+     */
+    if (!profileId) profileId = await this.profilesService.firstIdByUser(session.userId);
+    if (!profileId) {
+      const podeSemPagina = this.reflector.getAllAndOverride<boolean>(PODE_SEM_PAGINA_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]);
+      if (!podeSemPagina) {
+        throw new BadRequestException({ code: "sem_pagina", message: "Crie a sua primeira página para continuar." });
+      }
+    }
+
     request.auth = {
       userId: session.userId,
-      profileId,
+      profileId: profileId ?? "",
       sessionId: session.sessionId,
       email: session.email,
       plano: session.plano,

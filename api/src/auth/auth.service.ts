@@ -44,14 +44,16 @@ export interface PlanView {
 
 export interface AuthResult {
   user: AuthenticatedUserView;
-  profile: OwnProfileView;
+  /** `null` para a conta que ainda não tem página (aberta pelo admin). */
+  profile: OwnProfileView | null;
   accessToken: string;
   expiresAt: Date;
 }
 
 export interface ResolvedSession {
   userId: string;
-  profileId: string;
+  /** Página padrão do token; `null` quando a conta entrou sem ter nenhuma. */
+  profileId: string | null;
   sessionId: string;
   email: string;
   plano: PlanoId;
@@ -170,7 +172,9 @@ export class AuthService {
       });
     }
 
-    const profile = await this.profilesService.findByUserId(user.id);
+    // Pode não haver página: a conta aberta pelo admin entra vazia e cria a
+    // primeira em "Páginas". O token então vai sem `pid`.
+    const profile = await this.profilesService.findFirstByUserId(user.id);
 
     user.lastLoginAt = new Date();
     await this.users.save(user);
@@ -192,7 +196,13 @@ export class AuthService {
    * editor trabalhava em outra. Quem resolve qual é a página é o
    * `JwtAuthGuard`, que já conferiu a posse.
    */
-  async me(profileId: string): Promise<{ user: AuthenticatedUserView; profile: OwnProfileView }> {
+  async me(userId: string, profileId: string | null): Promise<{ user: AuthenticatedUserView; profile: OwnProfileView | null }> {
+    if (!profileId) {
+      // Conta sem página ainda: o painel mostra só "Páginas" com o botão de criar.
+      const user = await this.users.findOne({ where: { id: userId } });
+      if (!user) throw new UnauthorizedException("Sessão inválida.");
+      return { user: toUserView(user), profile: null };
+    }
     const profile = await this.profilesService.findById(profileId);
     const user = await this.users.findOne({ where: { id: profile.userId } });
     if (!user) throw new UnauthorizedException("Sessão inválida.");
@@ -207,14 +217,15 @@ export class AuthService {
    * segunda, logout não revoga nada e um token copiado dura até expirar.
    */
   async resolveSession(token: string): Promise<ResolvedSession> {
-    let payload: { sub?: string; sid?: string; pid?: string; email?: string };
+    let payload: { sub?: string; sid?: string; pid?: string | null; email?: string };
     try {
       payload = await this.jwt.verifyAsync(token);
     } catch {
       throw new UnauthorizedException({ code: "invalid_token", message: "Sessão expirada." });
     }
 
-    if (!payload.sub || !payload.sid || !payload.pid) {
+    // `pid` pode faltar: é o token da conta que entrou antes de ter página.
+    if (!payload.sub || !payload.sid) {
       throw new UnauthorizedException({ code: "invalid_token", message: "Sessão inválida." });
     }
 
@@ -244,7 +255,7 @@ export class AuthService {
 
     return {
       userId: payload.sub,
-      profileId: payload.pid,
+      profileId: payload.pid ?? null,
       sessionId: session.id,
       email: payload.email ?? "",
       plano: planoDe(session.user?.proUntil),
@@ -252,7 +263,7 @@ export class AuthService {
     };
   }
 
-  private async issue(user: User, profile: Profile, meta: SessionMeta): Promise<AuthResult> {
+  private async issue(user: User, profile: Profile | null, meta: SessionMeta): Promise<AuthResult> {
     const env = loadEnv();
     const expiresAt = new Date(Date.now() + ttlToMs(env.jwtTtl));
 
@@ -273,14 +284,14 @@ export class AuthService {
     );
 
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, sid: session.id, pid: profile.id, email: user.email },
+      { sub: user.id, sid: session.id, pid: profile?.id ?? null, email: user.email },
       // Em segundos, derivado do mesmo cálculo que gerou `expiresAt`: token e
       // linha de sessão expirando em momentos diferentes é a receita para um
       // 401 que o log não explica.
       { expiresIn: Math.floor(ttlToMs(env.jwtTtl) / 1000) },
     );
 
-    return { user: toUserView(user), profile: toOwnProfileView(profile), accessToken, expiresAt };
+    return { user: toUserView(user), profile: profile ? toOwnProfileView(profile) : null, accessToken, expiresAt };
   }
 }
 

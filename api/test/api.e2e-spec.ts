@@ -906,27 +906,43 @@ describe("painel admin", () => {
     const senhaCurta = await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "nova@teste.app", password: "123", displayName: "Nova", slug: "nova-conta", motivo: "teste" })
+      .send({ email: "nova@teste.app", password: "123", motivo: "teste" })
       .expect(400);
     expect(senhaCurta.body.error).toBeDefined();
 
     const criada = await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "Nova@Teste.app", password: "senha123", displayName: "Nova", slug: "nova-conta", motivo: "conta de parceira" })
+      .send({ email: "Nova@Teste.app", password: "senha123", motivo: "conta de parceira" })
       .expect(201);
     const novaId: string = criada.body.id;
 
-    // A pessoa entra com a senha que o admin definiu; e-mail guardado em minúsculas.
+    // A pessoa entra com a senha que o admin definiu (e-mail em minúsculas) e
+    // ainda NÃO tem página: a sessão diz isso, e o que depende de página é
+    // recusado com `sem_pagina` até ela criar a primeira.
     const login = await servidor.post("/v1/auth/login").send({ email: "nova@teste.app", password: "senha123" }).expect(200);
-    expect(login.body.profile.slug).toBe("nova-conta");
+    expect(login.body.profile).toBeNull();
     const tokenNova: string = login.body.accessToken;
+    const euSemPagina = await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenNova}`).expect(200);
+    expect(euSemPagina.body.profile).toBeNull();
+    const semPagina = await servidor.get("/v1/me/links").set("authorization", `Bearer ${tokenNova}`).expect(400);
+    expect(semPagina.body.error.code).toBe("sem_pagina");
 
-    // Endereço repetido é recusado.
+    // Ela cria a primeira página, e o mesmo token passa a valer com ela.
+    await servidor
+      .post("/v1/me/profiles")
+      .set("authorization", `Bearer ${tokenNova}`)
+      .send({ displayName: "Nova", slug: "nova-conta", templateId: "classico" })
+      .expect(201);
+    const euComPagina = await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenNova}`).expect(200);
+    expect(euComPagina.body.profile.slug).toBe("nova-conta");
+    await servidor.get("/v1/me/links").set("authorization", `Bearer ${tokenNova}`).expect(200);
+
+    // E-mail repetido é recusado.
     await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "outra@teste.app", password: "senha123", displayName: "Outra", slug: "nova-conta", motivo: "teste" })
+      .send({ email: "nova@teste.app", password: "senha123", motivo: "teste" })
       .expect(409);
 
     // Editar sem nada para mudar.

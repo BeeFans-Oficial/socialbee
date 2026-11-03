@@ -24,7 +24,8 @@ import type { ApiPlan, ApiProfile, ApiUser } from "./types";
 
 export interface Session {
   user: ApiUser;
-  profile: ApiProfile;
+  /** `null` até a conta criar a primeira página (conta aberta pelo admin). */
+  profile: ApiProfile | null;
 }
 
 let pendente: Promise<Session> | null = null;

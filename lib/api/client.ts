@@ -156,7 +156,8 @@ export const api = {
 
   logout: () => request<void>("/auth/logout", { method: "POST" }),
 
-  me: () => request<{ user: ApiUser; profile: ApiProfile }>("/auth/me"),
+  // `profile` é `null` para a conta que ainda não criou a primeira página.
+  me: () => request<{ user: ApiUser; profile: ApiProfile | null }>("/auth/me"),
 
   // ------------------------------------------------------------------- perfil
   profile: () => request<ApiProfile>("/me/profile"),
@@ -273,7 +274,7 @@ export const api = {
         `/admin/contas?q=${encodeURIComponent(q)}&pagina=${pagina}`,
       ),
     conta: (id: string) => request<AdminContaDetalhe>(`/admin/contas/${id}`),
-    criarConta: (input: { email: string; password: string; displayName: string; slug: string; motivo: string }) =>
+    criarConta: (input: { email: string; password: string; motivo: string }) =>
       request<{ id: string }>("/admin/contas", { method: "POST", body: JSON.stringify(input) }),
     editarConta: (id: string, input: { email?: string; novaSenha?: string; motivo: string }) =>
       request<{ email: string }>(`/admin/contas/${id}`, { method: "PATCH", body: JSON.stringify(input) }),

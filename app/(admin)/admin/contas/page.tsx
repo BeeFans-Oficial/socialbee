@@ -28,7 +28,7 @@ export default function ContasPage() {
   const router = useRouter();
   const [busca, setBusca] = useState("");
   const [criando, setCriando] = useState(false);
-  const [nova, setNova] = useState({ email: "", password: "", displayName: "", slug: "" });
+  const [nova, setNova] = useState({ email: "", password: "" });
   const [termo, setTermo] = useState("");
   const [pagina, setPagina] = useState(1);
   const [dados, setDados] = useState<AdminPagina<AdminContaResumo> | null>(null);
@@ -81,7 +81,7 @@ export default function ContasPage() {
       <DialogoDeAcao
         aberto={criando}
         titulo="Nova conta"
-        descricao="Conta e primeira página nascem juntas, no plano Free. A pessoa entra com a senha que você definir aqui; a declaração de 18+ fica para ela fazer."
+        descricao="Só a conta, no plano Free. A pessoa entra com a senha que você definir aqui e monta a própria página (nome, endereço, foto, links). A declaração de 18+ também fica para ela."
         rotulo="Criar conta"
         onFechar={() => setCriando(false)}
         campos={
@@ -92,21 +92,13 @@ export default function ContasPage() {
             <CampoDoDialogo rotulo="Senha inicial (6 a 72 caracteres)">
               <input type="text" value={nova.password} onChange={(e) => setNova({ ...nova, password: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
             </CampoDoDialogo>
-            <div className="grid grid-cols-2 gap-3">
-              <CampoDoDialogo rotulo="Nome da página">
-                <input value={nova.displayName} onChange={(e) => setNova({ ...nova, displayName: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} />
-              </CampoDoDialogo>
-              <CampoDoDialogo rotulo="Endereço (/slug)">
-                <input value={nova.slug} onChange={(e) => setNova({ ...nova, slug: e.target.value.toLowerCase() })} placeholder="ex.: maria" className={CLASSE_DO_CAMPO_ADMIN} />
-              </CampoDoDialogo>
-            </div>
           </>
         }
         onConfirmar={async (motivo) => {
           try {
             const { id } = await api.admin.criarConta({ ...nova, motivo });
             toast.success("Conta criada.");
-            setNova({ email: "", password: "", displayName: "", slug: "" });
+            setNova({ email: "", password: "" });
             router.push(`/admin/contas/${id}`);
           } catch (caught) {
             throw new Error(caught instanceof ApiError ? caught.message : "Não foi possível criar.");

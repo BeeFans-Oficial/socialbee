@@ -220,6 +220,17 @@ export class ProfilesService {
     return profile;
   }
 
+  /** A primeira página da conta, ou `null` para a conta que ainda não tem
+   *  nenhuma (aberta pelo admin). Ordem por criação: a mais antiga é a padrão. */
+  async findFirstByUserId(userId: string): Promise<Profile | null> {
+    return this.profiles.findOne({ where: { userId }, order: { createdAt: "ASC" }, relations: { domain: true } });
+  }
+
+  async firstIdByUser(userId: string): Promise<string | null> {
+    const p = await this.profiles.findOne({ where: { userId }, order: { createdAt: "ASC" }, select: { id: true } });
+    return p?.id ?? null;
+  }
+
   async findByUserId(userId: string): Promise<Profile> {
     const profile = await this.profiles.findOne({
       where: { userId },

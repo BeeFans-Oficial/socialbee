@@ -5,8 +5,6 @@ import { DataSource } from "typeorm";
 
 import { toPlanView, type PlanView } from "../auth/auth.service";
 import { loadEnv } from "../config/env";
-import { Profile } from "../profiles/entities/profile.entity";
-import { ProfilesService } from "../profiles/profiles.service";
 import { User } from "../auth/entities/user.entity";
 import type { ApagarContaDto } from "./dto/apagar-conta.dto";
 import type { CriarContaDto } from "./dto/criar-conta.dto";
@@ -93,10 +91,7 @@ const POR_PAGINA = 25;
 
 @Injectable()
 export class AdminService {
-  constructor(
-    @InjectDataSource() private readonly db: DataSource,
-    private readonly profiles: ProfilesService,
-  ) {}
+  constructor(@InjectDataSource() private readonly db: DataSource) {}
 
   async visaoGeral(): Promise<VisaoGeral> {
     const [c] = await this.db.query<
@@ -400,13 +395,13 @@ export class AdminService {
   }
 
   /**
-   * Cria conta e primeira página, como o cadastro faz (`AuthService.register`):
-   * as duas na mesma transação, com domínio sorteado do catálogo. A diferença é
-   * que ninguém entra: a pessoa recebe a senha de quem criou e faz login.
+   * Cria SÓ a conta, sem página. Diferente do cadastro (`AuthService.register`),
+   * que cria as duas juntas: aqui a pessoa recebe a senha de quem criou, entra
+   * e monta a própria página em "Páginas". Até lá o token vai sem página e só
+   * as rotas `@SemPagina()` respondem.
    */
   async criarConta(adminId: string, dto: CriarContaDto): Promise<{ id: string }> {
     const motivo = exigirMotivo(dto.motivo);
-    await this.profiles.assertSlugAvailable(dto.slug);
     const passwordHash = await hash(dto.password, loadEnv().bcryptRounds);
 
     return this.db.transaction(async (tx) => {
@@ -415,10 +410,7 @@ export class AdminService {
         throw new ConflictException({ code: "email_taken", message: "Já existe uma conta com esse email." });
       }
       const user = await users.save(users.create({ email: dto.email, passwordHash, ageConfirmedAt: null }));
-      const domainId = await this.profiles.sortearDomainId(tx);
-      const profiles = tx.getRepository(Profile);
-      await profiles.save(profiles.create({ userId: user.id, slug: dto.slug, displayName: dto.displayName, isAdult: false, domainId }));
-      await registrar(tx, adminId, "conta.criar", user.id, motivo, { email: dto.email, slug: dto.slug });
+      await registrar(tx, adminId, "conta.criar", user.id, motivo, { email: dto.email });
       return { id: user.id };
     });
   }

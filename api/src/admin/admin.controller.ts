@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
+import { SemPagina } from "../common/decorators/sem-pagina.decorator";
 import { AdminService } from "./admin.service";
 import { ApagarContaDto } from "./dto/apagar-conta.dto";
 import { CriarContaDto } from "./dto/criar-conta.dto";
@@ -19,6 +20,7 @@ import { EditarContaDto } from "./dto/editar-conta.dto";
  */
 @Controller("admin")
 @Roles("admin")
+@SemPagina()
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
 

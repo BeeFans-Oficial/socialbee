@@ -55,7 +55,7 @@ export default function PaginasPage() {
   }, [router]);
 
   // A ativa é a do cabeçalho `x-profile-id`; sem ele, a que a sessão abriu.
-  const idAtiva = paginaAtiva() ?? session?.profile.id ?? null;
+  const idAtiva = paginaAtiva() ?? session?.profile?.id ?? null;
   const limite = plano?.limits.paginas ?? null;
   const total = paginas?.length ?? 0;
   const noLimite = limite !== null && total >= limite;
@@ -98,6 +98,8 @@ export default function PaginasPage() {
 
       {paginas === null ? (
         <EsqueletoDeCartoes />
+      ) : paginas.length === 0 ? (
+        <SemPaginas onCriar={() => setCriando(true)} />
       ) : (
         <motion.div variants={LISTA} initial="initial" animate="animate" className="grid gap-5 md:grid-cols-2">
           {paginas.map((pagina, i) => (
@@ -118,7 +120,12 @@ export default function PaginasPage() {
         aberto={criando}
         ehPro={ehPro}
         onFechar={() => setCriando(false)}
-        onCriada={(nova) => editar(nova)}
+        onCriada={(nova) => {
+          // A sessão pode ter nascido sem página (conta aberta pelo admin):
+          // a partir daqui ela existe, e o cabeçalho tem que saber.
+          invalidateSession();
+          editar(nova);
+        }}
       />
       <ApagarPagina
         pagina={apagando}
@@ -395,5 +402,32 @@ function ApagarPagina({
         </button>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** A conta que ainda não tem página: foi aberta pelo admin, e a primeira
+ *  página é dela para montar. Um convite, não uma lista vazia. */
+function SemPaginas({ onCriar }: { onCriar: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-2xl border border-dashed border-white/15 bg-bee-surface/60 px-6 py-14 text-center"
+    >
+      <div className="mx-auto w-12 h-12 rounded-xl bg-bee-pink/15 text-bee-pink flex items-center justify-center mb-4">
+        <Plus className="w-6 h-6" />
+      </div>
+      <h2 className="text-lg font-semibold text-white">Crie a sua primeira página</h2>
+      <p className="text-sm text-bee-muted mt-1 max-w-md mx-auto">
+        É o endereço que você vai colocar na bio. Escolha um nome e um link; o resto (foto, capa, links) você monta depois no editor.
+      </p>
+      <button
+        onClick={onCriar}
+        className="mt-6 inline-flex items-center gap-2 h-11 px-5 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        Criar minha página
+      </button>
+    </motion.div>
   );
 }
