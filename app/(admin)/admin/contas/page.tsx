@@ -5,12 +5,17 @@ import Link from "next/link";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { EsqueletoDeLinhas } from "@/components/painel/Esqueleto";
-import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
-import { SeloPro } from "@/components/shared/SeloPro";
+import {
+  CLASSE_DO_CAMPO_ADMIN,
+  CabecalhoAdmin,
+  EsqueletoDeLinhasAdmin,
+  Paginacao,
+  SeloAdmin,
+  SeloProAdmin,
+  TelaAdmin,
+} from "@/components/admin/Ui";
 import { api, ApiError } from "@/lib/api/client";
 import type { AdminContaResumo, AdminPagina } from "@/lib/api/types";
-import { cn } from "@/lib/utils";
 
 const data = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
@@ -42,36 +47,34 @@ export default function ContasPage() {
     };
   }, [termo, pagina]);
 
-  const totalDePaginas = dados ? Math.max(1, Math.ceil(dados.total / dados.porPagina)) : 1;
-
   return (
-    <Tela>
-      <CabecalhoDeTela
+    <TelaAdmin>
+      <CabecalhoAdmin
         titulo="Contas"
         descricao={dados ? `${dados.total} ${dados.total === 1 ? "conta" : "contas"}${termo ? ` para "${termo}"` : ""}` : "Carregando…"}
         acoes={
           <label className="relative block w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               placeholder="e-mail, nome ou endereço"
               autoFocus
-              className="w-full h-10 pl-9 pr-3 rounded-lg bg-bee-surface border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/50"
+              className={`${CLASSE_DO_CAMPO_ADMIN} h-10 pl-9`}
             />
           </label>
         }
       />
 
       {!dados ? (
-        <EsqueletoDeLinhas linhas={6} />
+        <EsqueletoDeLinhasAdmin />
       ) : dados.itens.length === 0 ? (
-        <p className="py-16 text-center text-sm text-bee-muted">Nenhuma conta com esse termo.</p>
+        <p className="py-16 text-center text-sm text-zinc-500">Nenhuma conta com esse termo.</p>
       ) : (
-        <div className="rounded-xl border border-bee-line bg-bee-surface overflow-hidden">
+        <div className="rounded-xl border border-zinc-300 bg-admin-card shadow-sm overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs text-bee-muted border-b border-bee-line">
+              <tr className="text-left text-xs text-zinc-500 border-b border-zinc-300 bg-zinc-200/60">
                 <th className="px-4 py-3 font-medium">Conta</th>
                 <th className="px-4 py-3 font-medium hidden md:table-cell">Página</th>
                 <th className="px-4 py-3 font-medium">Plano</th>
@@ -80,62 +83,42 @@ export default function ContasPage() {
                 <th className="px-4 py-3 font-medium hidden lg:table-cell">Último login</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-bee-line">
+            <tbody className="divide-y divide-zinc-200">
               {dados.itens.map((c) => (
-                <tr key={c.id} className="hover:bg-white/[0.03] transition-colors">
+                <tr key={c.id} className="hover:bg-amber-100/50 transition-colors">
                   <td className="px-4 py-3">
                     <Link href={`/admin/contas/${c.id}`} className="block min-w-0">
-                      <span className="flex items-center gap-2 text-white truncate">
+                      <span className="flex items-center gap-2 text-zinc-900 font-medium truncate">
                         {c.email}
-                        {c.role === "admin" && (
-                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-400/15 text-amber-300 border border-amber-400/30">
-                            ADMIN
-                          </span>
-                        )}
+                        {c.role === "admin" && <SeloAdmin />}
                       </span>
-                      <span className="block md:hidden text-xs text-bee-muted truncate">{c.displayName ?? "—"}</span>
+                      <span className="block md:hidden text-xs text-zinc-500 truncate">{c.displayName ?? "—"}</span>
                     </Link>
                   </td>
-                  <td className="px-4 py-3 hidden md:table-cell text-white/80">
+                  <td className="px-4 py-3 hidden md:table-cell text-zinc-700">
                     <span className="block truncate">{c.displayName ?? "—"}</span>
-                    {c.slug && <span className="block font-mono text-[11px] text-white/40">/{c.slug}</span>}
+                    {c.slug && <span className="block font-mono text-[11px] text-zinc-400">/{c.slug}</span>}
                   </td>
                   <td className="px-4 py-3">
                     {c.plan.id === "pro" ? (
                       <span className="inline-flex items-center gap-1.5">
-                        <SeloPro />
-                        <span className="text-xs text-white/50">até {data(c.plan.proUntil)}</span>
+                        <SeloProAdmin />
+                        <span className="text-xs text-zinc-500">até {data(c.plan.proUntil)}</span>
                       </span>
                     ) : (
-                      <span className={cn("text-xs", c.plan.proUntil ? "text-white/50" : "text-white/40")}>
-                        Free{c.plan.proUntil ? ` · venceu ${data(c.plan.proUntil)}` : ""}
-                      </span>
+                      <span className="text-xs text-zinc-500">Free{c.plan.proUntil ? ` · venceu ${data(c.plan.proUntil)}` : ""}</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 hidden sm:table-cell text-right tabular-nums text-white/80">{c.paginas}</td>
-                  <td className="px-4 py-3 hidden lg:table-cell text-white/60">{data(c.createdAt)}</td>
-                  <td className="px-4 py-3 hidden lg:table-cell text-white/60">{data(c.lastLoginAt)}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell text-right tabular-nums text-zinc-700">{c.paginas}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell text-zinc-500">{data(c.createdAt)}</td>
+                  <td className="px-4 py-3 hidden lg:table-cell text-zinc-500">{data(c.lastLoginAt)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {totalDePaginas > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-bee-line text-xs text-bee-muted">
-              <span>
-                Página {dados.pagina} de {totalDePaginas}
-              </span>
-              <span className="flex gap-2">
-                <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina <= 1} className="h-8 px-3 rounded-lg border border-white/15 text-white/80 disabled:opacity-40">
-                  Anterior
-                </button>
-                <button onClick={() => setPagina((p) => Math.min(totalDePaginas, p + 1))} disabled={pagina >= totalDePaginas} className="h-8 px-3 rounded-lg border border-white/15 text-white/80 disabled:opacity-40">
-                  Próxima
-                </button>
-              </span>
-            </div>
-          )}
+          <Paginacao pagina={dados.pagina} total={dados.total} porPagina={dados.porPagina} onMudar={setPagina} />
         </div>
       )}
-    </Tela>
+    </TelaAdmin>
   );
 }

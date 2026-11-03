@@ -33,6 +33,14 @@ const config: Config = {
           dim: "#555555",
         },
 
+        // Painel admin: claro de propósito, para ninguém confundir com o painel
+        // da criadora. Branco puro estourava; é um cinza-claro com cartões um
+        // tom acima, e o resto vem dos cinzas do Tailwind (ver components/admin/Ui.tsx).
+        admin: {
+          bg: "#e6e7eb",
+          card: "#f3f3f5",
+        },
+
         // Tokens que os componentes do shadcn/ui esperam.
         //
         // Os arquivos em `components/ui/` foram copiados do shadcn e usam

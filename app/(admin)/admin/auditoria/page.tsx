@@ -4,8 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 
-import { EsqueletoDeLinhas } from "@/components/painel/Esqueleto";
-import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
+import { CabecalhoAdmin, EsqueletoDeLinhasAdmin, Paginacao, TelaAdmin } from "@/components/admin/Ui";
 import { api, ApiError } from "@/lib/api/client";
 import type { AdminAcao, AdminPagina } from "@/lib/api/types";
 
@@ -38,42 +37,26 @@ export default function AuditoriaPage() {
       .catch((caught) => toast.error(caught instanceof ApiError ? caught.message : "Não foi possível carregar."));
   }, [pagina]);
 
-  const totalDePaginas = dados ? Math.max(1, Math.ceil(dados.total / dados.porPagina)) : 1;
-
   return (
-    <Tela>
-      <CabecalhoDeTela titulo="Auditoria" descricao={dados ? `${dados.total} ${dados.total === 1 ? "ação registrada" : "ações registradas"}` : "Carregando…"} />
+    <TelaAdmin>
+      <CabecalhoAdmin titulo="Auditoria" descricao={dados ? `${dados.total} ${dados.total === 1 ? "ação registrada" : "ações registradas"}` : "Carregando…"} />
       {!dados ? (
-        <EsqueletoDeLinhas linhas={6} />
+        <EsqueletoDeLinhasAdmin />
       ) : dados.itens.length === 0 ? (
-        <p className="py-16 text-center text-sm text-bee-muted">Nenhuma ação ainda.</p>
+        <p className="py-16 text-center text-sm text-zinc-500">Nenhuma ação ainda.</p>
       ) : (
-        <div className="rounded-xl border border-bee-line bg-bee-surface overflow-hidden">
-          <ul className="divide-y divide-bee-line">
+        <div className="rounded-xl border border-zinc-300 bg-admin-card shadow-sm overflow-hidden">
+          <ul className="divide-y divide-zinc-200">
             {dados.itens.map((a) => (
               <li key={a.id} className="px-4 py-3">
                 <LinhaDeAcao acao={a} />
               </li>
             ))}
           </ul>
-          {totalDePaginas > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-bee-line text-xs text-bee-muted">
-              <span>
-                Página {dados.pagina} de {totalDePaginas}
-              </span>
-              <span className="flex gap-2">
-                <button onClick={() => setPagina((p) => Math.max(1, p - 1))} disabled={pagina <= 1} className="h-8 px-3 rounded-lg border border-white/15 text-white/80 disabled:opacity-40">
-                  Anterior
-                </button>
-                <button onClick={() => setPagina((p) => Math.min(totalDePaginas, p + 1))} disabled={pagina >= totalDePaginas} className="h-8 px-3 rounded-lg border border-white/15 text-white/80 disabled:opacity-40">
-                  Próxima
-                </button>
-              </span>
-            </div>
-          )}
+          <Paginacao pagina={dados.pagina} total={dados.total} porPagina={dados.porPagina} onMudar={setPagina} />
         </div>
       )}
-    </Tela>
+    </TelaAdmin>
   );
 }
 
@@ -85,23 +68,23 @@ export function LinhaDeAcao({ acao, semAlvo }: { acao: AdminAcao; semAlvo?: bool
   if (typeof acao.details.revogadas === "number") detalhes.push(`${acao.details.revogadas} ${acao.details.revogadas === 1 ? "sessão" : "sessões"}`);
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 text-sm">
-      <span className="text-xs text-bee-muted tabular-nums sm:w-28 flex-shrink-0">{quando(acao.createdAt)}</span>
+      <span className="text-xs text-zinc-400 tabular-nums sm:w-28 flex-shrink-0">{quando(acao.createdAt)}</span>
       <span className="min-w-0 flex-1">
-        <span className="text-white">{nomeDaAcao(acao.action)}</span>
-        {detalhes.length > 0 && <span className="text-white/50"> · {detalhes.join(" · ")}</span>}
+        <span className="text-zinc-900 font-medium">{nomeDaAcao(acao.action)}</span>
+        {detalhes.length > 0 && <span className="text-zinc-500"> · {detalhes.join(" · ")}</span>}
         {!semAlvo && acao.alvo.email && (
           <>
-            <span className="text-white/40"> em </span>
+            <span className="text-zinc-400"> em </span>
             {acao.alvo.id ? (
-              <Link href={`/admin/contas/${acao.alvo.id}`} className="text-white/85 underline decoration-dotted underline-offset-2 hover:text-white">
+              <Link href={`/admin/contas/${acao.alvo.id}`} className="text-zinc-800 underline decoration-dotted underline-offset-2 hover:text-amber-700">
                 {acao.alvo.email}
               </Link>
             ) : (
-              <span className="text-white/60">{acao.alvo.email} (conta apagada)</span>
+              <span className="text-zinc-500">{acao.alvo.email} (conta apagada)</span>
             )}
           </>
         )}
-        <span className="block text-xs text-white/50 mt-0.5">
+        <span className="block text-xs text-zinc-500 mt-0.5">
           por {acao.admin.email ?? "script"} · “{acao.reason}”
         </span>
       </span>

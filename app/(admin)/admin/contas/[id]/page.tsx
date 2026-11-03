@@ -6,10 +6,17 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
-import { CLASSE_DO_CAMPO, CampoDoDialogo, DialogoDeAcao } from "@/components/admin/DialogoDeAcao";
-import { Esqueleto } from "@/components/painel/Esqueleto";
-import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
-import { SeloPro } from "@/components/shared/SeloPro";
+import { CampoDoDialogo, DialogoDeAcao } from "@/components/admin/DialogoDeAcao";
+import {
+  BotaoAdmin,
+  CLASSE_DO_CAMPO_ADMIN,
+  CabecalhoAdmin,
+  CartaoAdmin,
+  EsqueletoAdmin,
+  SeloAdmin,
+  SeloProAdmin,
+  TelaAdmin,
+} from "@/components/admin/Ui";
 import { api, ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/api/use-session";
 import type { AdminContaDetalhe } from "@/lib/api/types";
@@ -55,12 +62,14 @@ export default function ContaPage() {
 
   if (!conta) {
     return (
-      <Tela>
-        <Esqueleto className="h-8 w-64 mb-2" />
-        <Esqueleto className="h-4 w-40 mb-8" />
-        <Esqueleto className="h-40 w-full rounded-xl mb-4" />
-        <Esqueleto className="h-40 w-full rounded-xl" />
-      </Tela>
+      <TelaAdmin>
+        <div role="status" aria-label="Carregando" data-esqueleto>
+          <EsqueletoAdmin className="h-8 w-64 mb-2" />
+          <EsqueletoAdmin className="h-4 w-40 mb-8" />
+          <EsqueletoAdmin className="h-40 w-full rounded-xl mb-4" />
+          <EsqueletoAdmin className="h-40 w-full rounded-xl" />
+        </div>
+      </TelaAdmin>
     );
   }
 
@@ -68,91 +77,92 @@ export default function ContaPage() {
   const ehPro = conta.plan.id === "pro";
 
   return (
-    <Tela>
-      <Link href="/admin/contas" className="inline-flex items-center gap-1.5 text-xs text-white/50 hover:text-white mb-3 transition-colors">
-        <ArrowLeft className="w-3.5 h-3.5" />
-        Contas
-      </Link>
-      <CabecalhoDeTela
+    <TelaAdmin>
+      <CabecalhoAdmin
+        voltar={
+          <Link href="/admin/contas" className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-900 mb-3 transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Contas
+          </Link>
+        }
         titulo={conta.email}
-        selo={conta.role === "admin" ? <span className="px-1.5 py-0.5 rounded text-[10px] font-bold tracking-wider bg-amber-400/15 text-amber-300 border border-amber-400/30">ADMIN</span> : undefined}
+        selo={conta.role === "admin" ? <SeloAdmin /> : undefined}
         descricao={`Cadastro em ${data(conta.createdAt)} · último login ${data(conta.lastLoginAt)} · ${conta.isAdultConfirmed ? "18+ confirmado" : "18+ não confirmado"}`}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* Plano */}
-        <Secao titulo="Plano">
+        <CartaoAdmin titulo="Plano">
           <div className="flex items-center gap-2 mb-4">
             {ehPro ? (
               <>
-                <SeloPro />
-                <span className="text-sm text-white">até {data(conta.plan.proUntil)}</span>
+                <SeloProAdmin />
+                <span className="text-sm text-zinc-900">até {data(conta.plan.proUntil)}</span>
               </>
             ) : (
-              <span className="text-sm text-white">Free{conta.plan.proUntil ? ` · Pro venceu em ${data(conta.plan.proUntil)}` : ""}</span>
+              <span className="text-sm text-zinc-900">Free{conta.plan.proUntil ? ` · Pro venceu em ${data(conta.plan.proUntil)}` : ""}</span>
             )}
           </div>
           <div className="flex flex-wrap gap-2">
-            <Botao onClick={() => setAcao("liberar")}>Liberar Pro</Botao>
+            <BotaoAdmin onClick={() => setAcao("liberar")}>Liberar Pro</BotaoAdmin>
             {ehPro && (
-              <Botao perigo onClick={() => setAcao("rebaixar")}>
+              <BotaoAdmin perigo onClick={() => setAcao("rebaixar")}>
                 Tirar o Pro
-              </Botao>
+              </BotaoAdmin>
             )}
           </div>
           {conta.concessoes.length > 0 && (
-            <ul className="mt-4 divide-y divide-bee-line text-xs">
+            <ul className="mt-4 divide-y divide-zinc-200 text-xs">
               {conta.concessoes.map((c) => (
                 <li key={c.id} className="py-2 flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3">
-                  <span className="text-white/80 tabular-nums">
+                  <span className="text-zinc-800 tabular-nums">
                     {data(c.startsAt)} → {data(c.endsAt)}
                   </span>
-                  <span className="text-white/40">{c.source === "manual" ? "manual" : "assinatura"}</span>
-                  {c.reason && <span className="text-white/55 min-w-0 truncate">“{c.reason}”</span>}
+                  <span className="text-zinc-400">{c.source === "manual" ? "manual" : "assinatura"}</span>
+                  {c.reason && <span className="text-zinc-500 min-w-0 truncate">“{c.reason}”</span>}
                 </li>
               ))}
             </ul>
           )}
-        </Secao>
+        </CartaoAdmin>
 
-        {/* Sessões e papel */}
-        <Secao titulo="Acesso">
-          <p className="text-sm text-white mb-4">
+        <CartaoAdmin titulo="Acesso">
+          <p className="text-sm text-zinc-900 mb-4">
             {conta.sessoesAtivas} {conta.sessoesAtivas === 1 ? "sessão aberta" : "sessões abertas"}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Botao perigo onClick={() => setAcao("sessoes")} disabled={conta.sessoesAtivas === 0}>
+            <BotaoAdmin perigo onClick={() => setAcao("sessoes")} disabled={conta.sessoesAtivas === 0}>
               Revogar sessões
-            </Botao>
+            </BotaoAdmin>
             {!souEu &&
               (conta.role === "admin" ? (
-                <Botao perigo onClick={() => setAcao("despromover")}>
+                <BotaoAdmin perigo onClick={() => setAcao("despromover")}>
                   Tirar o papel de admin
-                </Botao>
+                </BotaoAdmin>
               ) : (
-                <Botao onClick={() => setAcao("promover")}>Promover a admin</Botao>
+                <BotaoAdmin secundario onClick={() => setAcao("promover")}>
+                  Promover a admin
+                </BotaoAdmin>
               ))}
           </div>
-          {souEu && <p className="mt-3 text-xs text-bee-muted">Você não pode mudar o seu próprio papel.</p>}
-        </Secao>
+          {souEu && <p className="mt-3 text-xs text-zinc-500">Você não pode mudar o seu próprio papel.</p>}
+        </CartaoAdmin>
 
-        {/* Páginas */}
-        <Secao titulo={`Páginas (${conta.paginasLista.length})`} larga>
+        <CartaoAdmin titulo={`Páginas (${conta.paginasLista.length})`} larga>
           {conta.paginasLista.length === 0 ? (
-            <p className="text-sm text-bee-muted">Nenhuma página.</p>
+            <p className="text-sm text-zinc-500">Nenhuma página.</p>
           ) : (
-            <ul className="divide-y divide-bee-line">
+            <ul className="divide-y divide-zinc-200">
               {conta.paginasLista.map((p) => (
                 <li key={p.id} className="py-2.5 flex items-center gap-3 text-sm">
-                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", p.published ? "bg-emerald-400" : "bg-white/30")} title={p.published ? "No ar" : "Fora do ar"} />
+                  <span className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", p.published ? "bg-emerald-500" : "bg-zinc-300")} title={p.published ? "No ar" : "Fora do ar"} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-white truncate">{p.displayName}</span>
-                    <span className="block font-mono text-[11px] text-white/40 truncate">
+                    <span className="block text-zinc-900 truncate">{p.displayName}</span>
+                    <span className="block font-mono text-[11px] text-zinc-400 truncate">
                       {p.host ?? "(domínio padrão)"}/{p.slug} · {p.links} {p.links === 1 ? "link" : "links"} · desde {data(p.createdAt)}
                     </span>
                   </span>
                   {p.host && (
-                    <a href={urlDaPagina(p.host, p.slug)} target="_blank" rel="noreferrer" title="Abrir a página" className="w-9 h-9 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.06] transition-colors">
+                    <a href={urlDaPagina(p.host, p.slug)} target="_blank" rel="noreferrer" title="Abrir a página" className="w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-900 hover:bg-zinc-200 transition-colors">
                       <ExternalLink className="w-4 h-4" />
                     </a>
                   )}
@@ -160,30 +170,28 @@ export default function ContaPage() {
               ))}
             </ul>
           )}
-        </Secao>
+        </CartaoAdmin>
 
-        {/* Domínios próprios */}
         {conta.dominiosProprios.length > 0 && (
-          <Secao titulo="Domínios próprios" larga>
-            <ul className="divide-y divide-bee-line text-sm">
+          <CartaoAdmin titulo="Domínios próprios" larga>
+            <ul className="divide-y divide-zinc-200 text-sm">
               {conta.dominiosProprios.map((d) => (
                 <li key={d.id} className="py-2 flex items-center gap-3">
-                  <span className="font-mono text-white">{d.host}</span>
-                  <span className={cn("text-xs", d.status === "active" ? "text-emerald-400/90" : "text-amber-300/90")}>
+                  <span className="font-mono text-zinc-900">{d.host}</span>
+                  <span className={cn("text-xs", d.status === "active" ? "text-emerald-600" : "text-amber-700")}>
                     {d.status === "active" ? "ativo" : "aguardando ativação"}
                   </span>
                 </li>
               ))}
             </ul>
-          </Secao>
+          </CartaoAdmin>
         )}
 
-        {/* Ações nesta conta */}
-        <Secao titulo="Ações de admin nesta conta" larga>
+        <CartaoAdmin titulo="Ações de admin nesta conta" larga>
           {conta.acoes.length === 0 ? (
-            <p className="text-sm text-bee-muted">Nenhuma ainda.</p>
+            <p className="text-sm text-zinc-500">Nenhuma ainda.</p>
           ) : (
-            <ul className="divide-y divide-bee-line">
+            <ul className="divide-y divide-zinc-200">
               {conta.acoes.map((a) => (
                 <li key={a.id} className="py-2.5">
                   <LinhaDeAcao acao={a} semAlvo />
@@ -191,10 +199,9 @@ export default function ContaPage() {
               ))}
             </ul>
           )}
-        </Secao>
+        </CartaoAdmin>
       </div>
 
-      {/* Diálogos */}
       <DialogoDeAcao
         aberto={acao === "liberar"}
         titulo="Liberar o Pro"
@@ -204,10 +211,10 @@ export default function ContaPage() {
         campos={
           <div className="grid grid-cols-2 gap-3">
             <CampoDoDialogo rotulo="Dias">
-              <input value={dias} onChange={(e) => { setDias(e.target.value); if (e.target.value) setAte(""); }} inputMode="numeric" placeholder="30" className={CLASSE_DO_CAMPO} />
+              <input value={dias} onChange={(e) => { setDias(e.target.value); if (e.target.value) setAte(""); }} inputMode="numeric" placeholder="30" className={CLASSE_DO_CAMPO_ADMIN} />
             </CampoDoDialogo>
             <CampoDoDialogo rotulo="ou até a data">
-              <input type="date" value={ate} onChange={(e) => { setAte(e.target.value); if (e.target.value) setDias(""); }} className={CLASSE_DO_CAMPO} />
+              <input type="date" value={ate} onChange={(e) => { setAte(e.target.value); if (e.target.value) setDias(""); }} className={CLASSE_DO_CAMPO_ADMIN} />
             </CampoDoDialogo>
           </div>
         }
@@ -253,30 +260,6 @@ export default function ContaPage() {
         onFechar={() => setAcao(null)}
         onConfirmar={(motivo) => executar(() => api.admin.definirPapel(conta.id, "creator", motivo), "Deixou de ser admin.")}
       />
-    </Tela>
-  );
-}
-
-function Secao({ titulo, larga, children }: { titulo: string; larga?: boolean; children: React.ReactNode }) {
-  return (
-    <section className={cn("rounded-xl border border-bee-line bg-bee-surface p-5", larga && "lg:col-span-2")}>
-      <h2 className="text-[11px] font-semibold tracking-[0.14em] uppercase text-white/40 mb-3">{titulo}</h2>
-      {children}
-    </section>
-  );
-}
-
-function Botao({ perigo, disabled, onClick, children }: { perigo?: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={cn(
-        "h-9 px-3.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-40",
-        perigo ? "border border-red-400/30 text-red-300 hover:bg-red-500/10" : "bg-amber-400 text-bee-bg hover:bg-amber-300",
-      )}
-    >
-      {children}
-    </button>
+    </TelaAdmin>
   );
 }
