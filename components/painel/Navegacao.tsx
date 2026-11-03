@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   BarChart2,
+  CircleHelp,
   ExternalLink,
   Globe,
   LayoutGrid,
@@ -19,6 +20,7 @@ import {
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Logo } from "@/components/shared/Logo";
 import { SeloPro } from "@/components/shared/SeloPro";
+import { useTour } from "@/components/painel/tour/Tour";
 import { sairDoPainel, useSession } from "@/lib/api/use-session";
 import { MOLA } from "@/lib/movimento";
 import { urlDaPagina } from "@/lib/site";
@@ -101,7 +103,7 @@ export function Sidebar({ compacta }: { compacta: boolean }) {
         </Link>
       </div>
 
-      <nav className={cn("flex-1 py-4 flex flex-col gap-6", compacta ? "px-2" : "px-3")}>
+      <nav data-tour="barra-lateral" className={cn("flex-1 py-4 flex flex-col gap-6", compacta ? "px-2" : "px-3")}>
         <Secao titulo="Link na bio" compacta={compacta}>
           {ITENS.map((item) => (
             <Entrada
@@ -214,6 +216,7 @@ export function BarraInferior() {
     <>
       <nav
         aria-label="Navegação principal"
+        data-tour="barra-inferior"
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-bee-rail/95 backdrop-blur border-t border-bee-line pb-[env(safe-area-inset-bottom)]"
       >
         <div className="grid grid-cols-4 h-16">
@@ -275,6 +278,7 @@ function MenuMais({ aberto, onFechar }: { aberto: boolean; onFechar: () => void 
   const plano = session?.user.plan ?? null;
   const slug = session?.profile.slug ?? "";
   const host = session?.profile.host ?? "";
+  const { iniciar, roteiroDaTela } = useTour();
 
   return (
     <Dialog open={aberto} onOpenChange={(v) => !v && onFechar()}>
@@ -319,6 +323,19 @@ function MenuMais({ aberto, onFechar }: { aberto: boolean; onFechar: () => void 
             <ExternalLink className="w-5 h-5" />
             Ver minha página
           </a>
+        )}
+        {roteiroDaTela && (
+          <button
+            onClick={() => {
+              onFechar();
+              // Depois que a folha fecha: o holofote mede a tela sem ela.
+              setTimeout(() => iniciar(), 300);
+            }}
+            className="flex items-center gap-3 w-full h-12 px-3 rounded-xl text-[15px] text-white/80 active:bg-white/[0.05] transition-colors"
+          >
+            <CircleHelp className="w-5 h-5" />
+            Ver o guia desta tela
+          </button>
         )}
         <div className="my-2 h-px bg-bee-line" />
         <button

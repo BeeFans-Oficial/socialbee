@@ -122,7 +122,9 @@ que é o único lugar do painel que troca a página em edição. As telas de lis
 `Tela` e `CabecalhoDeTela` (`components/painel/Tela.tsx`), que fixam largura,
 margens e o título — cada tela escolhia as suas. As regras visuais estão em
 `design-system/beesocial/MASTER.md`, inclusive os tokens de movimento
-(`lib/movimento.ts`, com framer-motion) que toda animação do painel usa.
+(`lib/movimento.ts`, com framer-motion) que toda animação do painel usa. O tour
+guiado de cada tela (`components/painel/tour/`) aponta para elementos marcados
+com `data-tour` e começa sozinho na primeira visita.
 
 ## Arquitetura
 

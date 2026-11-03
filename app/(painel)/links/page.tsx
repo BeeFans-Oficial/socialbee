@@ -229,6 +229,7 @@ export default function LinksPage() {
         }
         acoes={
           <button
+            data-tour="novo-link"
             onClick={() => router.push("/links/novo")}
             className="flex items-center gap-2 h-10 px-4 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
           >
