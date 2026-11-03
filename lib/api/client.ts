@@ -273,6 +273,12 @@ export const api = {
         `/admin/contas?q=${encodeURIComponent(q)}&pagina=${pagina}`,
       ),
     conta: (id: string) => request<AdminContaDetalhe>(`/admin/contas/${id}`),
+    criarConta: (input: { email: string; password: string; displayName: string; slug: string; motivo: string }) =>
+      request<{ id: string }>("/admin/contas", { method: "POST", body: JSON.stringify(input) }),
+    editarConta: (id: string, input: { email?: string; novaSenha?: string; motivo: string }) =>
+      request<{ email: string }>(`/admin/contas/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    apagarConta: (id: string, input: { confirmacao: string; motivo: string }) =>
+      request<{ apagada: true }>(`/admin/contas/${id}`, { method: "DELETE", body: JSON.stringify(input) }),
     liberarPro: (id: string, input: { dias?: number; ate?: string; motivo: string }) =>
       request<ApiPlan>(`/admin/contas/${id}/plano/liberar`, { method: "POST", body: JSON.stringify(input) }),
     rebaixarPro: (id: string, motivo: string) =>

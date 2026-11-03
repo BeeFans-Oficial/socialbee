@@ -1,8 +1,11 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from "@nestjs/common";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { AdminService } from "./admin.service";
+import { ApagarContaDto } from "./dto/apagar-conta.dto";
+import { CriarContaDto } from "./dto/criar-conta.dto";
+import { EditarContaDto } from "./dto/editar-conta.dto";
 
 /**
  * `/v1/admin/*`: a API do painel de operação.
@@ -32,6 +35,21 @@ export class AdminController {
   @Get("contas/:id")
   conta(@Param("id", ParseUUIDPipe) id: string) {
     return this.admin.conta(id);
+  }
+
+  @Post("contas")
+  criarConta(@CurrentUser() auth: AuthContext, @Body() dto: CriarContaDto) {
+    return this.admin.criarConta(auth.userId, dto);
+  }
+
+  @Patch("contas/:id")
+  editarConta(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() dto: EditarContaDto) {
+    return this.admin.editarConta(auth.userId, id, dto);
+  }
+
+  @Delete("contas/:id")
+  apagarConta(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() dto: ApagarContaDto) {
+    return this.admin.apagarConta(auth.userId, id, dto);
   }
 
   @Post("contas/:id/plano/liberar")

@@ -9,6 +9,9 @@ import { api, ApiError } from "@/lib/api/client";
 import type { AdminAcao, AdminPagina } from "@/lib/api/types";
 
 const NOMES: Record<string, string> = {
+  "conta.criar": "Criou a conta",
+  "conta.editar": "Editou a conta",
+  "conta.apagar": "Apagou a conta",
   "plano.liberar": "Liberou o Pro",
   "plano.rebaixar": "Tirou o Pro",
   "sessoes.revogar": "Revogou sessões",
@@ -66,21 +69,27 @@ export function LinhaDeAcao({ acao, semAlvo }: { acao: AdminAcao; semAlvo?: bool
   if (typeof acao.details.dias === "number") detalhes.push(`${acao.details.dias} dias`);
   if (typeof acao.details.ate === "string") detalhes.push(`até ${acao.details.ate}`);
   if (typeof acao.details.revogadas === "number") detalhes.push(`${acao.details.revogadas} ${acao.details.revogadas === 1 ? "sessão" : "sessões"}`);
+  if (typeof acao.details.novoEmail === "string") detalhes.push(`e-mail → ${acao.details.novoEmail}`);
+  if (acao.details.senha === true) detalhes.push("senha nova");
+  if (typeof acao.details.slug === "string") detalhes.push(`/${acao.details.slug}`);
+  if (typeof acao.details.paginas === "number") detalhes.push(`${acao.details.paginas} ${acao.details.paginas === 1 ? "página" : "páginas"}`);
+  // Conta apagada: o vínculo some (`SET NULL`), o e-mail sobrevive em `details`.
+  const alvoEmail = acao.alvo.email ?? (typeof acao.details.email === "string" ? acao.details.email : null);
   return (
     <div className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 text-sm">
       <span className="text-xs text-admin-faint tabular-nums sm:w-28 flex-shrink-0">{quando(acao.createdAt)}</span>
       <span className="min-w-0 flex-1">
         <span className="text-admin-ink font-medium">{nomeDaAcao(acao.action)}</span>
         {detalhes.length > 0 && <span className="text-admin-muted"> · {detalhes.join(" · ")}</span>}
-        {!semAlvo && acao.alvo.email && (
+        {!semAlvo && alvoEmail && (
           <>
             <span className="text-admin-faint"> em </span>
             {acao.alvo.id ? (
               <Link href={`/admin/contas/${acao.alvo.id}`} className="text-admin-ink underline decoration-dotted underline-offset-2 hover:text-admin-accent">
-                {acao.alvo.email}
+                {alvoEmail}
               </Link>
             ) : (
-              <span className="text-admin-muted">{acao.alvo.email} (conta apagada)</span>
+              <span className="text-admin-muted">{alvoEmail} (conta apagada)</span>
             )}
           </>
         )}

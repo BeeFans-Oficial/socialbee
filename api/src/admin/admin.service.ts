@@ -1,8 +1,16 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { InjectDataSource } from "@nestjs/typeorm";
+import { hash } from "bcryptjs";
 import { DataSource } from "typeorm";
 
 import { toPlanView, type PlanView } from "../auth/auth.service";
+import { loadEnv } from "../config/env";
+import { Profile } from "../profiles/entities/profile.entity";
+import { ProfilesService } from "../profiles/profiles.service";
+import { User } from "../auth/entities/user.entity";
+import type { ApagarContaDto } from "./dto/apagar-conta.dto";
+import type { CriarContaDto } from "./dto/criar-conta.dto";
+import type { EditarContaDto } from "./dto/editar-conta.dto";
 import type { Papel } from "./entities/admin-action.entity";
 
 /**
@@ -85,7 +93,10 @@ const POR_PAGINA = 25;
 
 @Injectable()
 export class AdminService {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly profiles: ProfilesService,
+  ) {}
 
   async visaoGeral(): Promise<VisaoGeral> {
     const [c] = await this.db.query<
@@ -385,6 +396,107 @@ export class AdminService {
         para: papel,
       });
       return { role: papel };
+    });
+  }
+
+  /**
+   * Cria conta e primeira página, como o cadastro faz (`AuthService.register`):
+   * as duas na mesma transação, com domínio sorteado do catálogo. A diferença é
+   * que ninguém entra: a pessoa recebe a senha de quem criou e faz login.
+   */
+  async criarConta(adminId: string, dto: CriarContaDto): Promise<{ id: string }> {
+    const motivo = exigirMotivo(dto.motivo);
+    await this.profiles.assertSlugAvailable(dto.slug);
+    const passwordHash = await hash(dto.password, loadEnv().bcryptRounds);
+
+    return this.db.transaction(async (tx) => {
+      const users = tx.getRepository(User);
+      if (await users.exists({ where: { email: dto.email } })) {
+        throw new ConflictException({ code: "email_taken", message: "Já existe uma conta com esse email." });
+      }
+      const user = await users.save(users.create({ email: dto.email, passwordHash, ageConfirmedAt: null }));
+      const domainId = await this.profiles.sortearDomainId(tx);
+      const profiles = tx.getRepository(Profile);
+      await profiles.save(profiles.create({ userId: user.id, slug: dto.slug, displayName: dto.displayName, isAdult: false, domainId }));
+      await registrar(tx, adminId, "conta.criar", user.id, motivo, { email: dto.email, slug: dto.slug });
+      return { id: user.id };
+    });
+  }
+
+  /**
+   * Troca e-mail e/ou senha. Senha nova derruba as sessões abertas: quem
+   * estava logado com a senha antiga não continua logado com ela.
+   */
+  async editarConta(adminId: string, userId: string, dto: EditarContaDto): Promise<{ email: string }> {
+    const motivo = exigirMotivo(dto.motivo);
+    if (adminId === userId) {
+      throw new BadRequestException({ code: "propria_conta", message: "A sua própria conta se edita nas configurações." });
+    }
+    const alvo = await this.alvo(userId);
+    const novoEmail = dto.email && dto.email !== alvo.email ? dto.email : undefined;
+    if (!novoEmail && !dto.novaSenha) {
+      throw new BadRequestException({ code: "nada_a_editar", message: "Mude o e-mail ou a senha." });
+    }
+
+    const passwordHash = dto.novaSenha ? await hash(dto.novaSenha, loadEnv().bcryptRounds) : undefined;
+    return this.db.transaction(async (tx) => {
+      const detalhes: Record<string, unknown> = { email: alvo.email };
+      if (novoEmail) {
+        if (await tx.getRepository(User).exists({ where: { email: novoEmail } })) {
+          throw new ConflictException({ code: "email_taken", message: "Já existe uma conta com esse email." });
+        }
+        await tx.query(`UPDATE users SET email = $2 WHERE id = $1`, [userId, novoEmail]);
+        detalhes.novoEmail = novoEmail;
+      }
+      if (passwordHash) {
+        await tx.query(`UPDATE users SET password_hash = $2 WHERE id = $1`, [userId, passwordHash]);
+        const [{ abertas }] = await tx.query<{ abertas: string }[]>(
+          `SELECT count(*) AS abertas FROM sessions WHERE user_id = $1 AND revoked_at IS NULL`,
+          [userId],
+        );
+        await tx.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+        detalhes.senha = true;
+        detalhes.revogadas = Number(abertas);
+      }
+      await registrar(tx, adminId, "conta.editar", userId, motivo, detalhes);
+      return { email: novoEmail ?? alvo.email };
+    });
+  }
+
+  /**
+   * Apaga a conta e tudo que pende dela (páginas, links, histórico, sessões,
+   * concessões e domínios próprios vão por `ON DELETE CASCADE`). A linha de
+   * auditoria fica: `target_user_id` vira nulo pelo `SET NULL`, e o e-mail
+   * sobrevive em `details`. Admin não se apaga, e outro admin precisa ser
+   * rebaixado antes: ninguém some da plataforma por um clique de um par.
+   */
+  async apagarConta(adminId: string, userId: string, dto: ApagarContaDto): Promise<{ apagada: true }> {
+    const motivo = exigirMotivo(dto.motivo);
+    if (adminId === userId) {
+      throw new BadRequestException({ code: "propria_conta", message: "Você não pode apagar a sua própria conta por aqui." });
+    }
+    const alvo = await this.alvo(userId);
+    if (alvo.role === "admin") {
+      throw new BadRequestException({ code: "conta_admin", message: "Tire o papel de admin antes de apagar esta conta." });
+    }
+    if (dto.confirmacao !== alvo.email) {
+      throw new BadRequestException({ code: "confirmacao_invalida", message: "Digite o e-mail da conta exatamente como está." });
+    }
+
+    return this.db.transaction(async (tx) => {
+      const [{ paginas, links }] = await tx.query<{ paginas: string; links: string }[]>(
+        `SELECT count(DISTINCT p.id) AS paginas, count(l.id) AS links
+           FROM profiles p LEFT JOIN links l ON l.profile_id = p.id
+          WHERE p.user_id = $1`,
+        [userId],
+      );
+      await registrar(tx, adminId, "conta.apagar", userId, motivo, {
+        email: alvo.email,
+        paginas: Number(paginas),
+        links: Number(links),
+      });
+      await tx.query(`DELETE FROM users WHERE id = $1`, [userId]);
+      return { apagada: true };
     });
   }
 

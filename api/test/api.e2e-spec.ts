@@ -901,4 +901,73 @@ describe("painel admin", () => {
       .send({ papel: "creator", motivo: "tentativa" })
       .expect(400);
   });
+
+  it("admin cria, edita e apaga uma conta, com auditoria e sem apagar admin", async () => {
+    const senhaCurta = await servidor
+      .post("/v1/admin/contas")
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ email: "nova@teste.app", password: "123", displayName: "Nova", slug: "nova-conta", motivo: "teste" })
+      .expect(400);
+    expect(senhaCurta.body.error).toBeDefined();
+
+    const criada = await servidor
+      .post("/v1/admin/contas")
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ email: "Nova@Teste.app", password: "senha123", displayName: "Nova", slug: "nova-conta", motivo: "conta de parceira" })
+      .expect(201);
+    const novaId: string = criada.body.id;
+
+    // A pessoa entra com a senha que o admin definiu; e-mail guardado em minúsculas.
+    const login = await servidor.post("/v1/auth/login").send({ email: "nova@teste.app", password: "senha123" }).expect(200);
+    expect(login.body.profile.slug).toBe("nova-conta");
+    const tokenNova: string = login.body.accessToken;
+
+    // Endereço repetido é recusado.
+    await servidor
+      .post("/v1/admin/contas")
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ email: "outra@teste.app", password: "senha123", displayName: "Outra", slug: "nova-conta", motivo: "teste" })
+      .expect(409);
+
+    // Editar sem nada para mudar.
+    await servidor
+      .patch(`/v1/admin/contas/${novaId}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ motivo: "nada" })
+      .expect(400);
+
+    // Senha nova derruba a sessão aberta.
+    await servidor
+      .patch(`/v1/admin/contas/${novaId}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ email: "renomeada@teste.app", novaSenha: "outra123", motivo: "pedido por e-mail" })
+      .expect(200);
+    await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenNova}`).expect(401);
+    await servidor.post("/v1/auth/login").send({ email: "renomeada@teste.app", password: "outra123" }).expect(200);
+
+    // Apagar: confirmação errada, depois certa. Admin não se apaga.
+    const luna = (await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenLuna}`)).body.user;
+    await servidor
+      .delete(`/v1/admin/contas/${luna.id}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ confirmacao: "luna@teste.app", motivo: "teste" })
+      .expect(400);
+    await servidor
+      .delete(`/v1/admin/contas/${novaId}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ confirmacao: "nova@teste.app", motivo: "e-mail antigo" })
+      .expect(400);
+    await servidor
+      .delete(`/v1/admin/contas/${novaId}`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ confirmacao: "renomeada@teste.app", motivo: "conta de teste encerrada" })
+      .expect(200);
+    await servidor.get(`/v1/admin/contas/${novaId}`).set("authorization", `Bearer ${tokenLuna}`).expect(404);
+
+    // A auditoria guarda o rastro mesmo sem a conta.
+    const auditoria = await servidor.get("/v1/admin/auditoria").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    const apagar = auditoria.body.itens.find((a: { action: string }) => a.action === "conta.apagar");
+    expect(apagar.alvo.id).toBeNull();
+    expect(apagar.details.email).toBe("renomeada@teste.app");
+  });
 });

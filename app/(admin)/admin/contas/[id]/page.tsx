@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 
@@ -27,7 +27,7 @@ import { LinhaDeAcao } from "../../auditoria/page";
 const data = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
-type Acao = "liberar" | "rebaixar" | "sessoes" | "promover" | "despromover" | null;
+type Acao = "liberar" | "rebaixar" | "sessoes" | "promover" | "despromover" | "editar" | "apagar" | null;
 
 /**
  * Uma conta: o que ela tem e o que o admin pode fazer com ela. Toda ação abre
@@ -36,11 +36,14 @@ type Acao = "liberar" | "rebaixar" | "sessoes" | "promover" | "despromover" | nu
  */
 export default function ContaPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { session } = useSession();
   const [conta, setConta] = useState<AdminContaDetalhe | null>(null);
   const [acao, setAcao] = useState<Acao>(null);
   const [dias, setDias] = useState("30");
   const [ate, setAte] = useState("");
+  const [edicao, setEdicao] = useState({ email: "", novaSenha: "" });
+  const [confirmacao, setConfirmacao] = useState("");
 
   const carregar = useCallback(() => {
     api.admin
@@ -91,6 +94,24 @@ export default function ContaPage() {
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
+        <CartaoAdmin titulo="Conta" larga>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <p className="text-sm text-admin-ink min-w-0 flex-1 truncate">{conta.email}</p>
+            {!souEu && (
+              <div className="flex flex-wrap gap-2">
+                <BotaoAdmin secundario onClick={() => { setEdicao({ email: conta.email, novaSenha: "" }); setAcao("editar"); }}>
+                  Editar e-mail ou senha
+                </BotaoAdmin>
+                <BotaoAdmin perigo disabled={conta.role === "admin"} onClick={() => { setConfirmacao(""); setAcao("apagar"); }}>
+                  Apagar conta
+                </BotaoAdmin>
+              </div>
+            )}
+          </div>
+          {souEu && <p className="mt-3 text-xs text-admin-muted">A sua própria conta se edita nas configurações do painel da criadora.</p>}
+          {!souEu && conta.role === "admin" && <p className="mt-3 text-xs text-admin-muted">Para apagar, tire o papel de admin antes.</p>}
+        </CartaoAdmin>
+
         <CartaoAdmin titulo="Plano">
           <div className="flex items-center gap-2 mb-4">
             {ehPro ? (
@@ -250,6 +271,56 @@ export default function ContaPage() {
         rotulo="Promover"
         onFechar={() => setAcao(null)}
         onConfirmar={(motivo) => executar(() => api.admin.definirPapel(conta.id, "admin", motivo), "Agora é admin.")}
+      />
+      <DialogoDeAcao
+        aberto={acao === "editar"}
+        titulo="Editar a conta"
+        descricao="Mude o e-mail, a senha ou os dois. Senha nova encerra as sessões abertas: a pessoa entra de novo com a senha que você definir."
+        rotulo="Salvar"
+        onFechar={() => setAcao(null)}
+        campos={
+          <>
+            <CampoDoDialogo rotulo="E-mail">
+              <input type="email" value={edicao.email} onChange={(e) => setEdicao({ ...edicao, email: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
+            </CampoDoDialogo>
+            <CampoDoDialogo rotulo="Senha nova (deixe vazio para manter)">
+              <input type="text" value={edicao.novaSenha} onChange={(e) => setEdicao({ ...edicao, novaSenha: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
+            </CampoDoDialogo>
+          </>
+        }
+        onConfirmar={(motivo) =>
+          executar(
+            () =>
+              api.admin.editarConta(conta.id, {
+                email: edicao.email.trim().toLowerCase() !== conta.email ? edicao.email.trim() : undefined,
+                novaSenha: edicao.novaSenha || undefined,
+                motivo,
+              }),
+            "Conta atualizada.",
+          )
+        }
+      />
+      <DialogoDeAcao
+        aberto={acao === "apagar"}
+        titulo="Apagar a conta"
+        descricao={`Apaga a conta, ${conta.paginasLista.length === 1 ? "a página" : `as ${conta.paginasLista.length} páginas`}, todos os links, o histórico de cliques e os domínios próprios. Não tem volta. A auditoria guarda o registro.`}
+        rotulo="Apagar para sempre"
+        perigo
+        onFechar={() => setAcao(null)}
+        campos={
+          <CampoDoDialogo rotulo={`Digite ${conta.email} para confirmar`}>
+            <input value={confirmacao} onChange={(e) => setConfirmacao(e.target.value)} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
+          </CampoDoDialogo>
+        }
+        onConfirmar={async (motivo) => {
+          try {
+            await api.admin.apagarConta(conta.id, { confirmacao: confirmacao.trim().toLowerCase(), motivo });
+          } catch (caught) {
+            throw new Error(caught instanceof ApiError ? caught.message : "Não foi possível apagar.");
+          }
+          toast.success("Conta apagada.");
+          router.push("/admin/contas");
+        }}
       />
       <DialogoDeAcao
         aberto={acao === "despromover"}

@@ -2,10 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 
+import { CampoDoDialogo, DialogoDeAcao } from "@/components/admin/DialogoDeAcao";
 import {
+  BotaoAdmin,
   CLASSE_DO_CAMPO_ADMIN,
   CabecalhoAdmin,
   EsqueletoDeLinhasAdmin,
@@ -22,7 +25,10 @@ const data = (iso: string | null) =>
 
 /** Contas: busca por e-mail, nome ou endereço, e a lista das mais novas. */
 export default function ContasPage() {
+  const router = useRouter();
   const [busca, setBusca] = useState("");
+  const [criando, setCriando] = useState(false);
+  const [nova, setNova] = useState({ email: "", password: "", displayName: "", slug: "" });
   const [termo, setTermo] = useState("");
   const [pagina, setPagina] = useState(1);
   const [dados, setDados] = useState<AdminPagina<AdminContaResumo> | null>(null);
@@ -53,17 +59,59 @@ export default function ContasPage() {
         titulo="Contas"
         descricao={dados ? `${dados.total} ${dados.total === 1 ? "conta" : "contas"}${termo ? ` para "${termo}"` : ""}` : "Carregando…"}
         acoes={
-          <label className="relative block w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-admin-faint" />
-            <input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="e-mail, nome ou endereço"
-              autoFocus
-              className={`${CLASSE_DO_CAMPO_ADMIN} h-10 pl-9`}
-            />
-          </label>
+          <>
+            <label className="relative block w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-admin-faint" />
+              <input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="e-mail, nome ou endereço"
+                autoFocus
+                className={`${CLASSE_DO_CAMPO_ADMIN} h-10 pl-9`}
+              />
+            </label>
+            <BotaoAdmin onClick={() => setCriando(true)} className="h-10 flex-shrink-0">
+              <Plus className="w-4 h-4" />
+              Nova conta
+            </BotaoAdmin>
+          </>
         }
+      />
+
+      <DialogoDeAcao
+        aberto={criando}
+        titulo="Nova conta"
+        descricao="Conta e primeira página nascem juntas, no plano Free. A pessoa entra com a senha que você definir aqui; a declaração de 18+ fica para ela fazer."
+        rotulo="Criar conta"
+        onFechar={() => setCriando(false)}
+        campos={
+          <>
+            <CampoDoDialogo rotulo="E-mail">
+              <input type="email" value={nova.email} onChange={(e) => setNova({ ...nova, email: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
+            </CampoDoDialogo>
+            <CampoDoDialogo rotulo="Senha inicial (6 a 72 caracteres)">
+              <input type="text" value={nova.password} onChange={(e) => setNova({ ...nova, password: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} autoComplete="off" />
+            </CampoDoDialogo>
+            <div className="grid grid-cols-2 gap-3">
+              <CampoDoDialogo rotulo="Nome da página">
+                <input value={nova.displayName} onChange={(e) => setNova({ ...nova, displayName: e.target.value })} className={CLASSE_DO_CAMPO_ADMIN} />
+              </CampoDoDialogo>
+              <CampoDoDialogo rotulo="Endereço (/slug)">
+                <input value={nova.slug} onChange={(e) => setNova({ ...nova, slug: e.target.value.toLowerCase() })} placeholder="ex.: maria" className={CLASSE_DO_CAMPO_ADMIN} />
+              </CampoDoDialogo>
+            </div>
+          </>
+        }
+        onConfirmar={async (motivo) => {
+          try {
+            const { id } = await api.admin.criarConta({ ...nova, motivo });
+            toast.success("Conta criada.");
+            setNova({ email: "", password: "", displayName: "", slug: "" });
+            router.push(`/admin/contas/${id}`);
+          } catch (caught) {
+            throw new Error(caught instanceof ApiError ? caught.message : "Não foi possível criar.");
+          }
+        }}
       />
 
       {!dados ? (
