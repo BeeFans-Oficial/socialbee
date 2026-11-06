@@ -4,9 +4,11 @@ import { CurrentUser, type AuthContext } from "../common/decorators/current-user
 import { Roles } from "../common/decorators/roles.decorator";
 import { SemPagina } from "../common/decorators/sem-pagina.decorator";
 import { AdminService } from "./admin.service";
+import { AdicionarDominioDto } from "./dto/adicionar-dominio.dto";
 import { ApagarContaDto } from "./dto/apagar-conta.dto";
 import { CriarContaDto } from "./dto/criar-conta.dto";
 import { EditarContaDto } from "./dto/editar-conta.dto";
+import { EditarDominioDto } from "./dto/editar-dominio.dto";
 
 /**
  * `/v1/admin/*`: a API do painel de operação.
@@ -85,6 +87,33 @@ export class AdminController {
   ) {
     const papel = body.papel === "admin" ? "admin" : "creator";
     return this.admin.definirPapel(auth.userId, id, papel, body.motivo);
+  }
+
+  // ---------------------------------------------------------- pool de domínios
+
+  @Get("dominios")
+  dominios() {
+    return this.admin.dominios();
+  }
+
+  @Post("dominios")
+  adicionarDominio(@CurrentUser() auth: AuthContext, @Body() dto: AdicionarDominioDto) {
+    return this.admin.adicionarDominio(auth.userId, dto);
+  }
+
+  @Patch("dominios/:id")
+  editarDominio(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() dto: EditarDominioDto) {
+    return this.admin.editarDominio(auth.userId, id, dto);
+  }
+
+  @Post("dominios/:id/pausar")
+  pausarDominio(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() body: { motivo: string }) {
+    return this.admin.pausarDominio(auth.userId, id, body.motivo);
+  }
+
+  @Post("dominios/:id/ativar")
+  ativarDominio(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() body: { motivo: string }) {
+    return this.admin.ativarDominio(auth.userId, id, body.motivo);
   }
 
   @Get("auditoria")

@@ -6,9 +6,12 @@ import { DataSource } from "typeorm";
 import { toPlanView, type PlanView } from "../auth/auth.service";
 import { loadEnv } from "../config/env";
 import { User } from "../auth/entities/user.entity";
+import { FORMATO_DE_HOST, normalizarHost } from "../profiles/custom-domains.service";
 import type { ApagarContaDto } from "./dto/apagar-conta.dto";
 import type { CriarContaDto } from "./dto/criar-conta.dto";
 import type { EditarContaDto } from "./dto/editar-conta.dto";
+import type { AdicionarDominioDto } from "./dto/adicionar-dominio.dto";
+import type { EditarDominioDto } from "./dto/editar-dominio.dto";
 import type { Papel } from "./entities/admin-action.entity";
 
 /**
@@ -78,6 +81,22 @@ export interface AcaoDeAdmin {
   createdAt: string;
   admin: { id: string | null; email: string | null };
   alvo: { id: string | null; email: string | null };
+}
+
+/** Um domínio da plataforma, com o quanto ele carrega hoje. */
+export interface DominioDoPool {
+  id: string;
+  host: string;
+  label: string | null;
+  /** `false` = pausado: sai do sorteio e do seletor, sem derrubar quem já está nele. */
+  active: boolean;
+  position: number;
+  paginas: number;
+  paginasNoAr: number;
+  /** Visitas humanas que chegaram por este host nos últimos 7 dias. É o
+   *  termômetro: um domínio bloqueado pelo Instagram esfria de um dia para o outro. */
+  visitas7d: number;
+  createdAt: string;
 }
 
 export interface Pagina<T> {
@@ -490,6 +509,161 @@ export class AdminService {
       await tx.query(`DELETE FROM users WHERE id = $1`, [userId]);
       return { apagada: true };
     });
+  }
+
+  // ------------------------------------------------------------ pool de domínios
+
+  /** Os domínios da plataforma (sem dono), com páginas e visitas recentes. */
+  async dominios(): Promise<DominioDoPool[]> {
+    const linhas = await this.db.query<
+      {
+        id: string;
+        host: string;
+        label: string | null;
+        active: boolean;
+        position: number;
+        paginas: string;
+        no_ar: string;
+        visitas7d: string;
+        created_at: Date;
+      }[]
+    >(`
+      SELECT d.id, d.host, d.label, d.active, d.position, d.created_at,
+             (SELECT count(*) FROM profiles p WHERE p.domain_id = d.id)                 AS paginas,
+             (SELECT count(*) FROM profiles p WHERE p.domain_id = d.id AND p.published) AS no_ar,
+             (SELECT count(*) FROM tracking_events e
+               WHERE e.arrival_host = d.host AND e.type = 'view'
+                 AND e.occurred_at > now() - interval '7 days')                         AS visitas7d
+        FROM domains d
+       WHERE d.owner_user_id IS NULL
+       ORDER BY d.active DESC, d.position ASC, d.host ASC
+    `);
+    return linhas.map((l) => ({
+      id: l.id,
+      host: l.host,
+      label: l.label,
+      active: l.active,
+      position: l.position,
+      paginas: Number(l.paginas),
+      paginasNoAr: Number(l.no_ar),
+      visitas7d: Number(l.visitas7d),
+      createdAt: new Date(l.created_at).toISOString(),
+    }));
+  }
+
+  /**
+   * Domínio novo, PAUSADO. A linha no banco é o último passo da entrada de um
+   * domínio, não o primeiro (ver `Domain`): nasce fora do sorteio e do seletor,
+   * e o admin ativa quando o endereço já responde em HTTPS.
+   */
+  async adicionarDominio(adminId: string, dto: AdicionarDominioDto): Promise<DominioDoPool> {
+    const motivo = exigirMotivo(dto.motivo);
+    const host = normalizarHost(dto.host ?? "");
+    if (!FORMATO_DE_HOST.test(host) || host.length > 253) {
+      throw new BadRequestException({
+        code: "host_invalido",
+        message: "Digite só o domínio, como vemaqui.site — sem https:// nem barra.",
+      });
+    }
+    return this.db.transaction(async (tx) => {
+      const [existe] = await tx.query<{ owner_user_id: string | null }[]>(`SELECT owner_user_id FROM domains WHERE host = $1`, [host]);
+      if (existe) {
+        throw new ConflictException({
+          code: "dominio_em_uso",
+          message: existe.owner_user_id ? "Esse domínio é domínio próprio de uma criadora." : "Esse domínio já está no pool.",
+        });
+      }
+      const [criado] = await tx.query<{ id: string }[]>(
+        `
+        INSERT INTO domains (host, label, active, position, owner_user_id, status)
+        SELECT $1, $2, false, coalesce(max(position), 0) + 1, NULL, 'active' FROM domains WHERE owner_user_id IS NULL
+        RETURNING id
+        `,
+        [host, dto.label ?? null],
+      );
+      await registrar(tx, adminId, "dominio.adicionar", null, motivo, { host, dominioId: criado.id, label: dto.label ?? null });
+      return this.dominio(criado.id, tx);
+    });
+  }
+
+  /** Pausar tira do sorteio e do seletor. Quem já está nele continua no ar. */
+  pausarDominio(adminId: string, id: string, motivo: string): Promise<DominioDoPool> {
+    return this.mudarAtivo(adminId, id, false, motivo);
+  }
+
+  /** Só depois de o domínio abrir em HTTPS. */
+  ativarDominio(adminId: string, id: string, motivo: string): Promise<DominioDoPool> {
+    return this.mudarAtivo(adminId, id, true, motivo);
+  }
+
+  async editarDominio(adminId: string, id: string, dto: EditarDominioDto): Promise<DominioDoPool> {
+    const motivo = exigirMotivo(dto.motivo);
+    if (dto.label === undefined) {
+      throw new BadRequestException({ code: "nada_a_mudar", message: "Nada para mudar." });
+    }
+    return this.db.transaction(async (tx) => {
+      const atual = await this.dominio(id, tx);
+      await tx.query(`UPDATE domains SET label = $2 WHERE id = $1`, [id, dto.label]);
+      await registrar(tx, adminId, "dominio.editar", null, motivo, {
+        host: atual.host,
+        dominioId: id,
+        labelAnterior: atual.label,
+        label: dto.label,
+      });
+      return this.dominio(id, tx);
+    });
+  }
+
+  private async mudarAtivo(adminId: string, id: string, ativo: boolean, motivoBruto: string): Promise<DominioDoPool> {
+    const motivo = exigirMotivo(motivoBruto);
+    return this.db.transaction(async (tx) => {
+      const atual = await this.dominio(id, tx);
+      if (atual.active === ativo) {
+        throw new BadRequestException({
+          code: ativo ? "ja_ativo" : "ja_pausado",
+          message: ativo ? "Esse domínio já está ativo." : "Esse domínio já está pausado.",
+        });
+      }
+      await tx.query(`UPDATE domains SET active = $2 WHERE id = $1`, [id, ativo]);
+      await registrar(tx, adminId, ativo ? "dominio.ativar" : "dominio.pausar", null, motivo, {
+        host: atual.host,
+        dominioId: id,
+        paginas: atual.paginas,
+      });
+      return this.dominio(id, tx);
+    });
+  }
+
+  /** Um domínio do pool. 404 para id que não existe ou que é domínio próprio:
+   *  domínio próprio se administra na conta da dona, não aqui. */
+  private async dominio(id: string, tx: { query: DataSource["query"] }): Promise<DominioDoPool> {
+    const [d] = await tx.query<
+      { id: string; host: string; label: string | null; active: boolean; position: number; paginas: string; no_ar: string; visitas7d: string; created_at: Date }[]
+    >(
+      `
+      SELECT d.id, d.host, d.label, d.active, d.position, d.created_at,
+             (SELECT count(*) FROM profiles p WHERE p.domain_id = d.id)                 AS paginas,
+             (SELECT count(*) FROM profiles p WHERE p.domain_id = d.id AND p.published) AS no_ar,
+             (SELECT count(*) FROM tracking_events e
+               WHERE e.arrival_host = d.host AND e.type = 'view'
+                 AND e.occurred_at > now() - interval '7 days')                         AS visitas7d
+        FROM domains d
+       WHERE d.id = $1 AND d.owner_user_id IS NULL
+      `,
+      [id],
+    );
+    if (!d) throw new NotFoundException({ code: "dominio_nao_encontrado", message: "Domínio não encontrado no pool." });
+    return {
+      id: d.id,
+      host: d.host,
+      label: d.label,
+      active: d.active,
+      position: d.position,
+      paginas: Number(d.paginas),
+      paginasNoAr: Number(d.no_ar),
+      visitas7d: Number(d.visitas7d),
+      createdAt: new Date(d.created_at).toISOString(),
+    };
   }
 
   async auditoria(pagina: number): Promise<Pagina<AcaoDeAdmin>> {

@@ -75,6 +75,9 @@ export default function VisaoGeralPage() {
                 <Link href="/admin/contas">
                   <BotaoAdmin secundario>Buscar uma conta</BotaoAdmin>
                 </Link>
+                <Link href="/admin/dominios">
+                  <BotaoAdmin secundario>Domínios do pool</BotaoAdmin>
+                </Link>
                 <Link href="/admin/auditoria">
                   <BotaoAdmin secundario>Ver a auditoria</BotaoAdmin>
                 </Link>

@@ -28,7 +28,7 @@ export interface DnsCheckView {
 }
 
 /** O mesmo formato que o `CHECK` da tabela `domains` exige. */
-const FORMATO_DE_HOST = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
+export const FORMATO_DE_HOST = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/;
 
 /**
  * Domínio próprio: a criadora traz um domínio dela.

@@ -147,8 +147,13 @@ layout `app/(admin)` repete a pergunta no servidor. Os dados vêm de
 própria — as duas checagens do app só decidem o que desenhar.
 
 O que o painel faz hoje: visão geral da plataforma, busca e detalhe de contas,
-liberar e tirar o Pro (substitui `plano:liberar`), revogar sessões, promover e
-rebaixar admins. Toda ação exige motivo e fica em `admin_actions`, visível na
+criar, editar e apagar contas, liberar e tirar o Pro (substitui
+`plano:liberar`), revogar sessões, promover e rebaixar admins, e o pool de
+domínios (`/admin/dominios`): listar com páginas e visitas da semana,
+adicionar, pausar e reativar, renomear. Domínio novo nasce pausado — a linha no
+banco é o último passo, depois do DNS, do nginx e do certificado — e o admin
+ativa quando ele já abre em HTTPS. Pausar tira do sorteio e do seletor sem
+derrubar as páginas que já estão nele. Toda ação exige motivo e fica em `admin_actions`, visível na
 tela Auditoria. O que ainda não faz está em
 `01 - Produto/Painel admin — funcionalidades` no vault do produto.
 

@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MotionConfig, motion } from "framer-motion";
-import { ArrowLeft, ClipboardList, LayoutDashboard, LogOut, Users, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ClipboardList, Globe, LayoutDashboard, LogOut, Users, type LucideIcon } from "lucide-react";
 
 import { sairDoPainel, useSession } from "@/lib/api/use-session";
 import { ENTRADA_DA_TELA, MOLA, SUAVE } from "@/lib/movimento";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 const ITENS: { href: string; label: string; icone: LucideIcon }[] = [
   { href: "/admin", label: "Visão geral", icone: LayoutDashboard },
   { href: "/admin/contas", label: "Contas", icone: Users },
+  { href: "/admin/dominios", label: "Domínios", icone: Globe },
   { href: "/admin/auditoria", label: "Auditoria", icone: ClipboardList },
 ];
 
