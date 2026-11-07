@@ -20,6 +20,7 @@ import type {
   AdminAcao,
   AdminContaDetalhe,
   AdminContaResumo,
+  AdminDominioDoPool,
   AdminPagina,
   AdminVisaoGeral,
   ApiCustomDomain,
@@ -295,5 +296,14 @@ export const api = {
         body: JSON.stringify({ papel, motivo }),
       }),
     auditoria: (pagina = 1) => request<AdminPagina<AdminAcao>>(`/admin/auditoria?pagina=${pagina}`),
+    dominios: () => request<AdminDominioDoPool[]>("/admin/dominios"),
+    adicionarDominio: (input: { host: string; label?: string | null; motivo: string }) =>
+      request<AdminDominioDoPool>("/admin/dominios", { method: "POST", body: JSON.stringify(input) }),
+    editarDominio: (id: string, input: { label?: string | null; motivo: string }) =>
+      request<AdminDominioDoPool>(`/admin/dominios/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
+    pausarDominio: (id: string, motivo: string) =>
+      request<AdminDominioDoPool>(`/admin/dominios/${id}/pausar`, { method: "POST", body: JSON.stringify({ motivo }) }),
+    ativarDominio: (id: string, motivo: string) =>
+      request<AdminDominioDoPool>(`/admin/dominios/${id}/ativar`, { method: "POST", body: JSON.stringify({ motivo }) }),
   },
 };

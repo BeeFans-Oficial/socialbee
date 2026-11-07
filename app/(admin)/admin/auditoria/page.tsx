@@ -17,6 +17,10 @@ const NOMES: Record<string, string> = {
   "sessoes.revogar": "Revogou sessões",
   "admin.promover": "Promoveu a admin",
   "admin.rebaixar": "Tirou o papel de admin",
+  "dominio.adicionar": "Adicionou domínio ao pool",
+  "dominio.ativar": "Ativou o domínio",
+  "dominio.pausar": "Pausou o domínio",
+  "dominio.editar": "Renomeou o domínio",
 };
 
 export function nomeDaAcao(action: string): string {
@@ -72,6 +76,8 @@ export function LinhaDeAcao({ acao, semAlvo }: { acao: AdminAcao; semAlvo?: bool
   if (typeof acao.details.novoEmail === "string") detalhes.push(`e-mail → ${acao.details.novoEmail}`);
   if (acao.details.senha === true) detalhes.push("senha nova");
   if (typeof acao.details.slug === "string") detalhes.push(`/${acao.details.slug}`);
+  if (typeof acao.details.host === "string") detalhes.push(acao.details.host);
+  if (typeof acao.details.label === "string") detalhes.push(`“${acao.details.label}”`);
   if (typeof acao.details.paginas === "number") detalhes.push(`${acao.details.paginas} ${acao.details.paginas === 1 ? "página" : "páginas"}`);
   // Conta apagada: o vínculo some (`SET NULL`), o e-mail sobrevive em `details`.
   const alvoEmail = acao.alvo.email ?? (typeof acao.details.email === "string" ? acao.details.email : null);

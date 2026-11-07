@@ -82,6 +82,20 @@ export interface AdminContaDetalhe extends AdminContaResumo {
   acoes: AdminAcao[];
 }
 
+export interface AdminDominioDoPool {
+  id: string;
+  host: string;
+  label: string | null;
+  /** `false` = pausado: fora do sorteio e do seletor, sem derrubar quem já está nele. */
+  active: boolean;
+  position: number;
+  paginas: number;
+  paginasNoAr: number;
+  /** Visitas humanas que chegaram por este host nos últimos 7 dias. */
+  visitas7d: number;
+  createdAt: string;
+}
+
 export interface AdminPagina<T> {
   itens: T[];
   total: number;

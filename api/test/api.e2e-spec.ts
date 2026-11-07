@@ -986,4 +986,79 @@ describe("painel admin", () => {
     expect(apagar.alvo.id).toBeNull();
     expect(apagar.details.email).toBe("renomeada@teste.app");
   });
+
+  it("admin adiciona um domínio ao pool pausado, ativa, pausa, e tudo fica na auditoria", async () => {
+    const auth = { authorization: `Bearer ${tokenLuna}` };
+    const antes = (await servidor.get("/v1/admin/visao-geral").set(auth).expect(200)).body.dominios.pool;
+
+    // Só host: com esquema e barra a API normaliza; com espaço ou sem ponto, recusa.
+    const invalido = await servidor
+      .post("/v1/admin/dominios")
+      .set(auth)
+      .send({ host: "sem ponto", motivo: "teste" })
+      .expect(400);
+    expect(invalido.body.error.code).toBe("host_invalido");
+
+    const criado = await servidor
+      .post("/v1/admin/dominios")
+      .set(auth)
+      .send({ host: "https://Novo.Site/", label: "  Novo  ", motivo: "domínio comprado em 06/11" })
+      .expect(201);
+    expect(criado.body.host).toBe("novo.site");
+    expect(criado.body.label).toBe("Novo");
+    expect(criado.body.active).toBe(false);
+    expect(criado.body.paginas).toBe(0);
+    const id: string = criado.body.id;
+
+    // Repetido, mesmo escrito diferente.
+    const repetido = await servidor
+      .post("/v1/admin/dominios")
+      .set(auth)
+      .send({ host: "NOVO.site", motivo: "teste" })
+      .expect(409);
+    expect(repetido.body.error.code).toBe("dominio_em_uso");
+
+    // Pausado não conta no pool da visão geral nem entra no seletor.
+    const lista = await servidor.get("/v1/admin/dominios").set(auth).expect(200);
+    expect(lista.body.find((d: { id: string }) => d.id === id).active).toBe(false);
+    expect((await servidor.get("/v1/admin/visao-geral").set(auth).expect(200)).body.dominios.pool).toBe(antes);
+    await servidor.post(`/v1/admin/dominios/${id}/pausar`).set(auth).send({ motivo: "teste" }).expect(400);
+
+    const ativado = await servidor
+      .post(`/v1/admin/dominios/${id}/ativar`)
+      .set(auth)
+      .send({ motivo: "já abre em https" })
+      .expect(201);
+    expect(ativado.body.active).toBe(true);
+    expect((await servidor.get("/v1/admin/visao-geral").set(auth).expect(200)).body.dominios.pool).toBe(antes + 1);
+    await servidor.post(`/v1/admin/dominios/${id}/ativar`).set(auth).send({ motivo: "teste" }).expect(400);
+
+    const renomeado = await servidor
+      .patch(`/v1/admin/dominios/${id}`)
+      .set(auth)
+      .send({ label: "Novo site", motivo: "nome mais claro" })
+      .expect(200);
+    expect(renomeado.body.label).toBe("Novo site");
+
+    const pausado = await servidor
+      .post(`/v1/admin/dominios/${id}/pausar`)
+      .set(auth)
+      .send({ motivo: "bloqueado pelo Instagram" })
+      .expect(201);
+    expect(pausado.body.active).toBe(false);
+    expect((await servidor.get("/v1/admin/visao-geral").set(auth).expect(200)).body.dominios.pool).toBe(antes);
+
+    // Motivo é obrigatório também aqui.
+    await servidor.post(`/v1/admin/dominios/${id}/ativar`).set(auth).send({ motivo: "" }).expect(400);
+
+    const auditoria = await servidor.get("/v1/admin/auditoria").set(auth).expect(200);
+    const acoes = auditoria.body.itens.filter((a: { details: { dominioId?: string } }) => a.details.dominioId === id).map((a: { action: string }) => a.action);
+    expect(acoes).toEqual(["dominio.pausar", "dominio.editar", "dominio.ativar", "dominio.adicionar"]);
+    const adicionar = auditoria.body.itens.find((a: { action: string }) => a.action === "dominio.adicionar");
+    expect(adicionar.details.host).toBe("novo.site");
+    expect(adicionar.alvo.id).toBeNull();
+
+    // Domínio próprio não é do pool: 404 por aqui.
+    await servidor.post(`/v1/admin/dominios/00000000-0000-4000-8000-000000000000/ativar`).set(auth).send({ motivo: "teste" }).expect(404);
+  });
 });
