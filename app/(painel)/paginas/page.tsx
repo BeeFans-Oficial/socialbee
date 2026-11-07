@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
@@ -15,6 +16,7 @@ import { api, ApiError, definirPaginaAtiva, paginaAtiva } from "@/lib/api/client
 import { invalidateSession, usePlano, useSession } from "@/lib/api/use-session";
 import type { ApiProfile } from "@/lib/api/types";
 import { CARTAO_DA_GRADE, LISTA } from "@/lib/movimento";
+import { Selo, useUltimaRevisao } from "@/components/painel/RevisaoDaMeta";
 import { urlDaPagina } from "@/lib/site";
 import { TEMPLATE_DO_FREE, resolverVisual } from "@/lib/templates";
 import { cn, slugify, validateSlug } from "@/lib/utils";
@@ -157,6 +159,8 @@ function CartaoDePagina({
   onCopiar: () => void;
   onApagar: () => void;
 }) {
+  const { revisao } = useUltimaRevisao(pagina.id);
+  const [avisado, setAvisado] = useState(false);
   // A miniatura usa as mesmas regras de cor da página pública.
   const visual = useMemo(
     () =>
@@ -218,15 +222,33 @@ function CartaoDePagina({
             {pagina.host}
           </span>
           <span className="font-mono text-xs text-bee-muted truncate">/{pagina.slug}</span>
+          <Link
+            href={`/paginas/${pagina.id}/revisao`}
+            title="Ver a revisão da Meta desta página"
+            className="ml-auto rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink/40"
+          >
+            <Selo revisao={revisao} />
+          </Link>
         </div>
 
         <div className="mt-4 pt-4 border-t border-white/[0.06] flex items-center gap-2">
           <button
-            onClick={onCopiar}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full border border-white/15 text-sm text-white/85 hover:border-white/30 transition-colors"
+            onClick={() => {
+              // Revisão vermelha: o primeiro clique avisa, o segundo copia.
+              if (revisao?.veredito === "vermelho" && !avisado) {
+                setAvisado(true);
+                toast.warning("A revisão da Meta está vermelha. Clique de novo para copiar mesmo assim.");
+                return;
+              }
+              onCopiar();
+            }}
+            className={cn(
+              "flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm transition-colors",
+              revisao?.veredito === "vermelho" ? "border-red-400/40 text-red-300 hover:border-red-400/70" : "border-white/15 text-white/85 hover:border-white/30",
+            )}
           >
             <Copy className="w-3.5 h-3.5" />
-            Copiar link
+            {revisao?.veredito === "vermelho" && avisado ? "Copiar mesmo assim" : "Copiar link"}
           </button>
           <button
             onClick={onEditar}

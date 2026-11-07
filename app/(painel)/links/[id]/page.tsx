@@ -17,6 +17,7 @@ import {
   Secao,
 } from "@/components/editor/Painel";
 import { EsqueletoDeEditor } from "@/components/painel/Esqueleto";
+import { VerificarDestino } from "@/components/painel/VerificarDestino";
 import { LinkButton } from "@/components/profile/LinkButton";
 import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
@@ -189,6 +190,7 @@ export default function EditorDeLink() {
                 maxLength={2048}
                 onSalvar={(v) => salvar({ destinationUrl: v.trim() })}
               />
+              <VerificarDestino linkId={link!.id} destino={link!.destinationUrl} />
               <Linha rotulo="Ativo">
                 <Switch checked={link!.isActive} onCheckedChange={(isActive) => salvar({ isActive })} />
               </Linha>

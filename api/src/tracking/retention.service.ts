@@ -56,6 +56,12 @@ export class RetentionService {
    * endereço da página voltarem a ficar livres. Conta aberta pelo admin
    * (há `conta.criar` na auditoria) fica — foi a equipe que a quis.
    */
+  /** Revisões da Meta com mais de 90 dias: a tela só usa a última. */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async purgePageReviews(): Promise<void> {
+    await this.events.manager.query(`DELETE FROM page_reviews WHERE ran_at < now() - interval '90 days'`);
+  }
+
   @Cron(CronExpression.EVERY_DAY_AT_4AM)
   async purgeUnconfirmedAccounts(): Promise<void> {
     await this.events.manager.query(SQL_EXPURGO_DE_NAO_CONFIRMADAS);

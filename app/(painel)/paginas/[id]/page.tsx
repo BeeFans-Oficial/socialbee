@@ -41,6 +41,7 @@ import {
   Secao,
 } from "@/components/editor/Painel";
 import { EsqueletoDeEditor } from "@/components/painel/Esqueleto";
+import { LinhaDaRevisao } from "@/components/painel/RevisaoDaMeta";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
 import { arquivoDoInput, subirImagemDoPerfil, type ImagemDoPerfil } from "@/lib/imagens";
@@ -710,6 +711,9 @@ export default function EditorDePagina() {
             />
           </Linha>
           <CampoDeEndereco slug={pagina.slug} onSalvar={(slug) => salvar({ slug })} />
+          <Linha rotulo="Revisão da Meta">
+            <LinhaDaRevisao profileId={pagina.id} />
+          </Linha>
         </Secao>
 
         <Secao titulo="Proteção" dataTour="protecao">

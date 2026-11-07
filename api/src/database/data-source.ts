@@ -22,6 +22,7 @@ import { DominioProprio1790800000000 } from "./migrations/1790800000000-DominioP
 import { ImagensComoChave1790900000000 } from "./migrations/1790900000000-ImagensComoChave";
 import { PapelDeAdmin1791000000000 } from "./migrations/1791000000000-PapelDeAdmin";
 import { ConfirmacaoDeEmail1791100000000 } from "./migrations/1791100000000-ConfirmacaoDeEmail";
+import { RevisaoDaMeta1791200000000 } from "./migrations/1791200000000-RevisaoDaMeta";
 import { AdminAction } from "../admin/entities/admin-action.entity";
 
 /**
@@ -82,6 +83,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       ImagensComoChave1790900000000,
       PapelDeAdmin1791000000000,
       ConfirmacaoDeEmail1791100000000,
+      RevisaoDaMeta1791200000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,
