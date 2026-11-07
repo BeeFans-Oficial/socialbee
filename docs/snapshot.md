@@ -92,7 +92,7 @@ fim, marca-se o que entrou.
       do admin; "Verificar destino" por link no editor
       de Links. 5 testes e2e com site de mentira no lugar do `fetch`; 4
       unitários.
-- [x] **Saúde no painel** (sessão de 07/11, `feat/saude-no-painel`): a
+- [x] **Saúde no painel** (sessão de 07/11, PR #51): a
       revisão vira "Saúde" no vocabulário do painel. Item "Saúde" na barra
       lateral e na barra inferior do celular (que passa a 4 + Mais); tela
       `/saude` com todas as páginas da conta e a última checagem de cada uma
@@ -103,6 +103,16 @@ fim, marca-se o que entrou.
       e-mail de alerta aponta para a tela Saúde. API: `GET /v1/me/saude`
       (uma consulta com `LATERAL`) e `POST /v1/me/saude/checar`. 1 teste e2e
       novo (61 no total).
+
+### Tela inicial
+
+- [x] **Tela inicial que se constrói na rolagem** (sessão de 07/11, branch
+      `feat/historia-em-camadas`): cada bloco entra quando chega à tela
+      (`Revelar`, uma vez, de baixo para cima e desfocado para nítido;
+      listas em escada), e "Como funciona" virou a pilha de camadas da vista
+      explodida se montando placa a placa, com linha-guia, etiqueta e os
+      quatro textos na mesma ordem, terminando no selo verde. Vocabulário
+      de benefício para a fã. Substitui os três cards.
 
 ### Rastreamento
 
@@ -208,4 +218,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-06 | `feat/email-de-boas-vindas`, PR #48 | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
 | 2026-11-06 | `feat/filtros-no-analytics`, PR #49 | Filtros e janela livre no Analytics, comparação com o período anterior, quebras por aparelho e endereço de chegada; 1 teste e2e novo (55 no total). |
 | 2026-11-06 | `feat/simulador-da-revisao-da-meta`, PR #50 (empilhada na #49) | Simulador da revisão da Meta: API, cron, e-mail, editor, lista de páginas, admin, verificação por link; 5 e2e + 4 unitários novos (60 e 62). |
-| 2026-11-07 | `feat/saude-no-painel` (empilhada na #50) | "Saúde" na barra lateral e no celular, tela `/saude` com todas as páginas e "Checar todas", tela da página em `/saude/:id`, pastilha legível no card, vocabulário "revisão" → "saúde/checagem"; 1 e2e novo (61). |
+| 2026-11-07 | `feat/saude-no-painel`, PR #51 | "Saúde" na barra lateral e no celular, tela `/saude` com todas as páginas e "Checar todas", tela da página em `/saude/:id`, pastilha legível no card, vocabulário "revisão" → "saúde/checagem"; 1 e2e novo (61). |
