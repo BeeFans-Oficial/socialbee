@@ -20,13 +20,21 @@ export class User {
   @Column({ name: "email", type: "text", unique: true })
   email: string;
 
-  @Column({ name: "password_hash", type: "text" })
-  passwordHash: string;
+  /** Nulo na conta aberta pelo admin até a pessoa criar a senha pelo
+   *  convite. Sem senha não há login: a comparação falha como senha errada. */
+  @Column({ name: "password_hash", type: "text", nullable: true })
+  passwordHash: string | null;
 
   /** Quando a pessoa declarou ter 18+. É registro de consentimento: a data
    *  importa, o booleano sozinho não prova nada. */
   @Column({ name: "age_confirmed_at", type: "timestamptz", nullable: true })
   ageConfirmedAt: Date | null;
+
+  /** Quando a pessoa clicou no link do e-mail de boas-vindas. Nulo não
+   *  bloqueia nada hoje; o painel só avisa. Ver a migration
+   *  `1791100000000-ConfirmacaoDeEmail`. */
+  @Column({ name: "email_confirmed_at", type: "timestamptz", nullable: true })
+  emailConfirmedAt: Date | null;
 
   @Column({ name: "last_login_at", type: "timestamptz", nullable: true })
   lastLoginAt: Date | null;

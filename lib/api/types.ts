@@ -19,6 +19,8 @@ export interface ApiUser {
   id: string;
   email: string;
   isAdultConfirmed: boolean;
+  /** Clicou no link do e-mail de boas-vindas. Só muda o aviso no painel. */
+  isEmailConfirmed: boolean;
   createdAt: string;
   plan: ApiPlan;
   /** `creator` (toda conta) ou `admin` (opera a plataforma). O app usa só
@@ -60,6 +62,9 @@ export interface AdminAcao {
 
 export interface AdminContaDetalhe extends AdminContaResumo {
   isAdultConfirmed: boolean;
+  isEmailConfirmed: boolean;
+  /** Convite pendente: a pessoa ainda não criou a senha. */
+  semSenha: boolean;
   paginasLista: {
     id: string;
     slug: string;

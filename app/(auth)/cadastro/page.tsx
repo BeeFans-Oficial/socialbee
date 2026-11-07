@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { CartaoDeAuth } from "@/components/auth/CartaoDeAuth";
+import { ConfiraSeuEmail } from "@/components/auth/ConfiraSeuEmail";
 import { toast, Toaster } from "sonner";
 import { validateSlug, slugify } from "@/lib/utils";
 import { cn } from "@/lib/utils";
@@ -44,6 +45,8 @@ export default function CadastroPage() {
   const [isAdult, setIsAdult] = useState(false);
 
   const [loading, setLoading] = useState(false);
+  /** E-mail para o qual o link foi; com ele, a tela vira "confira seu e-mail". */
+  const [enviadoPara, setEnviadoPara] = useState<string | null>(null);
 
   // Endereço escolhido na busca da tela inicial (`/cadastro?slug=`). Lido no
   // efeito, e não com `useSearchParams`, para a página não precisar de um
@@ -168,9 +171,8 @@ export default function CadastroPage() {
         ageConfirmed: ageConfirmed,
         isAdult,
       });
-      toast.success("Conta criada! Bem-vinda ao BeeSocial 🎉");
-      // O registro já devolve a sessão em cookie: dá para ir direto ao painel.
-      router.replace("/links");
+      // Sem sessão: a conta só abre depois do clique no link do e-mail.
+      setEnviadoPara(email);
     } catch (caught) {
       const mensagem = caught instanceof ApiError ? caught.message : "Não foi possível criar a conta.";
       toast.error(mensagem);
@@ -187,6 +189,9 @@ export default function CadastroPage() {
     <>
       <Toaster position="top-center" richColors />
       <CartaoDeAuth>
+          {enviadoPara ? (
+            <ConfiraSeuEmail email={enviadoPara} />
+          ) : (
           <div>
 
             {/* Progress Bar */}
@@ -512,6 +517,7 @@ export default function CadastroPage() {
               )}
             </AnimatePresence>
           </div>
+          )}
       </CartaoDeAuth>
     </>
   );

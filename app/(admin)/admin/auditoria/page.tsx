@@ -12,6 +12,7 @@ const NOMES: Record<string, string> = {
   "conta.criar": "Criou a conta",
   "conta.editar": "Editou a conta",
   "conta.apagar": "Apagou a conta",
+  "convite.reenviar": "Reenviou o convite",
   "plano.liberar": "Liberou o Pro",
   "plano.rebaixar": "Tirou o Pro",
   "sessoes.revogar": "Revogou sessões",

@@ -62,6 +62,21 @@ fim, marca-se o que entrou.
       (PR #42)
 - [x] Interface sem neon, tooltip próprio, favicon. (PR #20, #21, #30)
 
+### E-mail
+
+- [x] **Boas-vindas com confirmação obrigatória do e-mail** (sessão de
+      06/11, PR #48): Resend em produção, log em dev e teste; o cadastro não
+      abre sessão e o login recusa conta não confirmada (`email_nao_confirmado`)
+      com reenvio público por e-mail; token hasheado em `email_tokens`, 24 h;
+      `POST /v1/auth/email/confirmar` e `/reenviar`, ambas públicas; página
+      `/confirmar-email`; telas "confira seu e-mail" no cadastro e no login;
+      conta sem confirmar em 7 dias é apagada; contas anteriores marcadas
+      como confirmadas.
+- [x] **Convite da conta criada pelo admin**: só o e-mail; `password_hash`
+      nulo até a pessoa criar a senha em `/definir-senha` pelo link do
+      convite (7 dias, `purpose = set_password`), que confirma o e-mail e abre
+      sessão; admin reenvia convite com auditoria (`convite.reenviar`).
+
 ### Rastreamento
 
 - [x] Visualizações e cliques por perfil e canal em Postgres; robô não vira
@@ -107,8 +122,8 @@ a nota "Melhorias recomendadas — 2026-11-03".
 
 ### Produto
 
-- [ ] **Recuperação de senha e envio de e-mail.** A API não envia e-mail
-      nenhum; sem verificação de cadastro.
+- [ ] **Recuperação de senha.** O envio de e-mail e a tabela de tokens já
+      existem (06/11); falta a rota, o modelo e a tela.
 - [ ] **Assinatura Pro por Pix.** Pro só na mão.
 - [ ] **Ativação de domínio próprio sem SSH.** Certificado e nginx ainda são
       manuais; o painel admin não tem tela de domínios próprios (a de pool
@@ -157,4 +172,5 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | Data | Branch / PR | O que entrou |
 | --- | --- | --- |
 | 2026-11-06 | — | Snapshot inicial, a partir da `main` em `ba9313ba`. |
-| 2026-11-06 | `feat/admin-pool-de-dominios` (sem PR ainda) | Tela Domínios no admin: pool com listar, adicionar pausado, ativar, pausar, renomear; 5 rotas em `/v1/admin/dominios*`; 1 teste e2e novo (51 no total). |
+| 2026-11-06 | `feat/admin-pool-de-dominios`, PR #46 | Tela Domínios no admin: pool com listar, adicionar pausado, ativar, pausar, renomear; 5 rotas em `/v1/admin/dominios*`; 1 teste e2e novo (51 no total). |
+| 2026-11-06 | `feat/email-de-boas-vindas`, PR #48 | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |

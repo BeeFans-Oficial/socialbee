@@ -56,6 +56,16 @@ export interface Env {
    *  produção é o domínio público do bucket no R2; em dev, o RustFS publicado
    *  no host. */
   mediaPublicUrl: string;
+
+  /** E-mail transacional pelo Resend. Sem a chave (dev e teste) o e-mail
+   *  vai para o log em vez de sair; em produção ela é obrigatória. */
+  resendApiKey: string | null;
+  /** Remetente, no formato `Nome <endereco@dominio>`. O domínio precisa
+   *  estar verificado no Resend (DKIM e SPF). */
+  emailFrom: string;
+  /** Para onde vai a resposta da criadora, quando o remetente não é uma
+   *  caixa de verdade. */
+  emailReplyTo?: string;
 }
 
 class MissingEnvError extends Error {
@@ -160,6 +170,12 @@ export function loadEnv(): Env {
   if (!s3AccessKey) missing.push("S3_ACCESS_KEY");
   if (!s3SecretKey) missing.push("S3_SECRET_KEY");
 
+  // E-mail. Em produção faltar a chave derruba a subida: um cadastro sem
+  // e-mail de confirmação falha em silêncio, e ninguém descobre até uma
+  // criadora reclamar.
+  const resendApiKey = optional("RESEND_API_KEY") ?? null;
+  if (isProduction && !resendApiKey) missing.push("RESEND_API_KEY");
+
   if (missing.length > 0) throw new MissingEnvError(missing);
 
   cached = Object.freeze({
@@ -197,6 +213,10 @@ export function loadEnv(): Env {
     s3SecretKey: s3SecretKey as string,
     s3ForcePathStyle: bool("S3_FORCE_PATH_STYLE", true),
     mediaPublicUrl: (optional("MEDIA_PUBLIC_URL") ?? "http://localhost:9000/beesocial").replace(/\/+$/, ""),
+
+    resendApiKey,
+    emailFrom: optional("EMAIL_FROM") ?? "BeeSocial <links@beesocial.bio>",
+    emailReplyTo: optional("EMAIL_REPLY_TO"),
   });
 
   return cached;

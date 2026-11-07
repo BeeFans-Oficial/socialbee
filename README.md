@@ -147,9 +147,10 @@ layout `app/(admin)` repete a pergunta no servidor. Os dados vêm de
 própria — as duas checagens do app só decidem o que desenhar.
 
 O que o painel faz hoje: visão geral da plataforma, busca e detalhe de contas,
-criar, editar e apagar contas, liberar e tirar o Pro (substitui
-`plano:liberar`), revogar sessões, promover e rebaixar admins, e o pool de
-domínios (`/admin/dominios`): listar com páginas e visitas da semana,
+criar contas (só o e-mail: a pessoa recebe um convite e cria a própria senha
+pelo link, que vale 7 dias; o admin reenvia o convite se precisar), editar e
+apagar contas, liberar e tirar o Pro (substitui `plano:liberar`), revogar
+sessões, promover e rebaixar admins, e o pool de domínios (`/admin/dominios`): listar com páginas e visitas da semana,
 adicionar, pausar e reativar, renomear. Domínio novo nasce pausado — a linha no
 banco é o último passo, depois do DNS, do nginx e do certificado — e o admin
 ativa quando ele já abre em HTTPS. Pausar tira do sorteio e do seletor sem
@@ -207,6 +208,35 @@ terceiro e ninguém nos avisa quando a venda acontece lá.
 
 O diretório `.data/tracking/` do protótipo ficou obsoleto e **não** é migrado:
 os eventos gravados nele não vão para o banco.
+
+## E-mail
+
+Um e-mail só, no cadastro: boas-vindas com o botão de confirmar o endereço
+(`api/src/common/email/modelos/boas-vindas.ts`). O envio é pelo Resend, fora
+da transação e fora da resposta do cadastro — o provedor fora do ar não impede
+ninguém de criar conta. Sem `RESEND_API_KEY` (dev e teste) a mensagem vai para
+o log da API, com o link dentro; em produção a chave é obrigatória.
+
+**O cadastro não abre sessão.** A conta é gravada (e-mail e endereço da página
+ficam reservados), a tela diz "confira seu e-mail", e o login recusa com
+`email_nao_confirmado` até o clique no link — a tela de login então mostra
+"reenviar". Conta que não confirma em 7 dias é apagada de madrugada
+(`RetentionService.purgeUnconfirmedAccounts`), exceto as abertas pelo admin.
+As contas anteriores à migration `1791100000000` entraram pela regra antiga e
+foram marcadas como confirmadas com a data de criação.
+
+O link vale 24 horas; reenviar invalida o anterior; o segundo clique num link
+já usado responde sucesso, não erro. Tokens vão hasheados para `email_tokens`.
+O reenvio é público, por e-mail, e responde igual exista a conta ou não.
+
+**Conta aberta pelo admin** nasce sem senha (`password_hash` nulo) e recebe um
+convite (`modelos/convite.ts`) com o link de `/definir-senha`, token com
+`purpose = 'set_password'` e 7 dias de validade. Criar a senha pelo link
+confirma o e-mail e abre a sessão. Sem senha o login falha como senha errada,
+de propósito. É o mesmo mecanismo que a recuperação de senha vai usar.
+
+Remetente `EMAIL_FROM` (default `BeeSocial <links@beesocial.bio>`, domínio
+verificado no Resend em 06/11/2026) e `EMAIL_REPLY_TO` opcional.
 
 ## Planos Free e Pro
 
@@ -272,6 +302,8 @@ só dela. Domínio próprio nunca entra no sorteio do cadastro.
 ## O que ainda não existe
 
 - **Recuperação de senha.** A tela "Esqueci minha senha" não aponta para nada.
+  A base já existe: o envio de e-mail (`api/src/common/email/`, Resend) e a
+  tabela `email_tokens`, com `purpose` pronto para `reset_password`.
 - **Upload de arquivo.** Feito: avatar, capa, foto da página de chegada e
   miniatura sobem em multipart (`POST /me/profile/images/:tipo`,
   `POST /me/links/:id/image`), são redimensionadas pelo `sharp` e vão para um
