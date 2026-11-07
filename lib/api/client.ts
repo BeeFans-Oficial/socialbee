@@ -40,6 +40,7 @@ import type {
   ReportParams,
   ReportResponse,
   ApiRevisao,
+  ApiSaudeDaPagina,
   AdminRevisaoPendente,
   ApiVerificacaoDeLink,
 } from "./types";
@@ -288,15 +289,17 @@ export const api = {
   linkReport: (linkId: string, days: number) =>
     request<{ days: number; report: ApiLinkReport }>(`/me/tracking/links/${linkId}?days=${days}`),
 
-  // ------------------------------------------------------ revisão da Meta
+  // ------------------------------------------------------ saúde da página
+  saude: () => request<{ paginas: ApiSaudeDaPagina[] }>("/me/saude"),
+  checarTodas: () => request<{ paginas: ApiSaudeDaPagina[] }>("/me/saude/checar", { method: "POST" }),
   /** Roda o simulador na página. Demora alguns segundos: são dezenas de
    *  requisições feitas pela API contra o próprio site. */
-  revisarPagina: (profileId: string) => request<ApiRevisao>(`/me/profiles/${profileId}/revisao`, { method: "POST" }),
+  checarPagina: (profileId: string) => request<ApiRevisao>(`/me/profiles/${profileId}/revisao`, { method: "POST" }),
   /** Um link só, como a Meta o seguiria. Instantâneo. */
   verificarLink: (linkId: string) => request<ApiVerificacaoDeLink>(`/me/links/${linkId}/verificar`, { method: "POST" }),
-  historicoDeRevisoes: (profileId: string) =>
+  historicoDeChecagens: (profileId: string) =>
     request<{ revisoes: ApiRevisao[] }>(`/me/profiles/${profileId}/revisao/historico`),
-  ultimaRevisao: (profileId: string) => request<{ revisao: ApiRevisao | null }>(`/me/profiles/${profileId}/revisao`),
+  ultimaChecagem: (profileId: string) => request<{ revisao: ApiRevisao | null }>(`/me/profiles/${profileId}/revisao`),
 
   // -------------------------------------------------------------- painel admin
   // Toda rota aqui exige `role = 'admin'` na API (`RolesGuard`); para uma

@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, ArrowRight, Loader2, ShieldCheck, X } from "lucide-react";
 
-import { COR_DO_TEXTO, ICONE_DO_ESTADO } from "@/components/painel/RevisaoDaMeta";
+import { COR_DO_TEXTO, ICONE_DO_ESTADO } from "@/components/painel/saude/Pecas";
 import type { ApiItemDaRevisao, EstadoDaRevisao } from "@/lib/api/types";
 import { DURACAO, SAIDA, SUAVE } from "@/lib/movimento";
 import { cn } from "@/lib/utils";
@@ -272,7 +272,7 @@ export function VistaExplodida({
         <motion.div
           className={cn("flex flex-col gap-3", largo ? "absolute right-5 top-14 w-[210px]" : "relative px-4 pt-[296px] pb-4")}
           role="tablist"
-          aria-label="Camadas da revisão"
+          aria-label="Camadas da página"
           animate={{ opacity: imersa ? 0 : 1, pointerEvents: imersa ? "none" : "auto" }}
           transition={{ duration: DURACAO.rapida }}
         >

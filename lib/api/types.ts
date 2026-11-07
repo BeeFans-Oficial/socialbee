@@ -300,7 +300,7 @@ export interface TrackingReport {
   options: { links: string[]; sources: string[]; arrivalHosts: string[]; devices: string[]; countries: string[] };
 }
 
-// ── Simulador da revisão da Meta ──────────────────────────────────────────────
+// ── Saúde da página (o simulador da revisão da Meta) ──────────────────────────
 
 export type EstadoDaRevisao = "verde" | "amarelo" | "vermelho" | "neutro";
 
@@ -322,6 +322,18 @@ export interface ApiRevisao {
   ranAt: string;
   /** O que o simulador não cobre. */
   limites: string[];
+}
+
+/** Uma linha da tela Saúde: a página e a última checagem dela, se houve. */
+export interface ApiSaudeDaPagina {
+  id: string;
+  slug: string;
+  displayName: string;
+  host: string;
+  published: boolean;
+  isAdult: boolean;
+  createdAt: string;
+  revisao: ApiRevisao | null;
 }
 
 /** "Verificar destino" de um link: instantâneo, sem histórico. */

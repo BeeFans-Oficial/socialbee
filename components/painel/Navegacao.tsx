@@ -14,6 +14,7 @@ import {
   LogOut,
   MoreHorizontal,
   Settings,
+  ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
 
@@ -46,6 +47,7 @@ export interface ItemDoPainel {
 export const ITENS: ItemDoPainel[] = [
   { href: "/paginas", label: "Páginas", curto: "Páginas", icone: LayoutGrid },
   { href: "/links", label: "Links", curto: "Links", icone: Link2 },
+  { href: "/saude", label: "Saúde", curto: "Saúde", icone: ShieldCheck },
   { href: "/analytics", label: "Analytics", curto: "Analytics", icone: BarChart2, pro: true },
   { href: "/dominios", label: "Domínio próprio", curto: "Domínio", icone: Globe, pro: true },
 ];
@@ -54,9 +56,9 @@ export const ITENS_DA_CONTA: ItemDoPainel[] = [
   { href: "/configuracoes", label: "Configurações", curto: "Conta", icone: Settings },
 ];
 
-/** Os três que cabem na barra inferior; o resto vai para "Mais". */
-const NA_BARRA_INFERIOR = ITENS.slice(0, 3);
-const NO_MAIS = [...ITENS.slice(3), ...ITENS_DA_CONTA];
+/** Os quatro que cabem na barra inferior; o resto vai para "Mais". */
+const NA_BARRA_INFERIOR = ITENS.slice(0, 4);
+const NO_MAIS = [...ITENS.slice(4), ...ITENS_DA_CONTA];
 
 /** `/paginas/<id>` e `/links/<id>` são editores: prévia + painel, precisam de
  *  largura. É onde a barra lateral vira trilho. */
@@ -73,6 +75,7 @@ export function tituloDaRota(pathname: string): string {
   if (/^\/paginas\/[^/]+$/.test(pathname)) return "Editar página";
   if (pathname === "/links/novo") return "Novo link";
   if (/^\/links\/[^/]+$/.test(pathname)) return "Editar link";
+  if (/^\/saude\/[^/]+$/.test(pathname)) return "Saúde da página";
   return [...ITENS, ...ITENS_DA_CONTA].find((i) => itemAtivo(pathname, i.href))?.label ?? "";
 }
 
@@ -202,7 +205,7 @@ function Entrada({
 // ── Celular ───────────────────────────────────────────────────────────────────
 
 /**
- * Barra inferior: as três entradas mais usadas e "Mais", que abre uma folha
+ * Barra inferior: as quatro entradas mais usadas e "Mais", que abre uma folha
  * com o resto (domínio, configurações, ver a página, sair). Fica em toda
  * tela do painel, inclusive nos editores — sair de um subfluxo nunca depende
  * de achar uma seta.
@@ -219,7 +222,7 @@ export function BarraInferior() {
         data-tour="barra-inferior"
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-bee-rail/95 backdrop-blur border-t border-bee-line pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="grid grid-cols-4 h-16">
+        <div className="grid grid-cols-5 h-16">
           {NA_BARRA_INFERIOR.map((item) => {
             const Icone = item.icone;
             const ativo = itemAtivo(pathname, item.href);
@@ -229,7 +232,7 @@ export function BarraInferior() {
                 href={item.href}
                 aria-current={ativo ? "page" : undefined}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200",
+                  "relative flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors duration-200",
                   ativo ? "text-white" : "text-white/50 active:text-white",
                 )}
               >
@@ -244,7 +247,7 @@ export function BarraInferior() {
             aria-haspopup="dialog"
             aria-expanded={maisAberto}
             className={cn(
-              "relative flex flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors duration-200",
+              "relative flex flex-col items-center justify-center gap-1 text-[10px] font-medium transition-colors duration-200",
               maisAtivo ? "text-white" : "text-white/50 active:text-white",
             )}
           >

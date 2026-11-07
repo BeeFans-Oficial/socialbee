@@ -38,6 +38,29 @@ export class RevisaoController {
   }
 }
 
+/**
+ * A tela Saúde: todas as páginas da conta com a última checagem, e o
+ * "Checar todas". O segundo custa uma rodada por página, então é mais
+ * raro que o botão de uma página só.
+ */
+@Controller("me/saude")
+@SemPagina()
+export class SaudeController {
+  constructor(private readonly revisao: RevisaoService) {}
+
+  @Get()
+  async paginas(@CurrentUser() auth: AuthContext) {
+    return { paginas: await this.revisao.saudeDaConta(auth.userId) };
+  }
+
+  @Post("checar")
+  @HttpCode(200)
+  @Throttle({ default: { limit: loadEnv().nodeEnv === "test" ? 1000 : 2, ttl: 600_000 } })
+  async checarTodas(@CurrentUser() auth: AuthContext) {
+    return { paginas: await this.revisao.checarTodas(auth.userId) };
+  }
+}
+
 /** "Verificar destino" de um link, na tela de Links. Instantâneo, sem gravar. */
 @Controller("me/links/:id/verificar")
 @SemPagina()

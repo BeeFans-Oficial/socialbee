@@ -59,13 +59,13 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "barra-inferior",
         titulo: "Para onde ir",
-        texto: "Páginas, Links e Analytics ficam sempre aqui embaixo. Em Mais estão domínio, conta e sair.",
+        texto: "Páginas, Links, Saúde e Analytics ficam sempre aqui embaixo. Em Mais estão domínio, conta e sair.",
         so: "celular",
       },
       {
         alvo: "barra-lateral",
         titulo: "Para onde ir",
-        texto: "Páginas, Links, Analytics e Domínio próprio. Configurações e sair ficam no menu da conta, no topo.",
+        texto: "Páginas, Links, Saúde, Analytics e Domínio próprio. Configurações e sair ficam no menu da conta, no topo.",
         so: "computador",
       },
     ],
@@ -205,6 +205,28 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "aparencia-do-botao",
         titulo: "A cara do botão",
         texto: "Estilo e cor valem só para este botão. Sem escolha, ele segue o visual da página.",
+      },
+    ],
+  },
+  {
+    id: "saude",
+    rota: /^\/saude$/,
+    nome: "Saúde",
+    passos: [
+      {
+        alvo: "resumo-da-saude",
+        titulo: "Suas páginas, conferidas",
+        texto: "Quantas estão verdes, quantas pedem correção e quantas nunca foram checadas. Verde é 'nenhum sinal do que derruba contas', não aprovação da Meta.",
+      },
+      {
+        alvo: "lista-da-saude",
+        titulo: "Uma linha por página",
+        texto: "A última checagem, quando foi e o que falta. Clique na linha para ver as quatro camadas e o histórico.",
+      },
+      {
+        alvo: "checar-todas",
+        titulo: "Checar todas de uma vez",
+        texto: "Roda a checagem em cada página. Leva alguns segundos por página; a automática roda sozinha todo dia às 5h.",
       },
     ],
   },

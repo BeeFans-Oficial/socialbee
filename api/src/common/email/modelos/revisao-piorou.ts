@@ -1,8 +1,8 @@
 import type { Mensagem } from "../email.service";
 
 /**
- * Aviso de que a revisão da madrugada ficou vermelha para uma página que
- * não estava. Curto: o que está errado, o que fazer, o link do editor.
+ * Aviso de que a checagem da madrugada ficou vermelha para uma página que
+ * não estava. Curto: o que está errado, o que fazer, o link da tela Saúde.
  */
 export function revisaoPiorou(input: {
   para: string;
@@ -10,7 +10,7 @@ export function revisaoPiorou(input: {
   slug: string;
   host: string;
   problemas: { titulo: string; acao: string }[];
-  linkDoEditor: string;
+  linkDaSaude: string;
   siteUrl: string;
 }): Mensagem {
   const nome = input.nome?.trim() || null;
@@ -20,13 +20,13 @@ export function revisaoPiorou(input: {
   const texto = [
     nome ? `Oi, ${nome}!` : "Oi!",
     "",
-    `A revisão automática da sua página ${input.host}/${input.slug} encontrou o que já derrubou contas do Instagram:`,
+    `A checagem automática da sua página ${input.host}/${input.slug} encontrou o que já derrubou contas do Instagram:`,
     "",
     lista,
     "",
-    `Corrija no editor: ${input.linkDoEditor}`,
+    `Veja o que corrigir: ${input.linkDaSaude}`,
     "",
-    "Depois de corrigir, rode a revisão de novo na tela da página. Enquanto estiver vermelha, evite colar o link numa bio nova.",
+    "Depois de corrigir, cheque de novo na tela Saúde. Enquanto estiver vermelha, evite colar o link numa bio nova.",
     "",
     `BeeSocial · ${input.siteUrl}`,
   ].join("\n");
@@ -48,15 +48,15 @@ export function revisaoPiorou(input: {
     <tr><td style="padding:8px 28px 0;font-family:Helvetica,Arial,sans-serif;color:#ffffff;">
       <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;">${nome ? `Oi, ${escapar(nome)}. ` : ""}Sua página precisa de atenção.</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#c9c9c9;">
-        A revisão automática de <strong style="color:#fff;">${escapar(input.host)}/${escapar(input.slug)}</strong> encontrou o que já derrubou contas do Instagram:
+        A checagem automática de <strong style="color:#fff;">${escapar(input.host)}/${escapar(input.slug)}</strong> encontrou o que já derrubou contas do Instagram:
       </p>
       <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.5;color:#c9c9c9;">${itens}</ul>
     </td></tr>
     <tr><td align="center" style="padding:4px 28px 24px;">
-      <a href="${escapar(input.linkDoEditor)}" style="display:inline-block;background:#FF3C6E;color:#ffffff;text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;">Corrigir no editor</a>
+      <a href="${escapar(input.linkDaSaude)}" style="display:inline-block;background:#FF3C6E;color:#ffffff;text-decoration:none;font-family:Helvetica,Arial,sans-serif;font-size:15px;font-weight:700;padding:14px 28px;border-radius:10px;">Ver o que corrigir</a>
     </td></tr>
     <tr><td style="padding:0 28px 28px;font-family:Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8a8a8a;">
-      Depois de corrigir, rode a revisão de novo na tela da página. Enquanto estiver vermelha, evite colar o link numa bio nova.
+      Depois de corrigir, cheque de novo na tela Saúde. Enquanto estiver vermelha, evite colar o link numa bio nova.
     </td></tr>
   </table>
   <p style="margin:16px 0 0;font-family:Helvetica,Arial,sans-serif;font-size:12px;color:#6b6b6b;">BeeSocial · <a href="${escapar(input.siteUrl)}" style="color:#6b6b6b;">${escapar(input.siteUrl)}</a></p>

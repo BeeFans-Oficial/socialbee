@@ -14,8 +14,8 @@ import { cn } from "@/lib/utils";
  * "Verificar destino" de um link, no editor de Links.
  *
  * Segue o botão como o navegador da Meta seguiria, até o host final, e diz
- * onde chega e com que régua: a mesma da revisão da página, para um link só
- * e na hora. Não grava nada; o registro é a revisão da página.
+ * onde chega e com que régua: a mesma da saúde da página, para um link só
+ * e na hora. Não grava nada; o registro é a checagem da página.
  */
 export function VerificarDestino({ linkId, destino }: { linkId: string; destino: string }) {
   const [resultado, setResultado] = useState<ApiVerificacaoDeLink | null>(null);
