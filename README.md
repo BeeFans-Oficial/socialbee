@@ -238,6 +238,17 @@ de propósito. É o mesmo mecanismo que a recuperação de senha vai usar.
 Remetente `EMAIL_FROM` (default `BeeSocial <links@beesocial.bio>`, domínio
 verificado no Resend em 06/11/2026) e `EMAIL_REPLY_TO` opcional.
 
+## Analytics
+
+`GET /me/tracking/report` aceita a janela (`days=7|30|90` ou `de`+`ate`, até
+90 dias) e recortes por `link`, `origem`, `chegada` (domínio do pool),
+`aparelho`, `pais` e `app=sim|nao`. Os filtros são aplicados em memória sobre
+os eventos da janela (`api/src/tracking/tracking.service.ts`); o volume por
+página é pequeno, e o dia em que pesar a contagem desce para o SQL sem mudar o
+contrato. A resposta traz a janela anterior de mesmo tamanho (`previous`), com
+os mesmos filtros, e as opções de cada filtro (`options`) montadas antes dos
+filtros. Na tela, o recorte vive na URL.
+
 ## Planos Free e Pro
 
 As regras ficam em `api/src/plans/plans.ts`. Uma conta é Pro enquanto

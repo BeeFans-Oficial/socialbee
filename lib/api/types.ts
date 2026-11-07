@@ -287,7 +287,38 @@ export interface TrackingReport {
   bySource: Breakdown[];
   byCampaign: Breakdown[];
   byLink: Array<Breakdown & { linkId: string; channel?: string }>;
+  byDevice: Breakdown[];
+  byCountry: Breakdown[];
+  /** Por domínio de chegada, visitas e cliques juntos. */
+  byArrivalHost: Breakdown[];
   daily: Array<{ date: string; views: number; clicks: number }>;
+  /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
+  previous: { from: string; to: string; views: number; clicks: number; inAppClicks: number; clickRate: number };
+  filters: ReportFilters;
+  /** O que existe para filtrar na janela, antes dos filtros. */
+  options: { links: string[]; sources: string[]; arrivalHosts: string[]; devices: string[]; countries: string[] };
+}
+
+export interface ReportFilters {
+  links?: string[];
+  sources?: string[];
+  arrivalHosts?: string[];
+  devices?: string[];
+  countries?: string[];
+  inApp?: boolean;
+}
+
+/** Como a tela pede o relatório. `days` ou `de`+`ate`; o resto é recorte. */
+export interface ReportParams {
+  days?: number;
+  de?: string;
+  ate?: string;
+  link?: string;
+  origem?: string;
+  chegada?: string;
+  aparelho?: string;
+  pais?: string;
+  app?: "sim" | "nao";
 }
 
 /** Métricas de UM link (`GET /me/tracking/links/:id`). */
@@ -309,6 +340,9 @@ export interface ApiLinkReport {
 
 export interface ReportResponse {
   days: number;
+  /** Dias da janela, AAAA-MM-DD, em UTC. */
+  de: string;
+  ate: string;
   report: TrackingReport;
   counters: Record<string, LinkCounters>;
 }

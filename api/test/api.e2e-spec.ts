@@ -619,6 +619,58 @@ describe("rastreamento", () => {
     expect(body.report.byCampaign[0].key).toBe("stories");
     // Série contínua: todos os dias da janela, inclusive os zerados.
     expect(body.report.daily).toHaveLength(7);
+    expect(body.de).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    // A janela anterior vem junto, vazia aqui, e as opções de filtro
+    // refletem o que a janela tem.
+    expect(body.report.previous.clicks).toBe(0);
+    expect(body.report.options.sources).toEqual(["(direto)", "instagram"]); // a visita entrou direto; o clique, do Instagram
+    expect(body.report.options.devices).toEqual(["mobile"]);
+    expect(body.report.byDevice[0]).toMatchObject({ key: "mobile", clicks: 1 });
+  });
+
+  it("recorta o relatório por link, origem, aparelho e app, e aceita janela livre", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: lista } = await servidor.get("/v1/me/links").set(auth).expect(200);
+    const link = lista.links[0];
+
+    // Por link: só os cliques são cortados; a visita (que não tem link) fica.
+    const porLink = await servidor.get(`/v1/me/tracking/report?days=7&link=${link.id}`).set(auth).expect(200);
+    expect(porLink.body.report.clicks).toBe(1);
+    expect(porLink.body.report.views).toBe(1);
+    const outroLink = await servidor.get(`/v1/me/tracking/report?days=7&link=00000000-0000-4000-8000-000000000000`).set(auth).expect(200);
+    expect(outroLink.body.report.clicks).toBe(0);
+    expect(outroLink.body.report.views).toBe(1);
+
+    // Por origem, aparelho e app: vale para visita e clique.
+    const tiktok = await servidor.get("/v1/me/tracking/report?days=7&origem=tiktok").set(auth).expect(200);
+    expect(tiktok.body.report.clicks).toBe(0);
+    expect(tiktok.body.report.options.sources).toEqual(["(direto)", "instagram"]);
+    const instagram = await servidor.get("/v1/me/tracking/report?days=7&origem=instagram").set(auth).expect(200);
+    expect(instagram.body.report.clicks).toBe(1);
+    const desktop = await servidor.get("/v1/me/tracking/report?days=7&aparelho=desktop").set(auth).expect(200);
+    expect(desktop.body.report.clicks).toBe(0);
+    expect(desktop.body.report.views).toBe(0);
+    const foraDeApp = await servidor.get("/v1/me/tracking/report?days=7&app=nao").set(auth).expect(200);
+    expect(foraDeApp.body.report.clicks).toBe(0);
+    const dentroDeApp = await servidor.get("/v1/me/tracking/report?days=7&app=sim").set(auth).expect(200);
+    expect(dentroDeApp.body.report.clicks).toBe(1);
+    expect(dentroDeApp.body.report.filters).toMatchObject({ inApp: true });
+
+    // Janela livre, em dias UTC.
+    const hoje = new Date().toISOString().slice(0, 10);
+    const tresDiasAtras = new Date(Date.now() - 3 * 86_400_000).toISOString().slice(0, 10);
+    const livre = await servidor.get(`/v1/me/tracking/report?de=${tresDiasAtras}&ate=${hoje}`).set(auth).expect(200);
+    expect(livre.body.days).toBe(4);
+    expect(livre.body.de).toBe(tresDiasAtras);
+    expect(livre.body.report.daily).toHaveLength(4);
+    expect(livre.body.report.clicks).toBe(1);
+
+    // Janela inválida: datas trocadas, formato errado, mais de 90 dias.
+    await servidor.get(`/v1/me/tracking/report?de=${hoje}&ate=${tresDiasAtras}`).set(auth).expect(400);
+    await servidor.get(`/v1/me/tracking/report?de=ontem&ate=${hoje}`).set(auth).expect(400);
+    const longe = new Date(Date.now() - 120 * 86_400_000).toISOString().slice(0, 10);
+    const grande = await servidor.get(`/v1/me/tracking/report?de=${longe}&ate=${hoje}`).set(auth).expect(400);
+    expect(grande.body.error.code).toBe("periodo_invalido");
   });
 
   it("mostra as métricas de um link só, e recusa link de outra conta", async () => {

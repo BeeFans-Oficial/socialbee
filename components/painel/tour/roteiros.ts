@@ -219,9 +219,9 @@ export const ROTEIROS: Roteiro[] = [
         texto: "Visitas, cliques e quantos vieram de dentro de um aplicativo. Robôs e prévias de link não contam.",
       },
       {
-        alvo: "periodo",
-        titulo: "Mude o período",
-        texto: "7, 30 ou 90 dias. Os números e o gráfico acompanham.",
+        alvo: "filtros",
+        titulo: "Período e recortes",
+        texto: "7, 30, 90 dias ou duas datas. Depois, só um link, uma origem, um aparelho ou quem veio de dentro de app. Os números e o gráfico acompanham, e o recorte fica no endereço da página.",
       },
       {
         alvo: "grafico",

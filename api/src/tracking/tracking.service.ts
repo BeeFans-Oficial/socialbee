@@ -11,6 +11,8 @@ import type {
   ResolvedLink,
   TrackingEventRecord,
   TrackingReport,
+  ReportFilters,
+  ReportOptions,
 } from "./types";
 
 /**
@@ -114,14 +116,38 @@ export class TrackingService {
     });
   }
 
-  async report(profileId: string, range: DateRange): Promise<TrackingReport> {
-    const [events, counters] = await Promise.all([
+  /**
+   * O relatório da janela, com recortes.
+   *
+   * Os eventos da janela vêm inteiros do banco e os filtros são aplicados
+   * aqui: o volume por página é de centenas a poucos milhares de eventos
+   * em 90 dias, e contar em memória custa menos que uma consulta por quebra.
+   * O dia em que isto pesar, a contagem desce para o SQL com `GROUP BY` sem
+   * mudar o contrato.
+   *
+   * A janela anterior (mesmo tamanho, mesmos filtros) vem junto, para os
+   * cartões mostrarem variação medida em vez de "últimos N dias".
+   */
+  async report(profileId: string, range: DateRange, filters: ReportFilters = {}): Promise<TrackingReport> {
+    const tamanho = range.to.getTime() - range.from.getTime();
+    const anterior: DateRange = { from: new Date(range.from.getTime() - tamanho - 1), to: new Date(range.from.getTime() - 1) };
+
+    const [eventos, eventosAnteriores, counters] = await Promise.all([
       this.store.query(profileId, range),
+      this.store.query(profileId, anterior),
       this.store.counters(profileId),
     ]);
 
-    const clicks = events.filter((event) => event.type === "click");
-    const views = events.filter((event) => event.type === "view");
+    const options: ReportOptions = {
+      links: distintos(eventos, (e) => e.linkId),
+      sources: distintos(eventos, origemDe),
+      arrivalHosts: distintos(eventos, (e) => e.arrivalHost),
+      devices: distintos(eventos, (e) => e.client.device),
+      countries: distintos(eventos, (e) => e.client.country),
+    };
+
+    const { views, clicks } = separar(aplicarFiltros(eventos, filters), filters);
+    const janelaAnterior = separar(aplicarFiltros(eventosAnteriores, filters), filters);
 
     const botHits = Object.values(counters).reduce((sum, counter) => sum + counter.botHits, 0);
     const inAppClicks = clicks.filter((event) => event.client.inAppBrowser).length;
@@ -138,17 +164,27 @@ export class TrackingService {
       byChannel: tally(clicks, (event) => event.channel),
       // `(direto)` em vez de omitir: uma quebra que esconde a maior fatia
       // engana mais do que informa.
-      bySource: tally(
-        clicks,
-        (event) => event.attribution.source ?? event.attribution.referrerHost ?? "(direto)",
-      ),
+      bySource: tally(clicks, origemDe),
       byCampaign: tally(clicks, (event) => event.attribution.campaign),
       byLink: tally(clicks, (event) => event.linkId).map((row) => ({
         ...row,
         linkId: row.key,
         channel: clicks.find((event) => event.linkId === row.key)?.channel,
       })),
+      byDevice: tally(clicks, (event) => event.client.device),
+      byCountry: tally(clicks, (event) => event.client.country),
+      byArrivalHost: tally([...views, ...clicks], (event) => event.arrivalHost),
       daily: daily(views, clicks, range),
+      previous: {
+        from: anterior.from.toISOString(),
+        to: anterior.to.toISOString(),
+        views: janelaAnterior.views.length,
+        clicks: janelaAnterior.clicks.length,
+        inAppClicks: janelaAnterior.clicks.filter((event) => event.client.inAppBrowser).length,
+        clickRate: janelaAnterior.views.length ? janelaAnterior.clicks.length / janelaAnterior.views.length : 0,
+      },
+      filters,
+      options,
     };
   }
 
@@ -254,4 +290,45 @@ function daily(
   }
 
   return [...buckets.entries()].map(([date, value]) => ({ date, ...value }));
+}
+
+/** A origem de um evento, como a tela mostra: utm_source, senão o site de
+ *  onde veio, senão "(direto)". A mesma chave serve para quebrar e filtrar. */
+function origemDe(event: TrackingEventRecord): string {
+  return event.attribution.source ?? event.attribution.referrerHost ?? "(direto)";
+}
+
+function distintos(events: TrackingEventRecord[], key: (event: TrackingEventRecord) => string | undefined): string[] {
+  const vistos = new Set<string>();
+  for (const event of events) {
+    const value = key(event);
+    if (value) vistos.add(value);
+  }
+  return [...vistos].sort((a, b) => a.localeCompare(b));
+}
+
+/** Filtros que valem para visita e clique. O de link fica em `separar`. */
+function aplicarFiltros(events: TrackingEventRecord[], f: ReportFilters): TrackingEventRecord[] {
+  const sources = f.sources?.length ? new Set(f.sources) : null;
+  const hosts = f.arrivalHosts?.length ? new Set(f.arrivalHosts) : null;
+  const devices = f.devices?.length ? new Set(f.devices) : null;
+  const countries = f.countries?.length ? new Set(f.countries) : null;
+  return events.filter((event) => {
+    if (sources && !sources.has(origemDe(event))) return false;
+    if (hosts && !hosts.has(event.arrivalHost ?? "")) return false;
+    if (devices && !devices.has(event.client.device)) return false;
+    if (countries && !countries.has(event.client.country ?? "")) return false;
+    if (f.inApp === true && !event.client.inAppBrowser) return false;
+    if (f.inApp === false && event.client.inAppBrowser) return false;
+    return true;
+  });
+}
+
+/** Visitas e cliques; o filtro de link só corta os cliques. */
+function separar(events: TrackingEventRecord[], f: ReportFilters): { views: TrackingEventRecord[]; clicks: TrackingEventRecord[] } {
+  const links = f.links?.length ? new Set(f.links) : null;
+  return {
+    views: events.filter((event) => event.type === "view"),
+    clicks: events.filter((event) => event.type === "click" && (!links || links.has(event.linkId ?? ""))),
+  };
 }
