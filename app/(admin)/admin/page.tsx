@@ -56,7 +56,7 @@ export default function VisaoGeralPage() {
 
           <motion.div variants={LISTA} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <motion.div variants={ITEM_DA_LISTA}>
-              <StatAdmin icone={ShieldAlert} rotulo="Páginas em vermelho" valor={dados.revisoes?.vermelhas ?? 0} nota="revisão da Meta" />
+              <StatAdmin icone={ShieldAlert} rotulo="Páginas em vermelho" valor={dados.revisoes?.vermelhas ?? 0} nota="saúde da página" />
             </motion.div>
             <motion.div variants={ITEM_DA_LISTA}>
               <StatAdmin icone={Activity} rotulo="Visitas hoje" valor={dados.hoje.visitas} nota="humanas, sem robô" />
@@ -76,7 +76,7 @@ export default function VisaoGeralPage() {
 
           {revisoes.length > 0 && (
             <motion.div variants={ITEM_DA_LISTA}>
-              <CartaoAdmin titulo="Revisão da Meta — páginas fora do verde">
+              <CartaoAdmin titulo="Saúde das páginas — fora do verde">
                 <ul className="divide-y divide-admin-line text-sm">
                   {revisoes.slice(0, 8).map((r) => (
                     <li key={r.profileId} className="flex items-center gap-3 py-2">

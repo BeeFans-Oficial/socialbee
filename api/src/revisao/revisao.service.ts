@@ -91,6 +91,18 @@ export interface RevisaoPendente {
   email: string;
 }
 
+/** Uma linha da tela Saúde: a página e a última checagem dela, se houve. */
+export interface SaudeDaPagina {
+  id: string;
+  slug: string;
+  displayName: string;
+  host: string;
+  published: boolean;
+  isAdult: boolean;
+  createdAt: string;
+  revisao: Revisao | null;
+}
+
 type Buscar = (url: string, init?: RequestInit) => Promise<Response>;
 
 interface PaginaParaRevisar {
@@ -175,6 +187,84 @@ export class RevisaoService {
       [profileId, Math.min(Math.max(limite, 1), 200)],
     );
     return linhas.map((r) => ({ id: r.id, profileId, veredito: r.verdict, trigger: r.trigger, itens: r.items, ranAt: new Date(r.ran_at).toISOString(), limites: LIMITES_DO_SIMULADOR }));
+  }
+
+  /**
+   * Para a tela Saúde: toda página da conta com a última checagem de cada
+   * uma, numa consulta só (o `LATERAL` pega a rodada mais recente por
+   * página). Quem precisa de ação vem primeiro: vermelhas, amarelas, nunca
+   * checadas; as verdes no fim.
+   */
+  async saudeDaConta(userId: string): Promise<SaudeDaPagina[]> {
+    const linhas = await this.db.query<
+      {
+        id: string;
+        slug: string;
+        display_name: string;
+        host: string | null;
+        published: boolean;
+        is_adult: boolean;
+        created_at: Date;
+        review_id: string | null;
+        verdict: Veredito | null;
+        trigger: Gatilho | null;
+        items: ItemDaRevisao[] | null;
+        ran_at: Date | null;
+      }[]
+    >(
+      `
+      SELECT p.id, p.slug, p.display_name, d.host, p.published, p.is_adult, p.created_at,
+             r.id AS review_id, r.verdict, r.trigger, r.items, r.ran_at
+        FROM profiles p
+        LEFT JOIN domains d ON d.id = p.domain_id
+        LEFT JOIN LATERAL (
+          SELECT id, verdict, trigger, items, ran_at
+            FROM page_reviews
+           WHERE profile_id = p.id
+           ORDER BY ran_at DESC
+           LIMIT 1
+        ) r ON true
+       WHERE p.user_id = $1
+       ORDER BY CASE r.verdict WHEN 'vermelho' THEN 0 WHEN 'amarelo' THEN 1 WHEN 'verde' THEN 3 ELSE 2 END,
+                p.created_at
+      `,
+      [userId],
+    );
+    return linhas.map((l) => ({
+      id: l.id,
+      slug: l.slug,
+      displayName: l.display_name,
+      host: l.host ?? hostPadrao(),
+      published: l.published,
+      isAdult: l.is_adult,
+      createdAt: new Date(l.created_at).toISOString(),
+      revisao:
+        l.review_id && l.verdict && l.trigger && l.items && l.ran_at
+          ? { id: l.review_id, profileId: l.id, veredito: l.verdict, trigger: l.trigger, itens: l.items, ranAt: new Date(l.ran_at).toISOString(), limites: LIMITES_DO_SIMULADOR }
+          : null,
+    }));
+  }
+
+  /**
+   * "Checar todas": uma rodada em cada página da conta, duas por vez, e a
+   * tela Saúde já atualizada na resposta. Uma página que falhar não derruba
+   * as outras: ela volta com a última checagem que tinha.
+   */
+  async checarTodas(userId: string): Promise<SaudeDaPagina[]> {
+    const paginas = await this.saudeDaConta(userId);
+    const fila = [...paginas];
+    const trabalhar = async () => {
+      for (let p = fila.shift(); p; p = fila.shift()) {
+        try {
+          const pagina = await this.carregar(p.id, userId);
+          if (pagina) await this.executarEGuardar(pagina, "manual");
+        } catch (erro) {
+          this.logger.warn(`checar todas: ${p.host}/${p.slug} falhou: ${(erro as Error).message}`);
+        }
+      }
+    };
+    await Promise.all([trabalhar(), trabalhar()]);
+    return this.saudeDaConta(userId);
   }
 
   /** Para o admin: a última revisão de cada página que não está verde. */
@@ -647,7 +737,7 @@ export class RevisaoService {
         slug: pagina.slug,
         host: pagina.host,
         problemas: revisao.itens.filter((i) => i.estado === "vermelho").map((i) => ({ titulo: i.titulo, acao: i.acao ?? "" })),
-        linkDoEditor: `${env.publicSiteUrl}/paginas/${pagina.id}`,
+        linkDaSaude: `${env.publicSiteUrl}/saude/${pagina.id}`,
         siteUrl: env.publicSiteUrl,
       }),
     );

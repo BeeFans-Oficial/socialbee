@@ -77,7 +77,7 @@ fim, marca-se o que entrou.
       convite (7 dias, `purpose = set_password`), que confirma o e-mail e abre
       sessão; admin reenvia convite com auditoria (`convite.reenviar`).
 
-### Revisão da Meta
+### Saúde da página (o simulador da revisão da Meta)
 
 - [x] **Simulador da revisão da Meta** (sessão de 06/11, PR #50): quatro
       verificações (consistência entre 5 identidades, destino final de cada
@@ -92,6 +92,17 @@ fim, marca-se o que entrou.
       do admin; "Verificar destino" por link no editor
       de Links. 5 testes e2e com site de mentira no lugar do `fetch`; 4
       unitários.
+- [x] **Saúde no painel** (sessão de 07/11, `feat/saude-no-painel`): a
+      revisão vira "Saúde" no vocabulário do painel. Item "Saúde" na barra
+      lateral e na barra inferior do celular (que passa a 4 + Mais); tela
+      `/saude` com todas as páginas da conta e a última checagem de cada uma
+      (resumo verde / para corrigir / sem checagem, o que falta, "Checar"
+      por linha e "Checar todas"); a tela de uma página muda para
+      `/saude/:id` (o endereço antigo redireciona); o card em Páginas troca o
+      ícone de 28 px por uma pastilha legível com veredito e o que corrigir;
+      e-mail de alerta aponta para a tela Saúde. API: `GET /v1/me/saude`
+      (uma consulta com `LATERAL`) e `POST /v1/me/saude/checar`. 1 teste e2e
+      novo (61 no total).
 
 ### Rastreamento
 
@@ -197,3 +208,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-06 | `feat/email-de-boas-vindas`, PR #48 | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
 | 2026-11-06 | `feat/filtros-no-analytics`, PR #49 | Filtros e janela livre no Analytics, comparação com o período anterior, quebras por aparelho e endereço de chegada; 1 teste e2e novo (55 no total). |
 | 2026-11-06 | `feat/simulador-da-revisao-da-meta`, PR #50 (empilhada na #49) | Simulador da revisão da Meta: API, cron, e-mail, editor, lista de páginas, admin, verificação por link; 5 e2e + 4 unitários novos (60 e 62). |
+| 2026-11-07 | `feat/saude-no-painel` (empilhada na #50) | "Saúde" na barra lateral e no celular, tela `/saude` com todas as páginas e "Checar todas", tela da página em `/saude/:id`, pastilha legível no card, vocabulário "revisão" → "saúde/checagem"; 1 e2e novo (61). |

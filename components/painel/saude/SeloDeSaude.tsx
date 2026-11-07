@@ -8,7 +8,7 @@ import { DURACAO, MOLA, SAIDA, SUAVE } from "@/lib/movimento";
 import { cn } from "@/lib/utils";
 
 /**
- * O selo de saúde da revisão, com o movimento que diz o que está
+ * O selo de saúde da página, com o movimento que diz o que está
  * acontecendo:
  *
  *   - **revisando**: um anel tracejado gira (o único lugar onde linear é
@@ -82,8 +82,8 @@ export function SeloDeSaude({ estado, tamanho = 56, className }: { estado: Estad
 
 const ICONE = { nenhuma: CircleHelp, revisando: CircleHelp, verde: CheckCircle2, amarelo: AlertTriangle, vermelho: ShieldAlert } as const;
 const ROTULO: Record<EstadoDeSaude, string> = {
-  nenhuma: "Ainda não revisada",
-  revisando: "Revisando",
+  nenhuma: "Ainda sem checagem",
+  revisando: "Checando",
   verde: "Verde",
   amarelo: "Amarelo",
   vermelho: "Vermelho",

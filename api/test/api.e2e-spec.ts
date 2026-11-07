@@ -1326,6 +1326,27 @@ describe("simulador da revisão da Meta", () => {
     await servidor.get(`/v1/me/profiles/${profileId}/revisao/historico`).set("authorization", `Bearer ${tokenLuna}`).expect(404);
   });
 
+  it("a tela Saúde lista as páginas da conta com a última checagem, e 'checar todas' roda em cada uma", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: eu } = await servidor.get("/v1/auth/me").set(auth).expect(200);
+
+    const { body: antes } = await servidor.get("/v1/me/saude").set(auth).expect(200);
+    const minha = antes.paginas.find((p: { id: string }) => p.id === eu.profile.id);
+    expect(minha).toBeDefined();
+    expect(minha.host).toBe(eu.profile.host);
+    expect(minha.revisao).not.toBeNull();
+    expect(typeof minha.revisao.ranAt).toBe("string");
+    // Só as minhas: nenhuma página da Luna na lista.
+    const { body: daLuna } = await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(antes.paginas.some((p: { id: string }) => p.id === daLuna.profile.id)).toBe(false);
+
+    const { body: depois } = await servidor.post("/v1/me/saude/checar").set(auth).expect(200);
+    expect(depois.paginas).toHaveLength(antes.paginas.length);
+    const checada = depois.paginas.find((p: { id: string }) => p.id === eu.profile.id);
+    expect(checada.revisao.id).not.toBe(minha.revisao.id);
+    expect(new Date(checada.revisao.ranAt).getTime()).toBeGreaterThanOrEqual(new Date(minha.revisao.ranAt).getTime());
+  });
+
   it("destino adulto sem barreira fica vermelho nos dois itens, com a ação de ligar a barreira", async () => {
     const auth = { authorization: `Bearer ${tokenBella}` };
     const { body: eu } = await servidor.get("/v1/auth/me").set(auth).expect(200);
