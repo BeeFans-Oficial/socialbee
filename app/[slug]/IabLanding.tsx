@@ -35,12 +35,28 @@ import { cn } from "@/lib/utils";
  * que abra no navegador externo (o Instagram ignora o `x-safari-https://`);
  * em outros apps, `x-safari-https://` abre no Safari. Ver `lib/cloak.ts`.
  *
- * O primeiro clique/toque ou uso de Tab/Enter/Espaço revela o botão. Para quem
- * rola, o gesto inicial acrescenta 200 px ao fim da tela e o botão aparece ao
- * chegar lá. Só uma nova ativação do botão solicita a saída; não há tentativa
- * automática. Esses gestos indicam interação, não comprovam humanidade.
- * Depois do pedido, a instrução do menu `•••` fica disponível como alternativa.
+ * ## Só a rolagem revela o botão
+ *
+ * Clique, toque ou tecla NÃO mostram o botão. O primeiro gesto de rolagem
+ * acrescenta 200 px ao fim da tela; o botão existe enquanto a tela está no
+ * fim, e some de novo se a pessoa volta para cima. Só a ativação do botão
+ * solicita a saída; não há tentativa automática. Depois do pedido, a
+ * instrução do menu `•••` fica disponível como alternativa.
+ *
+ * ## Nada do perfil antes da chegada
+ *
+ * Entre o HTML chegar e o React hidratar, o perfil com os botões ficava
+ * visível por alguns segundos. A rota emite um script inline (o mesmo para
+ * todo mundo) que esconde o perfil até esta tela assumir; ver
+ * `ESTILO_DE_ESPERA`. Quem não executa JavaScript não roda o script e vê o
+ * perfil — o HTML continua idêntico.
  */
+
+/** O `<style>` que o script inline da rota injeta no `<head>` antes da
+ *  hidratação, para o perfil não aparecer antes desta tela. Removido quando a
+ *  tela sai. */
+export const ESTILO_DE_ESPERA = "aguardando-chegada";
+export const SCRIPT_DE_ESPERA = `(function(){var s=document.createElement("style");s.id="${ESTILO_DE_ESPERA}";s.textContent="[data-perfil]{visibility:hidden}";document.head.appendChild(s)})()`;
 
 /** Imagem de marca usada quando a criadora não escolheu uma imagem de chegada. */
 const IMAGEM_PADRAO = "/chegada-padrao.svg";
@@ -56,19 +72,10 @@ export interface IabLandingProps {
   /** Título. Vazio cai no nome de exibição. */
   headline: string | null;
   buttonLabel: string | null;
-  /** `?fora=1`: a pessoa já saiu do aplicativo e voltou para cá. Sem isto ela
-   *  cairia nesta tela de novo, em laço. */
-  escapou: boolean;
   /** Prévia no painel: desenha a tela sem olhar o user-agent e sem NUNCA
    *  tentar escapar, senão abrir a prévia sequestraria a aba de quem edita. */
   preview?: boolean;
 }
-
-/** Destino do escape: a própria página, pedindo o perfil completo.
- *
- *  `?fora=1` é o que diz a esta tela "já estou num navegador de verdade" — sem
- *  ele a pessoa voltaria para esta mesma tela, em laço. */
-const PARAM_ESCAPE = "fora";
 
 type Plataforma = "android" | "ios" | "other";
 
@@ -83,7 +90,6 @@ export function IabLanding({
   imageUrl,
   headline,
   buttonLabel,
-  escapou,
   preview = false,
 }: IabLandingProps) {
   const theme = THEMES.find((t) => t.id === themeId) ?? THEMES[0];
@@ -96,6 +102,9 @@ export function IabLanding({
    * servidor manda é o mesmo para todo mundo.
    */
   const [aparelho, setAparelho] = useState<IABDetection | null>(null);
+  /** Num navegador comum, o botão fecha esta tela aqui mesmo: a URL não muda e
+   *  o perfil, que já estava no documento, só deixa de estar coberto. */
+  const [fechada, setFechada] = useState(false);
 
   useEffect(() => {
     if (preview) {
@@ -104,7 +113,6 @@ export function IabLanding({
       setAparelho({ isIAB: true, source: "instagram", isAndroid: false, isIOS: true });
       return;
     }
-    if (escapou) return;
     const d = detectIAB();
     // POR ENQUANTO, a chegada aparece para TODO MUNDO, e não só dentro de um
     // navegador embutido: decisão de produto de 03/11/2026, para a fã sempre
@@ -114,9 +122,15 @@ export function IabLanding({
     // só segue para a página. Para voltar a mostrar só em app, troque por:
     //   if (d.isIAB) setAparelho(d);
     setAparelho(d);
-  }, [preview, escapou]);
+  }, [preview]);
 
-  if (!aparelho) return null;
+  // O perfil volta a aparecer só quando a chegada sai de cena.
+  useEffect(() => {
+    if (fechada) document.getElementById(ESTILO_DE_ESPERA)?.remove();
+    return () => document.getElementById(ESTILO_DE_ESPERA)?.remove();
+  }, [fechada]);
+
+  if (!aparelho || fechada) return null;
 
   return (
     <Tela
@@ -130,12 +144,13 @@ export function IabLanding({
       app={aparelho.source}
       dentroDeApp={aparelho.isIAB}
       preview={preview}
+      onFechar={() => setFechada(true)}
     />
   );
 }
 
 /**
- * A tela em si. A interação que revela o botão não solicita navegação.
+ * A tela em si. Chegar ao fim da rolagem revela o botão; só o botão navega.
  */
 function Tela({
   slug,
@@ -148,6 +163,7 @@ function Tela({
   app,
   dentroDeApp,
   preview,
+  onFechar,
 }: {
   slug: string;
   displayName: string;
@@ -161,17 +177,18 @@ function Tela({
    *  só segue para a página. */
   dentroDeApp: boolean;
   preview: boolean;
+  /** Fecha a tela sem navegar (navegador comum). */
+  onFechar: () => void;
 }) {
-  const [interagiu, setInteragiu] = useState(false);
+  /** A tela está no fim da rolagem. Não trava: subir de volta esconde o botão. */
+  const [noFim, setNoFim] = useState(false);
   const [rolagemIniciada, setRolagemIniciada] = useState(false);
   const [progresso, setProgresso] = useState(0);
   const [mostrarInstrucao, setMostrarInstrucao] = useState(false);
   const telaRef = useRef<HTMLDivElement>(null);
-  const botaoRef = useRef<HTMLButtonElement>(null);
-  const focarBotao = useRef(false);
   const toque = useRef<{ x: number; y: number; scrollTop: number; rolando: boolean } | null>(null);
   // O editor mantém o botão visível e inerte para permitir avaliar o layout.
-  const mostrarBotao = preview || interagiu;
+  const mostrarBotao = preview || noFim;
 
   // A página rola sem barra visível, como no celular — inclusive dentro da
   // moldura de iPhone das prévias do painel.
@@ -192,7 +209,7 @@ function Tela({
     };
 
     const aoRolar = (event: WheelEvent) => {
-      if (rolagemIniciada || mostrarBotao || event.ctrlKey) return;
+      if (rolagemIniciada || event.ctrlKey) return;
       if (event.deltaY <= 0 || Math.abs(event.deltaX) > event.deltaY) return;
       event.preventDefault();
       iniciarRolagem();
@@ -210,7 +227,7 @@ function Tela({
       if (!inicio || event.touches.length !== 1) return;
       const distancia = inicio.y - event.touches[0].clientY;
       if (!inicio.rolando) {
-        if (rolagemIniciada || mostrarBotao || distancia < 8) return;
+        if (rolagemIniciada || distancia < 8) return;
         if (Math.abs(inicio.x - event.touches[0].clientX) > distancia) return;
         inicio.rolando = true;
         iniciarRolagem();
@@ -222,55 +239,46 @@ function Tela({
     };
 
     const aoTerminarToque = () => { toque.current = null; };
+
+    // Teclado rola como o dedo: a primeira tecla de rolagem abre o espaço e o
+    // navegador faz o resto. Nenhuma tecla mostra o botão por si.
+    const aoTeclar = (event: KeyboardEvent) => {
+      if (rolagemIniciada || event.altKey || event.ctrlKey || event.metaKey) return;
+      if (!["ArrowDown", "PageDown", "End", " "].includes(event.key)) return;
+      iniciarRolagem();
+    };
+
+    tela.focus({ preventScroll: true });
+    tela.addEventListener("keydown", aoTeclar);
     tela.addEventListener("wheel", aoRolar, { passive: false });
     tela.addEventListener("touchstart", aoIniciarToque, { passive: true });
     tela.addEventListener("touchmove", aoMoverToque, { passive: false });
     tela.addEventListener("touchend", aoTerminarToque);
     tela.addEventListener("touchcancel", aoTerminarToque);
     return () => {
+      tela.removeEventListener("keydown", aoTeclar);
       tela.removeEventListener("wheel", aoRolar);
       tela.removeEventListener("touchstart", aoIniciarToque);
       tela.removeEventListener("touchmove", aoMoverToque);
       tela.removeEventListener("touchend", aoTerminarToque);
       tela.removeEventListener("touchcancel", aoTerminarToque);
     };
-  }, [mostrarBotao, preview, rolagemIniciada]);
-
-  useEffect(() => {
-    if (mostrarBotao) return;
-
-    const revelarPeloTeclado = (event: KeyboardEvent) => {
-      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (!["Tab", "Enter", " "].includes(event.key)) return;
-
-      // O primeiro gesto apenas revela o botão e não ativa controles do perfil
-      // que está atrás da sobreposição. O foco acompanha o botão recém-criado.
-      event.preventDefault();
-      event.stopPropagation();
-      focarBotao.current = true;
-      setInteragiu(true);
-    };
-
-    document.addEventListener("keydown", revelarPeloTeclado, true);
-    return () => document.removeEventListener("keydown", revelarPeloTeclado, true);
-  }, [mostrarBotao]);
-
-  useEffect(() => {
-    if (!mostrarBotao || !focarBotao.current) return;
-    focarBotao.current = false;
-    botaoRef.current?.focus();
-  }, [mostrarBotao]);
+  }, [preview, rolagemIniciada]);
 
   const abrir = () => {
     if (preview) return;
-    const destino = `${window.location.origin}/${slug}?${PARAM_ESCAPE}=1`;
-    // Num navegador comum não há de onde sair: o botão só segue para a
-    // página, sem esquema de intent/extbrowser e sem a instrução do menu.
+    // Num navegador comum não há de onde sair: o botão só tira esta tela da
+    // frente. Nada de navegação nem de parâmetro na URL — o perfil já está
+    // no documento, igual para todo mundo.
     if (!dentroDeApp) {
-      window.location.replace(destino);
+      onFechar();
       return;
     }
-    // O pedido parte exclusivamente da ativação explícita do botão.
+    // Dentro de um app, o pedido parte exclusivamente da ativação explícita
+    // do botão, e leva ao MESMO endereço, limpo: o navegador de fora abre a
+    // página como qualquer visitante e a pessoa passa por esta tela ali, sem
+    // marca na URL dizendo de onde veio.
+    const destino = `${window.location.origin}/${slug}`;
     window.location.replace(urlDeSaida(destino, plataforma, app));
     setMostrarInstrucao(true);
   };
@@ -279,7 +287,6 @@ function Tela({
     <>
       {mostrarBotao && (
         <button
-          ref={botaoRef}
           type="button"
           onClick={abrir}
           onKeyDown={(event) => {
@@ -316,18 +323,18 @@ function Tela({
     // onde abrir antes de qualquer outra pergunta.
     <div
       ref={telaRef}
-      className="fixed inset-0 z-[10000] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain text-bee-text"
+      // Focável para o teclado rolar; sem anel de foco, porque não é um controle.
+      tabIndex={-1}
+      className="fixed inset-0 z-[10000] w-full max-w-full overflow-x-hidden overflow-y-auto overscroll-y-contain text-bee-text outline-none"
       style={{ backgroundColor: bg }}
-      onClick={() => {
-        if (!rolagemIniciada) setInteragiu(true);
-      }}
       onScroll={(event) => {
         if (!rolagemIniciada) return;
         const tela = event.currentTarget;
         const limite = tela.scrollHeight - tela.clientHeight;
         if (limite <= 0) return;
         setProgresso(Math.max(0, Math.min(1, tela.scrollTop / limite)));
-        if (Math.ceil(tela.scrollTop) >= limite) setInteragiu(true);
+        // Vale nos dois sentidos: no fim o botão existe, acima dele não.
+        setNoFim(Math.ceil(tela.scrollTop) >= limite);
       }}
     >
       <div className={cn("relative h-full w-full min-w-0 flex flex-col overflow-hidden", mostrarInstrucao && !rolagemIniciada && "h-auto min-h-full")}>
@@ -355,13 +362,12 @@ function Tela({
           </p>
 
           <div className="mt-6 min-h-14">
-            {mostrarBotao && !rolagemIniciada ? acesso : (
+            {preview ? acesso : (
               <div className="flex flex-col items-center gap-2 text-center">
                 <ChevronsDown aria-hidden className="h-6 w-6 text-white/80 motion-safe:animate-bounce" />
                 <p className="text-sm font-medium text-white/90">
-                  {mostrarBotao ? "Seu acesso está logo abaixo" : "Role até embaixo para continuar"}
+                  {noFim ? "Seu acesso está logo abaixo" : "Role até embaixo para continuar"}
                 </p>
-                {!rolagemIniciada && <p className="text-xs text-white/50">Ou toque na tela para mostrar o botão</p>}
                 {rolagemIniciada && (
                   <div
                     role="progressbar"

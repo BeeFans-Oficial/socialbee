@@ -1,7 +1,7 @@
 import { Controller, Get } from "@nestjs/common";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
-import { ProfilesService } from "./profiles.service";
+import { ProfilesService, hostPadrao } from "./profiles.service";
 
 /**
  * O pool de domínios, para quem edita uma página escolher.
@@ -20,8 +20,16 @@ import { ProfilesService } from "./profiles.service";
 export class DomainsController {
   constructor(private readonly profilesService: ProfilesService) {}
 
+  /**
+   * `padrao` é o endereço de `domain_id` nulo: o seletor precisa saber se ele
+   * ainda pode ser oferecido, porque pausá-lo no pool o tira daqui também.
+   */
   @Get()
   async list(@CurrentUser() auth: AuthContext) {
-    return { domains: await this.profilesService.listActiveDomains(auth.userId) };
+    const [domains, disponivel] = await Promise.all([
+      this.profilesService.listActiveDomains(auth.userId),
+      this.profilesService.padraoDisponivel(),
+    ]);
+    return { domains, padrao: { host: hostPadrao(), disponivel } };
   }
 }

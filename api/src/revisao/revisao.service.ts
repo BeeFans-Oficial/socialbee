@@ -360,7 +360,7 @@ export class RevisaoService {
         ...base,
         estado: "vermelho",
         titulo: `Leva direto a ${cadeia.hostFinal} (checkout adulto)`,
-        detalhe: `Sem a barreira 18+ na página, o navegador da Meta clica e chega lá. Foi isso que derrubou as contas em 15/10.`,
+        detalhe: `Sem a barreira 18+ na página, o navegador da Meta clica, chega lá e trata o link como caminho para conteúdo adulto.`,
         acao: "Ligue a barreira 18+ na página, ou leve primeiro a um mensageiro.",
       };
     }
@@ -484,7 +484,7 @@ export class RevisaoService {
         chave: "destinos",
         estado: "vermelho",
         titulo: `${adultos.length === 1 ? "Um botão leva" : `${adultos.length} botões levam`} direto a um checkout adulto`,
-        detalhe: `Sem a barreira 18+, o navegador da Meta clica e chega em ${adultos.map((c) => c.hostFinal).join(", ")}. Foi isso que derrubou as contas em 15/10.`,
+        detalhe: `Sem a barreira 18+, o navegador da Meta clica e chega em ${adultos.map((c) => c.hostFinal).join(", ")}. É o que derruba contas do Instagram.`,
         acao: "Ligue a barreira 18+ nesta página, ou leve primeiro a um mensageiro (Telegram, WhatsApp).",
         dados,
       };
@@ -517,7 +517,7 @@ export class RevisaoService {
             chave: "barreira",
             estado: "vermelho",
             titulo: "Barreira 18+ desligada com destino adulto",
-            detalhe: "Com a confirmação de idade na frente, o navegador da Meta não clica em nada. As contas que caíram em 15/10 não tinham barreira; a que ficou no ar tinha.",
+            detalhe: "Com a confirmação de idade na frente, o navegador da Meta não clica em nada e não chega ao checkout.",
             acao: "Ligue a confirmação de 18+ em Proteção.",
             dados: { ligada: false, destinosAdultos: cadeias.filter((c) => c.classe === "checkout_adulto").map((c) => c.hostFinal), vazaram: [] },
           }
@@ -549,7 +549,7 @@ export class RevisaoService {
       chave: "barreira",
       estado: "verde",
       titulo: "Barreira 18+ ligada e botões fora do documento",
-      detalhe: "Quem abre a página vê só a confirmação de idade; os botões só entram depois do toque. Foi a diferença entre a conta que ficou e as que caíram.",
+      detalhe: "Quem abre a página vê só a confirmação de idade; os botões só entram depois do toque. O navegador da Meta para na confirmação.",
       dados: { ligada: true, destinosAdultos: cadeias.filter((c) => c.classe === "checkout_adulto").map((c) => c.hostFinal), vazaram: [] },
     };
   }
@@ -564,7 +564,7 @@ export class RevisaoService {
         chave: "dominio",
         estado: "vermelho",
         titulo: `A página respondeu ${humano.status}`,
-        detalhe: humano.status === 404 ? "Link com erro serviu \"não encontrado\" para a Meta em 15/10 e virou suspeita." : "A Meta recebeu um erro no lugar da página.",
+        detalhe: humano.status === 404 ? "A Meta recebeu \"não encontrado\" no lugar da página, e link quebrado na bio é sinal de suspeita." : "A Meta recebeu um erro no lugar da página.",
         acao: pagina.published ? "Confira o endereço da página." : "A página está fora do ar. Coloque no ar antes de colar o link.",
         dados: { host: pagina.host, status: humano.status },
       };

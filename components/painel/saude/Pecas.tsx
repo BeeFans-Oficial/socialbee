@@ -133,7 +133,7 @@ export function Etapas({ itens }: { itens: ApiItemDaRevisao[] }) {
 export function resumoDaChecagem(r: ApiRevisao): string {
   if (r.veredito === "verde") return "Nada. Quatro camadas ok.";
   const ruins = r.itens.filter((i) => i.estado === "vermelho");
-  if (r.veredito === "vermelho") return ruins.map((i) => i.titulo).join(" · ") || "Um item com o que já derrubou contas.";
+  if (r.veredito === "vermelho") return ruins.map((i) => i.titulo).join(" · ") || "Um item com o que derruba contas.";
   const alerta = r.itens.find((i) => i.estado === "amarelo");
   return alerta?.titulo ?? "Responde, mas com sinal de alerta.";
 }

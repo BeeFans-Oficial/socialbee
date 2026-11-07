@@ -161,6 +161,13 @@ export interface ApiDomain {
   proprio: boolean;
 }
 
+/** O que uma página pode escolher: o pool e, se não estiver pausado, o padrão. */
+export interface ApiDominiosDaConta {
+  domains: ApiDomain[];
+  /** O endereço de "sem domínio" (`domainId` nulo). */
+  padrao: { host: string; disponivel: boolean };
+}
+
 /** Domínio próprio, como a dona o acompanha. */
 export interface ApiCustomDomain {
   id: string;

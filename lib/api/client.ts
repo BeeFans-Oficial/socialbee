@@ -29,6 +29,7 @@ import type {
   ApiErrorBody,
   ApiLink,
   ApiDomain,
+  ApiDominiosDaConta,
   ApiProfile,
   ApiPublicProfile,
   ApiSession,
@@ -209,8 +210,8 @@ export const api = {
 
   removeLinkImage: (linkId: string) => request<void>(`/me/links/${linkId}/image`, { method: "DELETE" }),
 
-  /** Os domínios que uma página pode usar. Só os ativos. */
-  domains: () => request<{ domains: ApiDomain[] }>("/me/domains").then((d) => d.domains),
+  /** Os domínios que uma página pode usar (só os ativos) e se o padrão ainda vale. */
+  domains: () => request<ApiDominiosDaConta>("/me/domains"),
 
   /** Domínios próprios da conta, as vagas do plano e o IP do registro A. */
   customDomains: () =>

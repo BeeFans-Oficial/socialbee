@@ -3,6 +3,8 @@ import type { DataSource } from "typeorm";
 import request from "supertest";
 
 import { EmailService } from "../src/common/email/email.service";
+import { resetEnvCache } from "../src/config/env";
+import { hostPadrao } from "../src/profiles/profiles.service";
 import { RevisaoService } from "../src/revisao/revisao.service";
 
 /**
@@ -900,6 +902,45 @@ describe("domínio próprio", () => {
     await comoBella(servidor.delete(`/v1/me/custom-domains/${idDoDominio}`)).expect(204);
     const { body } = await comoBella(servidor.get("/v1/me/profile")).expect(200);
     expect(body.domainId).toBeNull();
+  });
+
+  it("com o host padrão pausado no pool, o padrão some do seletor e a página não volta para ele", async () => {
+    const T = `"socialbee_test"."domains"`;
+    // O padrão do teste é `localhost:3000`, que o pool não aceita como host.
+    // Por este caso, a instalação responde num domínio de verdade.
+    const siteAnterior = process.env.PUBLIC_SITE_URL;
+    process.env.PUBLIC_SITE_URL = "https://padrao-teste.site";
+    resetEnvCache();
+    // O host padrão cadastrado no pool e pausado, e um outro ativo para a
+    // página ter de onde tentar voltar.
+    const [{ id: idPadrao }] = await dataSource.query(
+      `INSERT INTO ${T} (host, active, position, status) VALUES ($1, false, 90, 'active') RETURNING id`,
+      [hostPadrao()],
+    );
+    const [{ id: idOutro }] = await dataSource.query(
+      `INSERT INTO ${T} (host, active, position, status) VALUES ('outro-teste.site', true, 91, 'active') RETURNING id`,
+    );
+
+    const lista = await comoBella(servidor.get("/v1/me/domains")).expect(200);
+    expect(lista.body.padrao).toEqual({ host: hostPadrao(), disponivel: false });
+    expect(lista.body.domains.map((d: { id: string }) => d.id)).not.toContain(idPadrao);
+
+    // Já está no padrão: mexer no resto da página continua permitido.
+    await comoBella(servidor.patch("/v1/me/profile")).send({ domainId: null }).expect(200);
+
+    await comoBella(servidor.patch("/v1/me/profile")).send({ domainId: idOutro }).expect(200);
+    const recusado = await comoBella(servidor.patch("/v1/me/profile")).send({ domainId: null }).expect(409);
+    expect(recusado.body.error.code).toBe("dominio_indisponivel");
+
+    // Reativado no pool, volta a valer.
+    await dataSource.query(`UPDATE ${T} SET active = true WHERE id = $1`, [idPadrao]);
+    expect((await comoBella(servidor.get("/v1/me/domains")).expect(200)).body.padrao.disponivel).toBe(true);
+    await comoBella(servidor.patch("/v1/me/profile")).send({ domainId: null }).expect(200);
+
+    await dataSource.query(`DELETE FROM ${T} WHERE id IN ($1, $2)`, [idPadrao, idOutro]);
+    if (siteAnterior === undefined) delete process.env.PUBLIC_SITE_URL;
+    else process.env.PUBLIC_SITE_URL = siteAnterior;
+    resetEnvCache();
   });
 });
 

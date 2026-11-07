@@ -20,7 +20,7 @@ export function revisaoPiorou(input: {
   const texto = [
     nome ? `Oi, ${nome}!` : "Oi!",
     "",
-    `A checagem automática da sua página ${input.host}/${input.slug} encontrou o que já derrubou contas do Instagram:`,
+    `A checagem automática da sua página ${input.host}/${input.slug} encontrou o que derruba contas do Instagram:`,
     "",
     lista,
     "",
@@ -48,7 +48,7 @@ export function revisaoPiorou(input: {
     <tr><td style="padding:8px 28px 0;font-family:Helvetica,Arial,sans-serif;color:#ffffff;">
       <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;">${nome ? `Oi, ${escapar(nome)}. ` : ""}Sua página precisa de atenção.</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#c9c9c9;">
-        A checagem automática de <strong style="color:#fff;">${escapar(input.host)}/${escapar(input.slug)}</strong> encontrou o que já derrubou contas do Instagram:
+        A checagem automática de <strong style="color:#fff;">${escapar(input.host)}/${escapar(input.slug)}</strong> encontrou o que derruba contas do Instagram:
       </p>
       <ul style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.5;color:#c9c9c9;">${itens}</ul>
     </td></tr>

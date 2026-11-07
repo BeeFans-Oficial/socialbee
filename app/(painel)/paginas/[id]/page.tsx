@@ -46,7 +46,7 @@ import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva } from "@/lib/api/client";
 import { arquivoDoInput, subirImagemDoPerfil, type ImagemDoPerfil } from "@/lib/imagens";
 import { invalidateSession, usePlano } from "@/lib/api/use-session";
-import type { ApiDomain, ApiProfile, ProfileInput } from "@/lib/api/types";
+import type { ApiDomain, ApiDominiosDaConta, ApiProfile, ProfileInput } from "@/lib/api/types";
 import { THEMES } from "@/lib/catalog";
 import { CROSSFADE, SURGIR, SURGIR_DE_BAIXO } from "@/lib/movimento";
 import { urlDaPagina } from "@/lib/site";
@@ -84,6 +84,7 @@ export default function EditorDePagina() {
 
   const [pagina, setPagina] = useState<ApiProfile | null>(null);
   const [dominios, setDominios] = useState<ApiDomain[]>([]);
+  const [padrao, setPadrao] = useState<ApiDominiosDaConta["padrao"] | null>(null);
   const [lado, setLado] = useState<Lado>("pagina");
   const [recarga, setRecarga] = useState(0);
   const [salvando, setSalvando] = useState(false);
@@ -223,7 +224,7 @@ export default function EditorDePagina() {
     definirPaginaAtiva(id);
     invalidateSession();
 
-    Promise.all([api.profile(), api.domains().catch(() => [])])
+    Promise.all([api.profile(), api.domains().catch((): ApiDominiosDaConta | null => null)])
       .then(([perfil, lista]) => {
         // Página de outra conta (ou apagada): o servidor ignora o cabeçalho e
         // devolve a página da sessão. Não é a pedida — volta para a lista.
@@ -234,7 +235,8 @@ export default function EditorDePagina() {
           return;
         }
         setPagina(perfil);
-        setDominios(lista);
+        setDominios(lista?.domains ?? []);
+        setPadrao(lista?.padrao ?? null);
       })
       .catch((caught) => {
         if (caught instanceof ApiError && caught.isUnauthorized) {
@@ -706,6 +708,7 @@ export default function EditorDePagina() {
             <SeletorDeDominio
               pagina={pagina}
               dominios={dominios}
+              padraoDisponivel={padrao?.disponivel ?? true}
               ehPro={ehPro}
               onEscolher={(domainId) => salvar({ domainId })}
             />
@@ -1021,11 +1024,14 @@ function CampoDeEndereco({ slug, onSalvar }: { slug: string; onSalvar: (s: strin
 function SeletorDeDominio({
   pagina,
   dominios,
+  padraoDisponivel,
   ehPro,
   onEscolher,
 }: {
   pagina: ApiProfile;
   dominios: ApiDomain[];
+  /** O host de "sem domínio" ainda pode ser escolhido? Pausado no pool, não. */
+  padraoDisponivel: boolean;
   ehPro: boolean;
   onEscolher: (domainId: string | null) => Promise<boolean>;
 }) {
@@ -1062,9 +1068,13 @@ function SeletorDeDominio({
           className="appearance-none bg-transparent focus:outline-none cursor-pointer"
           aria-label="Domínio da página"
         >
-          <option value="" className="bg-bee-surface">
-            padrão da plataforma
-          </option>
+          {/* O padrão pausado só aparece, desligado, para a página que ainda
+              está nele: ela precisa ver onde está para sair de lá. */}
+          {(padraoDisponivel || pagina.domainId === null) && (
+            <option value="" disabled={!padraoDisponivel} className="bg-bee-surface">
+              {padraoDisponivel ? "padrão da plataforma" : "padrão da plataforma · indisponível"}
+            </option>
+          )}
           {dominios.map((d) => (
             <option key={d.id} value={d.id} className="bg-bee-surface">
               {d.host}

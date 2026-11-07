@@ -156,6 +156,23 @@ export class ProfilesService {
   }
 
   /**
+   * O domínio padrão da instalação (`PUBLIC_SITE_URL`) ainda pode ser
+   * escolhido?
+   *
+   * `domain_id` nulo passa por fora do pool, então pausar o host padrão no
+   * admin não o tirava do seletor: a página "sem domínio" continuava nascendo
+   * e podendo voltar para um endereço que a equipe acabou de queimar. A regra
+   * aqui é a do pool: se o host padrão está cadastrado lá e pausado, ele está
+   * indisponível em todo lugar. Sem linha no pool, vale como antes.
+   */
+  async padraoDisponivel(): Promise<boolean> {
+    const pausado = await this.domains.exists({
+      where: { host: hostPadrao(), ownerUserId: IsNull(), active: false },
+    });
+    return !pausado;
+  }
+
+  /**
    * Sorteia um domínio ativo para uma página nova.
    *
    * Conta nova não cai sempre no domínio padrão: concentrar toda a base num
@@ -371,6 +388,14 @@ export class ProfilesService {
     if (dto.isAdult !== undefined) profile.isAdult = dto.isAdult;
     if (dto.domainId !== undefined) {
       if (dto.domainId !== null) await this.assertDomainEscolhivel(dto.domainId, profile.userId);
+      // Voltar ao padrão também é escolher um domínio: com ele pausado no
+      // pool, recusa como qualquer outro. Quem já está nele não é tocado.
+      else if (profile.domainId !== null && !(await this.padraoDisponivel())) {
+        throw new ConflictException({
+          code: "dominio_indisponivel",
+          message: "Esse domínio não está disponível. Escolha outro da lista.",
+        });
+      }
       profile.domainId = dto.domainId;
       // A relação carregada ficaria velha e a view devolveria o host anterior —
       // quem acabou de trocar de domínio veria o endereço antigo na tela.
