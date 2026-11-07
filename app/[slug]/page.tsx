@@ -12,7 +12,7 @@ import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/serve
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { urlDaPagina } from "@/lib/site";
 import type { Link as LinkType, User } from "@/lib/catalog";
-import { IabLanding } from "./IabLanding";
+import { IabLanding, SCRIPT_DE_ESPERA } from "./IabLanding";
 import { ProfileClient } from "./ProfileClient";
 
 /**
@@ -159,7 +159,7 @@ export default async function ProfilePage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ preview?: string; fora?: string }>;
+  searchParams: Promise<{ preview?: string }>;
 }) {
   const { slug } = await params;
   const view = await carregarPerfil(slug);
@@ -187,7 +187,7 @@ export default async function ProfilePage({
    * bloqueado no aplicativo dela, ela não chega. Quem canoniza para o buscador
    * é a tag `canonical` em `generateMetadata`, que não congela nada.
    */
-  const { preview, fora } = await searchParams;
+  const { preview } = await searchParams;
   const temSessao = (await cookies()).has(SESSION_COOKIE);
 
   const hostDaRequisicao = (await headers()).get("host");
@@ -240,12 +240,11 @@ export default async function ProfilePage({
   const previaDaPagina = preview === "pagina" && temSessao;
 
   /**
-   * `?fora=1` é a volta do escape: a pessoa já está num navegador de verdade,
-   * então a chegada não deve cobrir o perfil de novo — senão é laço. Não
-   * precisa de sessão nem de proteção: o perfil completo vai no HTML de
-   * qualquer forma; a chegada é só uma sobreposição por cima dele.
+   * Não existe parâmetro de "já saí do app": o botão da chegada fecha a tela
+   * no próprio documento (navegador comum) ou abre este MESMO endereço no
+   * navegador de fora (dentro de um app). A URL da página é uma só, sem marca
+   * de por onde a pessoa passou.
    */
-  const escapou = fora === "1";
   const iab = view.profile.iab;
   /**
    * A prévia da PÁGINA no editor (`?preview=pagina`) nunca recebe a chegada:
@@ -256,7 +255,7 @@ export default async function ProfilePage({
    * capa que a criadora acabou de trocar.
    */
   const mostrarChegada =
-    forcarChegadaNaPrevia || (iab?.enabled === true && !escapou && !previaDaPagina);
+    forcarChegadaNaPrevia || (iab?.enabled === true && !previaDaPagina);
 
   /**
    * Humano: a página real, já renderizada no servidor.
@@ -304,10 +303,17 @@ export default async function ProfilePage({
       className="relative min-h-screen text-bee-text overflow-hidden"
       style={{ backgroundColor: visual.bg }}
     >
+      {/* Com a chegada por cima, o perfil não pode piscar antes de ela montar.
+          Este script roda enquanto o HTML ainda é lido — antes do React — e
+          esconde o que está marcado com `data-perfil` até a chegada sair. É
+          o mesmo script para todo requisitante; sem JavaScript, não roda e o
+          perfil aparece. */}
+      {mostrarChegada && <script dangerouslySetInnerHTML={{ __html: SCRIPT_DE_ESPERA }} />}
+
       {/* Imagem cobrindo a tela inteira, quando o template pede. As outras
           formas de usar a capa (faixa, herói) são desenhadas no cabeçalho. */}
       {capaEmTela && (
-        <div className="fixed inset-0">
+        <div data-perfil className="fixed inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
               bytes de uma coluna do banco. */}
           <img
@@ -328,7 +334,7 @@ export default async function ProfilePage({
           e sobre foto ele só suja a imagem. */}
       {visual.hex && !capaEmTela && <CeuEstrelado brilho={false} />}
 
-      <div className="relative z-10 pb-20">
+      <div data-perfil className="relative z-10 pb-20">
         <ProfileHeader
           user={user}
           visual={visual}
@@ -358,7 +364,6 @@ export default async function ProfilePage({
           imageUrl={iab?.imageUrl ?? null}
           headline={iab?.headline ?? null}
           buttonLabel={iab?.buttonLabel ?? null}
-          escapou={escapou}
           preview={forcarChegadaNaPrevia}
         />
       )}
