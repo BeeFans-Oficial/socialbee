@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp } from "lucide-react";
 import {
@@ -13,6 +13,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { BarraDeFiltros, type Periodo } from "@/components/painel/analytics/BarraDeFiltros";
 import { Esqueleto } from "@/components/painel/Esqueleto";
 import { StatsCard } from "@/components/painel/StatsCard";
 import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
@@ -20,7 +21,7 @@ import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
-import type { ReportResponse } from "@/lib/api/types";
+import type { ReportParams, ReportResponse } from "@/lib/api/types";
 import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
@@ -28,25 +29,43 @@ import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
  * Analytics.
  *
  * Lê `GET /me/tracking/report` na API — o que foi de fato registrado pelo
- * redirecionador, escopado no perfil da SESSÃO.
+ * redirecionador, escopado no perfil da SESSÃO. O `profileId` sai da sessão e
+ * não existe parâmetro de perfil na rota.
  *
- * O escopo é a mudança que importa nesta tela: a versão anterior chamava uma
- * rota do próprio Next que fixava o perfil em `MOCK_USER.id` porque não havia
- * login. Com mais de uma criadora no ar, aquilo era leitura livre do analytics
- * de qualquer uma delas. Agora o `profileId` sai da sessão e não existe
- * parâmetro de perfil na rota.
+ * ## Filtros
  *
- * Os títulos dos links também vêm da API. Antes vinham de `MOCK_LINKS`, então
- * a tabela "por link" mostrava o id cru para qualquer link real. Os números inventados que estavam aqui antes
- * (`+18% vs mês anterior`, `instagramClicks`, origens fixas em código) foram
- * removidos: comparar com o período anterior exige buscar o período anterior, e
- * enquanto isso não existir é mais honesto mostrar um dado real no lugar do
- * delta do que estampar um número que ninguém mediu.
+ * Janela (7, 30, 90 dias ou duas datas) e recortes por link, origem, endereço
+ * de chegada, aparelho, país e dentro de app. Tudo vive na URL: a criadora
+ * volta e encontra o mesmo recorte, e consegue mandar o link para alguém.
+ * As opções de cada filtro vêm do relatório (`options`), montadas ANTES dos
+ * filtros — uma origem que sumiu do recorte continua escolhível.
+ *
+ * Os cartões comparam com a janela anterior de mesmo tamanho, que a API
+ * devolve junto (`previous`), com os mesmos filtros. É variação medida; antes
+ * aqui havia só "últimos N dias" porque comparar exigia buscar o período
+ * anterior, e não existia.
  */
 
-type Period = "7d" | "30d" | "90d";
+type Period = Periodo;
 
-const PERIOD_DAYS: Record<Period, number> = { "7d": 7, "30d": 30, "90d": 90 };
+const PERIOD_DAYS: Record<Exclude<Period, "custom">, number> = { "7d": 7, "30d": 30, "90d": 90 };
+
+/** O estado da tela, que é também a query string. */
+interface Filtros {
+  periodo: Period;
+  de: string;
+  ate: string;
+  link: string;
+  origem: string;
+  chegada: string;
+  aparelho: string;
+  pais: string;
+  app: "" | "sim" | "nao";
+}
+
+const SEM_FILTROS: Filtros = { periodo: "30d", de: "", ate: "", link: "", origem: "", chegada: "", aparelho: "", pais: "", app: "" };
+
+const NOME_DO_APARELHO: Record<string, string> = { mobile: "Celular", tablet: "Tablet", desktop: "Computador", unknown: "Não identificado" };
 
 /** Paleta de reserva para chaves de origem que não são plataforma conhecida
  *  (um domínio de referrer qualquer, uma utm_source nova). Índice por hash do
@@ -68,9 +87,105 @@ function shortDate(iso: string): string {
   return `${day}/${month}`;
 }
 
+function hojeIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function diasAtrasIso(dias: number): string {
+  return new Date(Date.now() - dias * 86_400_000).toISOString().slice(0, 10);
+}
+
+function filtrosDaUrl(params: URLSearchParams): Filtros {
+  const periodo = params.get("periodo");
+  const de = params.get("de") ?? "";
+  const ate = params.get("ate") ?? "";
+  const app = params.get("app");
+  return {
+    periodo: periodo === "7d" || periodo === "90d" ? periodo : periodo === "custom" || (de && ate) ? "custom" : "30d",
+    de,
+    ate,
+    link: params.get("link") ?? "",
+    origem: params.get("origem") ?? "",
+    chegada: params.get("chegada") ?? "",
+    aparelho: params.get("aparelho") ?? "",
+    pais: params.get("pais") ?? "",
+    app: app === "sim" || app === "nao" ? app : "",
+  };
+}
+
+function urlDosFiltros(f: Filtros): string {
+  const q = new URLSearchParams();
+  if (f.periodo !== "30d") q.set("periodo", f.periodo);
+  if (f.periodo === "custom") {
+    if (f.de) q.set("de", f.de);
+    if (f.ate) q.set("ate", f.ate);
+  }
+  for (const chave of ["link", "origem", "chegada", "aparelho", "pais", "app"] as const) {
+    if (f[chave]) q.set(chave, f[chave]);
+  }
+  const s = q.toString();
+  return s ? `/analytics?${s}` : "/analytics";
+}
+
+function paramsDaApi(f: Filtros): ReportParams | null {
+  const base: ReportParams = {
+    link: f.link || undefined,
+    origem: f.origem || undefined,
+    chegada: f.chegada || undefined,
+    aparelho: f.aparelho || undefined,
+    pais: f.pais || undefined,
+    app: f.app || undefined,
+  };
+  if (f.periodo === "custom") {
+    // Só pede quando as duas datas estão preenchidas e em ordem.
+    if (!f.de || !f.ate || f.de > f.ate) return null;
+    return { ...base, de: f.de, ate: f.ate };
+  }
+  return { ...base, days: PERIOD_DAYS[f.periodo] };
+}
+
+/** A variação de um cartão contra a janela anterior. Sem base, diz isso. */
+function variacao(atual: number, anterior: number): { texto: string; tipo: "positive" | "negative" | "neutral" } {
+  if (anterior === 0) return { texto: atual > 0 ? "sem base anterior" : "igual ao anterior", tipo: "neutral" };
+  const pct = Math.round(((atual - anterior) / anterior) * 100);
+  if (pct === 0) return { texto: "igual ao anterior", tipo: "neutral" };
+  return { texto: `${pct > 0 ? "+" : ""}${pct}% vs anterior`, tipo: pct > 0 ? "positive" : "negative" };
+}
+
 export default function AnalyticsPage() {
+  // `useSearchParams` exige fronteira de Suspense no App Router.
+  return (
+    <Suspense fallback={<Carregando />}>
+      <Analytics />
+    </Suspense>
+  );
+}
+
+function Carregando() {
+  return (
+    <Tela>
+      <CabecalhoDeTela titulo="Analytics" descricao="Carregando…" />
+      <div className="space-y-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-[180px] rounded-xl border border-bee-line bg-bee-surface p-5 space-y-4">
+              <Esqueleto className="w-10 h-10" />
+              <Esqueleto className="h-8 w-16" />
+              <Esqueleto className="h-3 w-24" />
+            </div>
+          ))}
+        </div>
+        <Esqueleto className="h-96 rounded-xl" />
+        <Esqueleto className="h-64 rounded-xl" />
+      </div>
+    </Tela>
+  );
+}
+
+function Analytics() {
   const router = useRouter();
-  const [period, setPeriod] = useState<Period>("30d");
+  const searchParams = useSearchParams();
+  const filtros = useMemo(() => filtrosDaUrl(searchParams), [searchParams]);
   const { plano } = usePlano();
   const { session } = useSession();
   const [data, setData] = useState<ReportResponse | null>(null);
@@ -82,15 +197,19 @@ export default function AnalyticsPage() {
   const [error, setError] = useState<string | null>(null);
   /** Título por id de link, para a tabela "por link" não mostrar UUID cru. */
   const [linkTitles, setLinkTitles] = useState<Map<string, string>>(new Map());
+  /** Datas digitadas antes de valerem: só vão para a URL quando as duas existem. */
+  const [datas, setDatas] = useState({ de: filtros.de, ate: filtros.ate });
+
+  const params = useMemo(() => paramsDaApi(filtros), [filtros]);
 
   const load = useCallback(
-    async (days: number) => {
+    async (p: ReportParams) => {
       setLoading(true);
       setError(null);
       try {
         // Relatório e títulos juntos: são duas leituras independentes e a
         // tabela precisa das duas para significar algo.
-        const [report, links] = await Promise.all([api.report(days), api.links()]);
+        const [report, links] = await Promise.all([api.report(p), api.links()]);
         setData(report);
         setLinkTitles(new Map(links.map((link) => [link.id, link.title])));
       } catch (caught) {
@@ -111,9 +230,31 @@ export default function AnalyticsPage() {
   );
 
   useEffect(() => {
-    if (semRelatorio) return;
-    void load(PERIOD_DAYS[period]);
-  }, [period, load, semRelatorio]);
+    if (semRelatorio || !params) return;
+    void load(params);
+  }, [params, load, semRelatorio]);
+
+  useEffect(() => {
+    setDatas({ de: filtros.de, ate: filtros.ate });
+  }, [filtros.de, filtros.ate]);
+
+  const aplicar = useCallback(
+    (mudanca: Partial<Filtros>) => {
+      router.replace(urlDosFiltros({ ...filtros, ...mudanca }), { scroll: false });
+    },
+    [filtros, router],
+  );
+
+  const escolherPeriodo = (periodo: Period) => {
+    if (periodo === "custom") {
+      // Entra já com uma janela válida: os últimos 30 dias, para editar.
+      const de = datas.de || diasAtrasIso(29);
+      const ate = datas.ate || hojeIso();
+      aplicar({ periodo, de, ate });
+      return;
+    }
+    aplicar({ periodo, de: "", ate: "" });
+  };
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload?.length) return null;
@@ -147,26 +288,7 @@ export default function AnalyticsPage() {
     );
   }
 
-  if (loading && !data) {
-    return (
-      <Tela>
-        <CabecalhoDeTela titulo="Analytics" descricao="Carregando…" />
-        <div className="space-y-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-[180px] rounded-xl border border-bee-line bg-bee-surface p-5 space-y-4">
-                <Esqueleto className="w-10 h-10" />
-                <Esqueleto className="h-8 w-16" />
-                <Esqueleto className="h-3 w-24" />
-              </div>
-            ))}
-          </div>
-          <Esqueleto className="h-96 rounded-xl" />
-          <Esqueleto className="h-64 rounded-xl" />
-        </div>
-      </Tela>
-    );
-  }
+  if (loading && !data) return <Carregando />;
 
   if (error || !data) {
     return (
@@ -178,7 +300,7 @@ export default function AnalyticsPage() {
             Não foi possível carregar o relatório{error ? `: ${error}` : "."}
           </p>
           <button
-            onClick={() => void load(PERIOD_DAYS[period])}
+            onClick={() => params && void load(params)}
             className="h-10 px-5 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
           >
             Tentar de novo
@@ -192,16 +314,53 @@ export default function AnalyticsPage() {
   const chartData = report.daily.map((day) => ({ ...day, label: shortDate(day.date) }));
   const inAppShare = report.clicks ? Math.round((report.inAppClicks / report.clicks) * 100) : 0;
   const hasTraffic = report.clicks > 0 || report.views > 0;
+  const filtrosAtivos = (["link", "origem", "chegada", "aparelho", "pais", "app"] as const).filter((c) => filtros[c]).length;
+  const descricaoDaJanela =
+    filtros.periodo === "custom" ? `de ${shortDate(data.de)} a ${shortDate(data.ate)}` : `dos últimos ${data.days} dias`;
+  const vViews = variacao(report.views, report.previous.views);
+  const vClicks = variacao(report.clicks, report.previous.clicks);
+  const vInApp = variacao(report.inAppClicks, report.previous.inAppClicks);
+  const vTaxa = variacao(Math.round(report.clickRate * 100), Math.round(report.previous.clickRate * 100));
 
   return (
     <Tela>
       {/* De qual página são estes números está na barra do topo. */}
-      <CabecalhoDeTela titulo="Analytics" descricao={`Visitas e cliques dos últimos ${data.days} dias`} />
+      <CabecalhoDeTela titulo="Analytics" descricao={`Visitas e cliques ${descricaoDaJanela}`} />
+
+      {/* Filtros: a janela e os recortes. Cada mudança vai para a URL. */}
+      <div className="mb-8">
+        <BarraDeFiltros
+          periodo={filtros.periodo}
+          de={datas.de}
+          ate={datas.ate}
+          minimo={diasAtrasIso(89)}
+          maximo={hojeIso()}
+          carregando={loading}
+          aviso={filtros.link ? "Visitas não têm link: só os cliques são recortados por ele." : null}
+          onPeriodo={escolherPeriodo}
+          onDatas={(de, ate) => {
+            setDatas({ de, ate });
+            if (de && ate && de <= ate) aplicar({ de, ate });
+          }}
+          onFiltro={(chave, valor) => aplicar({ [chave]: valor } as Partial<Filtros>)}
+          onLimpar={() => router.replace("/analytics", { scroll: false })}
+          filtros={[
+            { chave: "link", rotulo: "Link", valor: filtros.link, nomeDoValor: filtros.link ? linkTitles.get(filtros.link) : undefined,
+              opcoes: report.options.links.map((id) => ({ valor: id, nome: linkTitles.get(id) ?? id })) },
+            { chave: "origem", rotulo: "Origem", valor: filtros.origem, opcoes: report.options.sources.map((v) => ({ valor: v, nome: v })) },
+            { chave: "chegada", rotulo: "Endereço", valor: filtros.chegada, opcoes: report.options.arrivalHosts.map((v) => ({ valor: v, nome: v })) },
+            { chave: "aparelho", rotulo: "Aparelho", valor: filtros.aparelho, opcoes: report.options.devices.map((v) => ({ valor: v, nome: NOME_DO_APARELHO[v] ?? v })) },
+            { chave: "pais", rotulo: "País", valor: filtros.pais, opcoes: report.options.countries.map((v) => ({ valor: v, nome: v })) },
+            { chave: "app", rotulo: "Navegador", valor: filtros.app, opcoes: [{ valor: "sim", nome: "Dentro de app" }, { valor: "nao", nome: "Navegador comum" }] },
+          ]}
+        />
+      </div>
+
       {/* Coreografia do relatório, como a skill recomenda para painéis: os
           cartões de métrica chegam primeiro, em escada, com os números
           contando; o gráfico desenha em seguida; as tabelas por último. */}
-      <motion.div variants={LISTA} initial="initial" animate="animate" className="space-y-8">
-        {/* Métricas */}
+      <motion.div variants={LISTA} initial="initial" animate="animate" className={cn("space-y-8 transition-opacity", loading && "opacity-60")}>
+        {/* Métricas, comparadas com a janela anterior de mesmo tamanho. */}
         <motion.div variants={LISTA} data-tour="metricas" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <motion.div variants={ITEM_DA_LISTA}>
             <StatsCard
@@ -210,8 +369,8 @@ export default function AnalyticsPage() {
               label="Visualizações"
               value={report.views}
               formatar={(n) => formatNumber(Math.round(n))}
-              change={`últimos ${data.days} dias`}
-              changeType="neutral"
+              change={vViews.texto}
+              changeType={vViews.tipo}
             />
           </motion.div>
           <motion.div variants={ITEM_DA_LISTA}>
@@ -221,8 +380,8 @@ export default function AnalyticsPage() {
               label="Cliques"
               value={report.clicks}
               formatar={(n) => formatNumber(Math.round(n))}
-              change={`últimos ${data.days} dias`}
-              changeType="neutral"
+              change={vClicks.texto}
+              changeType={vClicks.tipo}
             />
           </motion.div>
           {/* Agnóstico de propósito: mede tráfego preso em QUALQUER navegador
@@ -234,8 +393,8 @@ export default function AnalyticsPage() {
               label="Dentro de app"
               value={report.inAppClicks}
               formatar={(n) => formatNumber(Math.round(n))}
-              change={`${inAppShare}% dos cliques`}
-              changeType="neutral"
+              change={`${inAppShare}% dos cliques · ${vInApp.texto}`}
+              changeType={vInApp.tipo}
             />
           </motion.div>
           <motion.div variants={ITEM_DA_LISTA}>
@@ -245,8 +404,8 @@ export default function AnalyticsPage() {
               label="Cliques por visita"
               value={report.views ? report.clickRate : "—"}
               formatar={(n) => n.toFixed(2)}
-              change={report.views ? `${report.clicks} / ${report.views}` : "sem visitas"}
-              changeType="neutral"
+              change={report.views ? `${report.clicks} / ${report.views} · ${vTaxa.texto}` : "sem visitas"}
+              changeType={report.views ? vTaxa.tipo : "neutral"}
             />
           </motion.div>
         </motion.div>
@@ -268,23 +427,11 @@ export default function AnalyticsPage() {
         <motion.section variants={ITEM_DA_LISTA} data-tour="grafico" className="bg-bee-surface rounded-xl p-6 border border-white/5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl text-white font-semibold">
-              Desempenho em {data.days} dias
+              Desempenho {filtros.periodo === "custom" ? descricaoDaJanela : `em ${data.days} dias`}
             </h2>
-            <div className="flex gap-2" data-tour="periodo">
-              {(Object.keys(PERIOD_DAYS) as Period[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  disabled={loading}
-                  className={cn(
-                    "px-3 py-1 rounded-full text-xs font-medium transition-all disabled:opacity-50",
-                    period === p ? "bg-bee-pink text-white" : "bg-bee-bg text-bee-muted hover:text-white",
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
-            </div>
+            <span className="text-xs text-bee-muted">
+              anterior: {formatNumber(report.previous.views)} visitas · {formatNumber(report.previous.clicks)} cliques
+            </span>
           </div>
 
           <ResponsiveContainer width="100%" height={280}>
@@ -338,11 +485,17 @@ export default function AnalyticsPage() {
 
         {!hasTraffic && (
           <motion.div variants={ITEM_DA_LISTA} data-tour="sem-trafego" className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
-            <h3 className="text-2xl text-white mb-2 font-semibold">Nenhum clique ainda</h3>
+            <h3 className="text-2xl text-white mb-2 font-semibold">{filtrosAtivos > 0 ? "Nada com esse recorte" : "Nenhum clique ainda"}</h3>
             <p className="text-sm text-bee-muted max-w-md mx-auto">
-              O rastreamento está ativo. Abra{" "}
-              <span className="text-bee-pink">/{session?.profile?.slug ?? "sua-pagina"}</span> e toque
-              em um link — o clique aparece aqui na hora.
+              {filtrosAtivos > 0 ? (
+                "Afrouxe um filtro ou limpe todos para voltar ao total da janela."
+              ) : (
+                <>
+                  O rastreamento está ativo. Abra{" "}
+                  <span className="text-bee-pink">/{session?.profile?.slug ?? "sua-pagina"}</span> e toque
+                  em um link — o clique aparece aqui na hora.
+                </>
+              )}
             </p>
           </motion.div>
         )}
@@ -371,12 +524,17 @@ export default function AnalyticsPage() {
                         className={cn("border-b border-white/5", index % 2 === 1 && "bg-white/[0.02]")}
                       >
                         <td className="py-3 pr-4">
-                          <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => aplicar({ link: filtros.link === row.linkId ? "" : row.linkId })}
+                            title="Filtrar por este link"
+                            className="flex items-center gap-2 text-left hover:text-bee-pink transition-colors"
+                          >
                             <IconeDePlataforma plataforma={row.channel ?? ""} className="w-4 h-4 text-white/50 flex-shrink-0" />
                             <span className="text-sm text-white truncate max-w-[220px]">
                               {linkTitles.get(row.linkId) ?? row.linkId}
                             </span>
-                          </div>
+                          </button>
                         </td>
                         <td className="py-3 text-right text-sm text-white">
                           {formatNumber(row.clicks)}
@@ -420,7 +578,7 @@ export default function AnalyticsPage() {
         )}
 
         {/* Origem dos cliques — quebras montadas a partir do que foi medido, não
-            de uma lista fixa de plataformas. */}
+            de uma lista fixa de plataformas. Clicar numa origem filtra por ela. */}
         {report.bySource.length > 0 && (
           <motion.section variants={ITEM_DA_LISTA} data-tour="origem">
             <h2 className="text-xl text-white mb-6 font-semibold">Origem dos cliques</h2>
@@ -429,9 +587,15 @@ export default function AnalyticsPage() {
                 const color = colorForKey(source.key);
                 const percentage = Math.round(source.share * 100);
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={source.key}
-                    className="bg-bee-surface rounded-xl p-4 border border-white/5"
+                    onClick={() => aplicar({ origem: filtros.origem === source.key ? "" : source.key })}
+                    title="Filtrar por esta origem"
+                    className={cn(
+                      "bg-bee-surface rounded-xl p-4 border text-left transition-colors",
+                      filtros.origem === source.key ? "border-bee-pink/60" : "border-white/5 hover:border-white/15",
+                    )}
                   >
                     <div className="w-9 h-9 mb-3 rounded-lg flex items-center justify-center" style={{ background: `${color}22` }}>
                       <IconeDePlataforma plataforma={source.key} className="w-4 h-4" />
@@ -454,11 +618,34 @@ export default function AnalyticsPage() {
                     <div className="text-xs font-medium" style={{ color }}>
                       {percentage}%
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </motion.section>
+        )}
+
+        {/* Aparelhos e endereços de chegada: listas curtas, só quando há dado. */}
+        {(report.byDevice.length > 0 || report.byArrivalHost.length > 0) && (
+          <motion.div variants={ITEM_DA_LISTA} className="grid md:grid-cols-2 gap-6">
+            {report.byDevice.length > 0 && (
+              <ListaDeQuebra
+                titulo="Aparelhos"
+                itens={report.byDevice.map((d) => ({ ...d, nome: NOME_DO_APARELHO[d.key] ?? d.key }))}
+                ativo={filtros.aparelho}
+                onEscolher={(v) => aplicar({ aparelho: filtros.aparelho === v ? "" : v })}
+              />
+            )}
+            {report.byArrivalHost.length > 0 && (
+              <ListaDeQuebra
+                titulo="Endereço de chegada"
+                nota="visitas e cliques"
+                itens={report.byArrivalHost.map((h) => ({ ...h, nome: h.key }))}
+                ativo={filtros.chegada}
+                onEscolher={(v) => aplicar({ chegada: filtros.chegada === v ? "" : v })}
+              />
+            )}
+          </motion.div>
         )}
 
         {/* Campanhas — só aparece quando existe UTM medido. */}
@@ -480,5 +667,46 @@ export default function AnalyticsPage() {
         )}
       </motion.div>
     </Tela>
+  );
+}
+
+function ListaDeQuebra({
+  titulo,
+  nota,
+  itens,
+  ativo,
+  onEscolher,
+}: {
+  titulo: string;
+  nota?: string;
+  itens: { key: string; nome: string; clicks: number; share: number }[];
+  ativo: string;
+  onEscolher: (valor: string) => void;
+}) {
+  return (
+    <section>
+      <h2 className="text-xl text-white mb-4 font-semibold">
+        {titulo}
+        {nota && <span className="ml-2 text-xs font-normal text-bee-dim">{nota}</span>}
+      </h2>
+      <div className="bg-bee-surface rounded-xl border border-white/5 divide-y divide-white/5">
+        {itens.slice(0, 8).map((item) => (
+          <button
+            type="button"
+            key={item.key}
+            onClick={() => onEscolher(item.key)}
+            className={cn(
+              "w-full flex items-center justify-between px-5 py-3 text-left transition-colors hover:bg-white/[0.03]",
+              ativo === item.key && "bg-bee-pink/10",
+            )}
+          >
+            <span className="text-sm text-white truncate">{item.nome}</span>
+            <span className="text-sm text-bee-muted">
+              {formatNumber(item.clicks)} <span className="text-bee-dim">({Math.round(item.share * 100)}%)</span>
+            </span>
+          </button>
+        ))}
+      </div>
+    </section>
   );
 }

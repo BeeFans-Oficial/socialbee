@@ -121,6 +121,33 @@ export interface LinkReport {
   lastClickAt: string | null;
 }
 
+/**
+ * Recortes do relatório. Cada lista é "um destes"; listas vazias ou
+ * ausentes não filtram. `links` só se aplica a cliques: visita não tem
+ * link, e o relatório diz isso em vez de zerar as visitas.
+ */
+export interface ReportFilters {
+  links?: string[];
+  /** `utm_source`, ou o host do referrer, ou "(direto)". */
+  sources?: string[];
+  /** Domínio do pool por onde a visita entrou. */
+  arrivalHosts?: string[];
+  devices?: string[];
+  countries?: string[];
+  /** `true`: só de dentro de app; `false`: só navegador comum. */
+  inApp?: boolean;
+}
+
+/** O que existe para filtrar na janela, ANTES dos filtros: a tela monta as
+ *  opções daqui, e uma origem que sumiu do recorte continua escolhível. */
+export interface ReportOptions {
+  links: string[];
+  sources: string[];
+  arrivalHosts: string[];
+  devices: string[];
+  countries: string[];
+}
+
 export interface TrackingReport {
   profileId: string;
   from: string;
@@ -135,7 +162,15 @@ export interface TrackingReport {
   bySource: Breakdown[];
   byCampaign: Breakdown[];
   byLink: Array<Breakdown & { linkId: string; channel?: string }>;
+  byDevice: Breakdown[];
+  byCountry: Breakdown[];
+  /** Por domínio de chegada, contando visitas e cliques juntos. */
+  byArrivalHost: Breakdown[];
   daily: Array<{ date: string; views: number; clicks: number }>;
+  /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
+  previous: { from: string; to: string; views: number; clicks: number; inAppClicks: number; clickRate: number };
+  filters: ReportFilters;
+  options: ReportOptions;
 }
 
 /** Link resolvido a partir do código curto. */

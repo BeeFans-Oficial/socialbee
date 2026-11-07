@@ -37,6 +37,7 @@ import type {
   CreateProfileInput,
   ProfileInput,
   RegisterInput,
+  ReportParams,
   ReportResponse,
 } from "./types";
 
@@ -274,7 +275,11 @@ export const api = {
     }).catch(() => undefined),
 
   // ---------------------------------------------------------------- analytics
-  report: (days: number) => request<ReportResponse>(`/me/tracking/report?days=${days}`),
+  report: (params: ReportParams = { days: 30 }) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (v !== undefined && v !== "" && v !== null) q.set(k, String(v));
+    return request<ReportResponse>(`/me/tracking/report?${q.toString()}`);
+  },
 
   /** Métricas de um link só. Do Pro, como o relatório. */
   linkReport: (linkId: string, days: number) =>

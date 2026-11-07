@@ -83,6 +83,11 @@ fim, marca-se o que entrou.
       clique e é contado à parte (`botHits`); `HEAD` não conta; contador
       desnormalizado por link, evento cru com TTL de 90 dias. (PR #2, #4, #28)
 - [x] Relatório de 7, 30 ou 90 dias no Analytics (só Pro).
+- [x] **Filtros no Analytics** (sessão de 06/11, sem PR): janela livre por
+      datas (até 90 dias), recortes por link, origem, endereço de chegada,
+      aparelho, país e dentro de app; comparação com a janela anterior nos
+      cartões; opções vindas do próprio relatório; recorte na URL; clique nas
+      listas aplica o filtro.
 - [x] `arrival_host` gravado no evento (base para a saúde do pool de domínios).
 
 ### Planos
@@ -141,8 +146,8 @@ a nota "Melhorias recomendadas — 2026-11-03".
 - [ ] Painel admin, Fases 2 e 3: Páginas, Links com domínios bloqueados,
       rastreamento global, suporte (reset de senha, zerar tour), configurações
       da plataforma, pagamentos, saúde, 2FA de admin, "Ver como".
-- [ ] Agendamento/expiração de link, QR code da página, comparação de período e
-      exportação no Analytics, miniatura e descrição fora do modelo Cartões.
+- [ ] Agendamento/expiração de link, QR code da página, exportação no
+      Analytics, miniatura e descrição fora do modelo Cartões.
 
 ### Engenharia
 
@@ -174,3 +179,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-06 | — | Snapshot inicial, a partir da `main` em `ba9313ba`. |
 | 2026-11-06 | `feat/admin-pool-de-dominios`, PR #46 | Tela Domínios no admin: pool com listar, adicionar pausado, ativar, pausar, renomear; 5 rotas em `/v1/admin/dominios*`; 1 teste e2e novo (51 no total). |
 | 2026-11-06 | `feat/email-de-boas-vindas`, PR #48 | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
+| 2026-11-06 | `feat/filtros-no-analytics` (sem PR ainda) | Filtros e janela livre no Analytics, comparação com o período anterior, quebras por aparelho e endereço de chegada; 1 teste e2e novo (55 no total). |
