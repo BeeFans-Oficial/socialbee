@@ -41,4 +41,34 @@ export class RetentionService {
     }
     return removed;
   }
+
+  /** Tokens de e-mail vencidos ou usados há mais de 7 dias. Pequeno, mas
+   *  cresce um por cadastro e um por "reenviar", para sempre, sem isto. */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async purgeEmailTokens(): Promise<void> {
+    await this.events.manager.query(
+      `DELETE FROM email_tokens WHERE coalesce(used_at, expires_at) < now() - interval '7 days'`,
+    );
+  }
+
+  /**
+   * Conta criada e nunca confirmada em 7 dias: apagada, para o e-mail e o
+   * endereço da página voltarem a ficar livres. Conta aberta pelo admin
+   * (há `conta.criar` na auditoria) fica — foi a equipe que a quis.
+   */
+  @Cron(CronExpression.EVERY_DAY_AT_4AM)
+  async purgeUnconfirmedAccounts(): Promise<void> {
+    await this.events.manager.query(SQL_EXPURGO_DE_NAO_CONFIRMADAS);
+  }
 }
+
+export const SQL_EXPURGO_DE_NAO_CONFIRMADAS = `
+  DELETE FROM users u
+   WHERE u.email_confirmed_at IS NULL
+     AND u.role = 'creator'
+     AND u.created_at < now() - interval '7 days'
+     AND NOT EXISTS (
+       SELECT 1 FROM admin_actions a
+        WHERE a.target_user_id = u.id AND a.action = 'conta.criar'
+     )
+`;

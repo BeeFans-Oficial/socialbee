@@ -26,7 +26,14 @@ export default function ConfiguracoesPage() {
 
       <section className="rounded-2xl border border-bee-line bg-bee-surface divide-y divide-bee-line">
         <Linha rotulo="E-mail">
-          <span className="text-sm text-white truncate">{loading ? "…" : session?.user.email ?? "—"}</span>
+          <span className="flex flex-col items-end gap-0.5 min-w-0">
+            <span className="text-sm text-white truncate">{loading ? "…" : session?.user.email ?? "—"}</span>
+            {session && (
+              <span className={session.user.isEmailConfirmed ? "text-xs text-emerald-400" : "text-xs text-bee-muted"}>
+                {session.user.isEmailConfirmed ? "confirmado" : "não confirmado"}
+              </span>
+            )}
+          </span>
         </Linha>
         <Linha rotulo="Plano">
           {plano ? (

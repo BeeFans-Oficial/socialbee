@@ -2,6 +2,8 @@ import type { INestApplication } from "@nestjs/common";
 import type { DataSource } from "typeorm";
 import request from "supertest";
 
+import { EmailService } from "../src/common/email/email.service";
+
 /**
  * Ponta a ponta: HTTP + Postgres de verdade.
  *
@@ -25,6 +27,24 @@ import request from "supertest";
 let app: INestApplication;
 let dataSource: DataSource;
 let servidor: ReturnType<typeof request>;
+
+/** O link que foi no último e-mail para `para` (transporte de log do teste). */
+function tokenDoUltimoEmail(para: string, rota = "confirmar-email"): string | null {
+  const emails = app.get(EmailService).enviados.filter((m) => m.para === para);
+  const ultimo = emails[emails.length - 1];
+  const match = ultimo ? new RegExp(`/${rota}\\?token=([A-Za-z0-9_-]+)`).exec(ultimo.texto) : null;
+  return match ? match[1] : null;
+}
+
+/** Cadastro → clique no link → login. O que toda conta do teste precisa
+ *  fazer antes de ter um token. */
+async function confirmarEmail(para: string): Promise<void> {
+  // O envio é depois do commit e fora da resposta do cadastro.
+  await new Promise((r) => setTimeout(r, 30));
+  const token = tokenDoUltimoEmail(para);
+  if (!token) throw new Error(`nenhum e-mail de confirmação para ${para}`);
+  await servidor.post("/v1/auth/email/confirmar").send({ token }).expect(200);
+}
 
 /** Token de cada conta, usado como Bearer. O cookie funciona igual; o Bearer é
  *  o que deixa o teste legível. */
@@ -61,6 +81,9 @@ beforeAll(async () => {
   process.env.JWT_SECRET = "segredo-de-teste-com-mais-de-32-caracteres-ok";
   process.env.INTERNAL_API_SECRET = "segredo-interno-de-teste-24+";
   process.env.SEED_DEMO = "false";
+  // Nunca o Resend de verdade no teste: a chave do `api/.env` do dev seria
+  // usada e cada cadastro do teste viraria um e-mail real.
+  process.env.RESEND_API_KEY = "";
   // Custo mínimo do bcrypt: o teste cria várias contas e não está medindo hash.
   process.env.BCRYPT_ROUNDS = "4";
   // S3 de verdade, o RustFS do compose, pela mesma razão que o Postgres é
@@ -107,7 +130,7 @@ afterAll(async () => {
 });
 
 describe("cadastro e sessão", () => {
-  it("cria conta e já devolve sessão", async () => {
+  it("cria conta sem sessão, manda o e-mail, e só o login depois da confirmação abre a porta", async () => {
     const response = await servidor
       .post("/v1/auth/register")
       .send({
@@ -120,13 +143,26 @@ describe("cadastro e sessão", () => {
       })
       .expect(201);
 
-    expect(response.body.user.email).toBe("bella@teste.app");
-    expect(response.body.profile.slug).toBe("bella-teste");
-    // Hash de senha nunca sai em resposta.
-    expect(JSON.stringify(response.body)).not.toContain("$2");
-    expect(response.headers["set-cookie"]?.[0]).toContain("beesocial_session");
+    expect(response.body).toEqual({ email: "bella@teste.app", pendingConfirmation: true });
+    expect(response.headers["set-cookie"]).toBeUndefined();
 
-    tokenBella = response.body.accessToken;
+    // Senha certa, e-mail sem confirmar: 403 com o código que a tela usa
+    // para mostrar o "reenviar". Senha errada continua 401, sem revelar nada.
+    const fechado = await servidor.post("/v1/auth/login").send({ email: "bella@teste.app", password: senha }).expect(403);
+    expect(fechado.body.error.code).toBe("email_nao_confirmado");
+    await servidor.post("/v1/auth/login").send({ email: "bella@teste.app", password: "errada123" }).expect(401);
+
+    await confirmarEmail("bella@teste.app");
+
+    const login = await servidor.post("/v1/auth/login").send({ email: "bella@teste.app", password: senha }).expect(200);
+    expect(login.body.user.email).toBe("bella@teste.app");
+    expect(login.body.user.isEmailConfirmed).toBe(true);
+    expect(login.body.profile.slug).toBe("bella-teste");
+    // Hash de senha nunca sai em resposta.
+    expect(JSON.stringify(login.body)).not.toContain("$2");
+    expect(login.headers["set-cookie"]?.[0]).toContain("beesocial_session");
+
+    tokenBella = login.body.accessToken;
   });
 
   it("recusa cadastro sem confirmação de maioridade", async () => {
@@ -281,7 +317,7 @@ describe("links", () => {
 
 describe("isolamento entre contas", () => {
   beforeAll(async () => {
-    const { body } = await servidor
+    await servidor
       .post("/v1/auth/register")
       .send({
         email: "luna@teste.app",
@@ -291,6 +327,8 @@ describe("isolamento entre contas", () => {
         ageConfirmed: true,
       })
       .expect(201);
+    await confirmarEmail("luna@teste.app");
+    const { body } = await servidor.post("/v1/auth/login").send({ email: "luna@teste.app", password: senha }).expect(200);
     tokenLuna = body.accessToken;
     // O relatório é do Pro; aqui o que se testa é o escopo, não o plano.
     await tornarPro("luna@teste.app");
@@ -902,24 +940,67 @@ describe("painel admin", () => {
       .expect(400);
   });
 
-  it("admin cria, edita e apaga uma conta, com auditoria e sem apagar admin", async () => {
-    const senhaCurta = await servidor
+  it("admin cria uma conta só com o e-mail; a pessoa cria a senha pelo convite; editar e apagar com auditoria", async () => {
+    // Senha não é campo do admin: o contrato recusa.
+    await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "nova@teste.app", password: "123", motivo: "teste" })
+      .send({ email: "nova@teste.app", password: "senha123", motivo: "teste" })
       .expect(400);
-    expect(senhaCurta.body.error).toBeDefined();
 
     const criada = await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "Nova@Teste.app", password: "senha123", motivo: "conta de parceira" })
+      .send({ email: "Nova@Teste.app", motivo: "conta de parceira" })
       .expect(201);
     const novaId: string = criada.body.id;
+    const detalhe = await servidor.get(`/v1/admin/contas/${novaId}`).set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(detalhe.body.semSenha).toBe(true);
 
-    // A pessoa entra com a senha que o admin definiu (e-mail em minúsculas) e
-    // ainda NÃO tem página: a sessão diz isso, e o que depende de página é
-    // recusado com `sem_pagina` até ela criar a primeira.
+    // Sem senha não há login, e a resposta é a mesma de senha errada.
+    await servidor.post("/v1/auth/login").send({ email: "nova@teste.app", password: "senha123" }).expect(401);
+
+    // O convite chegou (sem nome: não tem página), com o link para criar a senha.
+    await new Promise((r) => setTimeout(r, 30));
+    const convite = tokenDoUltimoEmail("nova@teste.app", "definir-senha");
+    expect(convite).toBeTruthy();
+    const emails = app.get(EmailService).enviados.filter((m) => m.para === "nova@teste.app");
+    expect(emails[emails.length - 1].assunto).toMatch(/crie sua senha/);
+
+    // Admin reenvia o convite: o anterior morre, o novo vale.
+    await servidor
+      .post(`/v1/admin/contas/${novaId}/convite/reenviar`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ motivo: "caiu no spam" })
+      .expect(201);
+    const convite2 = tokenDoUltimoEmail("nova@teste.app", "definir-senha");
+    expect(convite2).not.toBe(convite);
+    await servidor.post("/v1/auth/senha/definir").send({ token: convite, password: "senha123" }).expect(400);
+
+    // A tela pergunta se o link vale antes de mostrar o formulário.
+    expect((await servidor.post("/v1/auth/senha/verificar").send({ token: convite2 }).expect(200)).body.valido).toBe(true);
+    expect((await servidor.post("/v1/auth/senha/verificar").send({ token: convite }).expect(200)).body.valido).toBe(false);
+    expect((await servidor.post("/v1/auth/senha/verificar").send({ token: "x" }).expect(200)).body.valido).toBe(false);
+
+    // Senha curta é recusada; a boa cria a senha, confirma o e-mail e já entra.
+    await servidor.post("/v1/auth/senha/definir").send({ token: convite2, password: "123" }).expect(400);
+    const definiu = await servidor.post("/v1/auth/senha/definir").send({ token: convite2, password: "senha123" }).expect(200);
+    expect(definiu.body.user.email).toBe("nova@teste.app");
+    expect(definiu.body.user.isEmailConfirmed).toBe(true);
+    expect(definiu.body.profile).toBeNull();
+    expect(definiu.headers["set-cookie"]?.[0]).toContain("beesocial_session");
+    // Usado é usado.
+    await servidor.post("/v1/auth/senha/definir").send({ token: convite2, password: "outra123" }).expect(400);
+    expect((await servidor.post("/v1/auth/senha/verificar").send({ token: convite2 }).expect(200)).body.valido).toBe(false);
+    // Com senha, o convite não se reenvia.
+    await servidor
+      .post(`/v1/admin/contas/${novaId}/convite/reenviar`)
+      .set("authorization", `Bearer ${tokenLuna}`)
+      .send({ motivo: "teste" })
+      .expect(400);
+
+    // A senha que ela criou entra pelo login. Ainda NÃO tem página: a sessão
+    // diz isso, e o que depende de página é recusado com `sem_pagina`.
     const login = await servidor.post("/v1/auth/login").send({ email: "nova@teste.app", password: "senha123" }).expect(200);
     expect(login.body.profile).toBeNull();
     const tokenNova: string = login.body.accessToken;
@@ -942,7 +1023,7 @@ describe("painel admin", () => {
     await servidor
       .post("/v1/admin/contas")
       .set("authorization", `Bearer ${tokenLuna}`)
-      .send({ email: "nova@teste.app", password: "senha123", motivo: "teste" })
+      .send({ email: "nova@teste.app", motivo: "teste" })
       .expect(409);
 
     // Editar sem nada para mudar.
@@ -1060,5 +1141,61 @@ describe("painel admin", () => {
 
     // Domínio próprio não é do pool: 404 por aqui.
     await servidor.post(`/v1/admin/dominios/00000000-0000-4000-8000-000000000000/ativar`).set(auth).send({ motivo: "teste" }).expect(404);
+  });
+});
+
+describe("confirmação de e-mail", () => {
+  const email = "terceira@teste.app";
+
+  it("o cadastro manda as boas-vindas com o nome e o link", async () => {
+    await servidor
+      .post("/v1/auth/register")
+      .send({ email, password: senha, displayName: "Terceira", slug: "terceira-teste", ageConfirmed: true })
+      .expect(201);
+    await new Promise((r) => setTimeout(r, 30));
+    const emails = app.get(EmailService).enviados.filter((m) => m.para === email);
+    expect(emails).toHaveLength(1);
+    expect(emails[0].assunto).toMatch(/Bem-vinda/);
+    expect(emails[0].html).toContain("Confirmar meu e-mail");
+    expect(emails[0].texto).toContain("Terceira");
+    expect(tokenDoUltimoEmail(email)).toBeTruthy();
+  });
+
+  it("token inventado ou malformado é recusado", async () => {
+    const curto = await servidor.post("/v1/auth/email/confirmar").send({ token: "abc" }).expect(400);
+    expect(curto.body.error.code).toBe("token_invalido");
+    await servidor.post("/v1/auth/email/confirmar").send({ token: "a".repeat(43) }).expect(400);
+    await servidor.post("/v1/auth/email/confirmar").send({}).expect(400);
+  });
+
+  it("reenviar invalida o link anterior; o novo confirma e abre o login; o segundo clique ainda responde sucesso", async () => {
+    const antigo = tokenDoUltimoEmail(email);
+
+    // Público, por e-mail. Mesma resposta para e-mail que não existe.
+    await servidor.post("/v1/auth/email/reenviar").send({ email }).expect(200);
+    await servidor.post("/v1/auth/email/reenviar").send({ email: "ninguem@teste.app" }).expect(200);
+    const novo = tokenDoUltimoEmail(email);
+    expect(novo).toBeTruthy();
+    expect(novo).not.toBe(antigo);
+
+    const vencido = await servidor.post("/v1/auth/email/confirmar").send({ token: antigo }).expect(400);
+    expect(vencido.body.error.code).toBe("token_expirado");
+
+    await servidor.post("/v1/auth/login").send({ email, password: senha }).expect(403);
+    const ok = await servidor.post("/v1/auth/email/confirmar").send({ token: novo }).expect(200);
+    expect(ok.body).toEqual({ email, jaConfirmado: false });
+    const login = await servidor.post("/v1/auth/login").send({ email, password: senha }).expect(200);
+    expect(login.body.user.isEmailConfirmed).toBe(true);
+
+    // O Gmail pré-carrega o link; a pessoa reabre o e-mail. Nada de "inválido".
+    const denovo = await servidor.post("/v1/auth/email/confirmar").send({ token: novo }).expect(200);
+    expect(denovo.body.jaConfirmado).toBe(true);
+    const velhoDepois = await servidor.post("/v1/auth/email/confirmar").send({ token: antigo }).expect(200);
+    expect(velhoDepois.body.jaConfirmado).toBe(true);
+
+    // Confirmada, reenviar não manda nada (e responde igual).
+    const antes = app.get(EmailService).enviados.filter((m) => m.para === email).length;
+    await servidor.post("/v1/auth/email/reenviar").send({ email }).expect(200);
+    expect(app.get(EmailService).enviados.filter((m) => m.para === email)).toHaveLength(antes);
   });
 });

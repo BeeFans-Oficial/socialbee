@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { ConflictException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { InjectRepository } from "@nestjs/typeorm";
 import { compare, hash, hashSync } from "bcryptjs";
@@ -13,7 +13,9 @@ import { Profile } from "../profiles/entities/profile.entity";
 import { ProfilesService, toOwnProfileView, type OwnProfileView } from "../profiles/profiles.service";
 import { Session } from "./entities/session.entity";
 import { User } from "./entities/user.entity";
+import type { DefinirSenhaDto } from "./dto/definir-senha.dto";
 import type { LoginDto } from "./dto/login.dto";
+import { ConfirmacaoDeEmailService } from "./confirmacao-de-email.service";
 import type { RegisterDto } from "./dto/register.dto";
 
 /** Metadados da requisição que abriu a sessão. Só para a pessoa reconhecer a
@@ -27,6 +29,8 @@ export interface AuthenticatedUserView {
   id: string;
   email: string;
   isAdultConfirmed: boolean;
+  /** Clicou no link do e-mail de boas-vindas. Só avisa; não bloqueia. */
+  isEmailConfirmed: boolean;
   createdAt: string;
   plan: PlanView;
   /** O app usa para mostrar (ou não) a entrada do painel admin. A regra de
@@ -91,6 +95,7 @@ export class AuthService {
     private readonly profilesService: ProfilesService,
     private readonly jwt: JwtService,
     private readonly dataSource: DataSource,
+    private readonly confirmacao: ConfirmacaoDeEmailService,
   ) {}
 
   /**
@@ -100,7 +105,14 @@ export class AuthService {
    * usuário ser criado, a pessoa ficaria com login válido e nenhum perfil — um
    * estado que nenhuma tela sabe mostrar e que só se conserta no banco.
    */
-  async register(dto: RegisterDto, meta: SessionMeta): Promise<AuthResult> {
+  /**
+   * Cria a conta e manda o e-mail de boas-vindas com o link de confirmação.
+   * NÃO abre sessão: a pessoa só entra depois de clicar no link (ver
+   * `login`). A conta existe desde já para o e-mail e o endereço da página
+   * ficarem reservados; abandonada sem confirmar, é apagada em 7 dias
+   * (`RetentionService.purgeUnconfirmedAccounts`).
+   */
+  async register(dto: RegisterDto): Promise<{ email: string; pendingConfirmation: true }> {
     if (!dto.ageConfirmed) {
       throw new UnauthorizedException({
         code: "age_not_confirmed",
@@ -149,8 +161,10 @@ export class AuthService {
       return { user: created, profile: createdProfile };
     });
 
-    this.logger.log(`conta criada: ${user.id} (perfil ${profile.slug})`);
-    return this.issue(user, profile, meta);
+    this.logger.log(`conta criada: ${user.id} (perfil ${profile.slug}), aguardando confirmação do e-mail`);
+    // Depois do commit e sem `await`: o e-mail não segura nem derruba o cadastro.
+    this.confirmacao.enviarBoasVindas(user, profile.displayName);
+    return { email: user.email, pendingConfirmation: true };
   }
 
   async login(dto: LoginDto, meta: SessionMeta): Promise<AuthResult> {
@@ -172,6 +186,16 @@ export class AuthService {
       });
     }
 
+    // Senha certa, e-mail ainda não confirmado: a porta fica fechada até o
+    // clique no link. Só DEPOIS de conferir a senha, para a resposta não
+    // revelar a quem não tem a senha que o e-mail existe e está pendente.
+    if (!user.emailConfirmedAt) {
+      throw new ForbiddenException({
+        code: "email_nao_confirmado",
+        message: "Confirme seu e-mail antes de entrar. Enviamos um link para " + user.email + ".",
+      });
+    }
+
     // Pode não haver página: a conta aberta pelo admin entra vazia e cria a
     // primeira em "Páginas". O token então vai sem `pid`.
     const profile = await this.profilesService.findFirstByUserId(user.id);
@@ -183,6 +207,28 @@ export class AuthService {
   }
 
   /** Revoga a sessão. Idempotente: sair duas vezes não é erro. */
+  /**
+   * A senha escolhida pelo link do convite. O clique prova o e-mail, então
+   * a conta sai daqui confirmada e com sessão aberta: a pessoa acabou de
+   * digitar a senha, pedir que digite de novo no login seria cerimônia.
+   * Sessões anteriores caem — vale para o dia em que isto for o "esqueci".
+   */
+  async definirSenhaPeloLink(dto: DefinirSenhaDto, meta: SessionMeta): Promise<AuthResult> {
+    const { userId } = await this.confirmacao.consumirTokenDeSenha(dto.token);
+    const passwordHash = await hash(dto.password, loadEnv().bcryptRounds);
+    await this.dataSource.transaction(async (tx) => {
+      await tx.query(
+        `UPDATE users SET password_hash = $2, email_confirmed_at = coalesce(email_confirmed_at, now()) WHERE id = $1`,
+        [userId, passwordHash],
+      );
+      await tx.query(`UPDATE sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL`, [userId]);
+    });
+    const user = await this.users.findOneOrFail({ where: { id: userId } });
+    const profile = await this.profilesService.findFirstByUserId(user.id);
+    this.logger.log(`senha definida pelo link: ${user.id}`);
+    return this.issue(user, profile, meta);
+  }
+
   async logout(sessionId: string): Promise<void> {
     await this.sessions.update({ id: sessionId }, { revokedAt: new Date() });
   }
@@ -300,6 +346,7 @@ export function toUserView(user: User): AuthenticatedUserView {
     id: user.id,
     email: user.email,
     isAdultConfirmed: Boolean(user.ageConfirmedAt),
+    isEmailConfirmed: Boolean(user.emailConfirmedAt),
     createdAt: user.createdAt.toISOString(),
     plan: toPlanView(user.proUntil),
     role: user.role ?? "creator",

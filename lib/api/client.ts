@@ -160,6 +160,21 @@ export const api = {
   // `profile` é `null` para a conta que ainda não criou a primeira página.
   me: () => request<{ user: ApiUser; profile: ApiProfile | null }>("/auth/me"),
 
+  /** O clique no link do e-mail. Pública. */
+  confirmarEmail: (token: string) =>
+    request<{ email: string; jaConfirmado: boolean }>("/auth/email/confirmar", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  /** Pública, por e-mail; a resposta é a mesma exista a conta ou não. */
+  verificarLinkDeSenha: (token: string) =>
+    request<{ valido: boolean }>("/auth/senha/verificar", { method: "POST", body: JSON.stringify({ token }) }),
+  /** O link do convite: cria a senha e já devolve a sessão (cookie). */
+  definirSenha: (token: string, password: string) =>
+    request<ApiSession>("/auth/senha/definir", { method: "POST", body: JSON.stringify({ token, password }) }),
+  reenviarConfirmacao: (email: string) =>
+    request<{ enviado: true }>("/auth/email/reenviar", { method: "POST", body: JSON.stringify({ email }) }),
+
   // ------------------------------------------------------------------- perfil
   profile: () => request<ApiProfile>("/me/profile"),
 
@@ -275,7 +290,7 @@ export const api = {
         `/admin/contas?q=${encodeURIComponent(q)}&pagina=${pagina}`,
       ),
     conta: (id: string) => request<AdminContaDetalhe>(`/admin/contas/${id}`),
-    criarConta: (input: { email: string; password: string; motivo: string }) =>
+    criarConta: (input: { email: string; motivo: string }) =>
       request<{ id: string }>("/admin/contas", { method: "POST", body: JSON.stringify(input) }),
     editarConta: (id: string, input: { email?: string; novaSenha?: string; motivo: string }) =>
       request<{ email: string }>(`/admin/contas/${id}`, { method: "PATCH", body: JSON.stringify(input) }),
@@ -290,6 +305,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ motivo }),
       }),
+    reenviarConvite: (id: string, motivo: string) =>
+      request<{ enviado: true }>(`/admin/contas/${id}/convite/reenviar`, { method: "POST", body: JSON.stringify({ motivo }) }),
     definirPapel: (id: string, papel: "creator" | "admin", motivo: string) =>
       request<{ role: "creator" | "admin" }>(`/admin/contas/${id}/papel`, {
         method: "POST",

@@ -79,6 +79,11 @@ export class AdminController {
     return this.admin.revogarSessoes(auth.userId, id, body.motivo);
   }
 
+  @Post("contas/:id/convite/reenviar")
+  reenviarConvite(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() body: { motivo: string }) {
+    return this.admin.reenviarConvite(auth.userId, id, body.motivo);
+  }
+
   @Post("contas/:id/papel")
   definirPapel(
     @CurrentUser() auth: AuthContext,

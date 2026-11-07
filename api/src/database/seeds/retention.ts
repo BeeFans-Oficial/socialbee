@@ -1,6 +1,7 @@
 import { Client } from "pg";
 
 import { loadEnv } from "../../config/env";
+import { SQL_EXPURGO_DE_NAO_CONFIRMADAS } from "../../tracking/retention.service";
 
 /**
  * Expurgo manual do evento cru.
@@ -29,6 +30,12 @@ async function purge(): Promise<void> {
     console.log(
       `[retention] ${result.rowCount ?? 0} evento(s) com mais de ${env.trackingEventTtlDays} dias removidos.`,
     );
+    const tokens = await client.query(
+      `DELETE FROM email_tokens WHERE coalesce(used_at, expires_at) < now() - interval '7 days'`,
+    );
+    console.log(`[retention] ${tokens.rowCount ?? 0} token(s) de e-mail vencidos removidos.`);
+    const contas = await client.query(SQL_EXPURGO_DE_NAO_CONFIRMADAS);
+    console.log(`[retention] ${contas.rowCount ?? 0} conta(s) sem confirmar o e-mail há 7 dias removidas.`);
   } finally {
     await client.end();
   }

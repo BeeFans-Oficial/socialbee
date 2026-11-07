@@ -6,6 +6,7 @@ import { DataSource } from "typeorm";
 import { toPlanView, type PlanView } from "../auth/auth.service";
 import { loadEnv } from "../config/env";
 import { User } from "../auth/entities/user.entity";
+import { ConfirmacaoDeEmailService } from "../auth/confirmacao-de-email.service";
 import { FORMATO_DE_HOST, normalizarHost } from "../profiles/custom-domains.service";
 import type { ApagarContaDto } from "./dto/apagar-conta.dto";
 import type { CriarContaDto } from "./dto/criar-conta.dto";
@@ -51,6 +52,9 @@ export interface ContaResumo {
 
 export interface ContaDetalhe extends ContaResumo {
   isAdultConfirmed: boolean;
+  isEmailConfirmed: boolean;
+  /** Convite pendente: a pessoa ainda não criou a senha. */
+  semSenha: boolean;
   paginasLista: {
     id: string;
     slug: string;
@@ -110,7 +114,10 @@ const POR_PAGINA = 25;
 
 @Injectable()
 export class AdminService {
-  constructor(@InjectDataSource() private readonly db: DataSource) {}
+  constructor(
+    @InjectDataSource() private readonly db: DataSource,
+    private readonly confirmacao: ConfirmacaoDeEmailService,
+  ) {}
 
   async visaoGeral(): Promise<VisaoGeral> {
     const [c] = await this.db.query<
@@ -227,8 +234,10 @@ export class AdminService {
         created_at: Date;
         last_login_at: Date | null;
         age_confirmed_at: Date | null;
+        email_confirmed_at: Date | null;
+        sem_senha: boolean;
       }[]
-    >(`SELECT id, email, role, pro_until, created_at, last_login_at, age_confirmed_at FROM users WHERE id = $1`, [id]);
+    >(`SELECT id, email, role, pro_until, created_at, last_login_at, age_confirmed_at, email_confirmed_at, password_hash IS NULL AS sem_senha FROM users WHERE id = $1`, [id]);
     if (!u) throw new NotFoundException({ code: "conta_nao_encontrada", message: "Conta não encontrada." });
 
     const paginas = await this.db.query<
@@ -265,6 +274,8 @@ export class AdminService {
       createdAt: new Date(u.created_at).toISOString(),
       lastLoginAt: u.last_login_at ? new Date(u.last_login_at).toISOString() : null,
       isAdultConfirmed: Boolean(u.age_confirmed_at),
+      isEmailConfirmed: Boolean(u.email_confirmed_at),
+      semSenha: Boolean(u.sem_senha),
       paginas: paginas.length,
       slug: paginas[0]?.slug ?? null,
       displayName: paginas[0]?.display_name ?? null,
@@ -419,19 +430,35 @@ export class AdminService {
    * e monta a própria página em "Páginas". Até lá o token vai sem página e só
    * as rotas `@SemPagina()` respondem.
    */
+  /** Só o e-mail. A senha é a pessoa quem cria, pelo convite que sai daqui. */
   async criarConta(adminId: string, dto: CriarContaDto): Promise<{ id: string }> {
     const motivo = exigirMotivo(dto.motivo);
-    const passwordHash = await hash(dto.password, loadEnv().bcryptRounds);
 
     return this.db.transaction(async (tx) => {
       const users = tx.getRepository(User);
       if (await users.exists({ where: { email: dto.email } })) {
         throw new ConflictException({ code: "email_taken", message: "Já existe uma conta com esse email." });
       }
-      const user = await users.save(users.create({ email: dto.email, passwordHash, ageConfirmedAt: null }));
+      const user = await users.save(users.create({ email: dto.email, passwordHash: null, ageConfirmedAt: null }));
       await registrar(tx, adminId, "conta.criar", user.id, motivo, { email: dto.email });
       return { id: user.id };
+    }).then((criado) => {
+      // Depois do commit: o convite com o link para criar a senha.
+      this.confirmacao.enviarConvite({ id: criado.id, email: dto.email });
+      return criado;
     });
+  }
+
+  /** Convite que não chegou, ou que venceu. Só enquanto a conta não tem senha. */
+  async reenviarConvite(adminId: string, userId: string, motivoBruto: string): Promise<{ enviado: true }> {
+    const motivo = exigirMotivo(motivoBruto);
+    const alvo = await this.alvo(userId);
+    if (alvo.password_hash !== null) {
+      throw new BadRequestException({ code: "ja_tem_senha", message: "Essa conta já criou a senha; não há convite a reenviar." });
+    }
+    await this.confirmacao.enviarConviteAgora({ id: alvo.id, email: alvo.email });
+    await registrar(this.db, adminId, "convite.reenviar", userId, motivo, { email: alvo.email });
+    return { enviado: true };
   }
 
   /**
@@ -715,9 +742,9 @@ export class AdminService {
     }));
   }
 
-  private async alvo(userId: string): Promise<{ id: string; email: string; role: Papel; pro_until: Date | null }> {
-    const [u] = await this.db.query<{ id: string; email: string; role: Papel; pro_until: Date | null }[]>(
-      `SELECT id, email, role, pro_until FROM users WHERE id = $1`,
+  private async alvo(userId: string): Promise<{ id: string; email: string; role: Papel; pro_until: Date | null; password_hash: string | null }> {
+    const [u] = await this.db.query<{ id: string; email: string; role: Papel; pro_until: Date | null; password_hash: string | null }[]>(
+      `SELECT id, email, role, pro_until, password_hash FROM users WHERE id = $1`,
       [userId],
     );
     if (!u) throw new NotFoundException({ code: "conta_nao_encontrada", message: "Conta não encontrada." });

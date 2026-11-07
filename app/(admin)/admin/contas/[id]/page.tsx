@@ -27,7 +27,7 @@ import { LinhaDeAcao } from "../../auditoria/page";
 const data = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "—";
 
-type Acao = "liberar" | "rebaixar" | "sessoes" | "promover" | "despromover" | "editar" | "apagar" | null;
+type Acao = "liberar" | "rebaixar" | "sessoes" | "promover" | "despromover" | "editar" | "apagar" | "convite" | null;
 
 /**
  * Uma conta: o que ela tem e o que o admin pode fazer com ela. Toda ação abre
@@ -90,7 +90,7 @@ export default function ContaPage() {
         }
         titulo={conta.email}
         selo={conta.role === "admin" ? <SeloAdmin /> : undefined}
-        descricao={`Cadastro em ${data(conta.createdAt)} · último login ${data(conta.lastLoginAt)} · ${conta.isAdultConfirmed ? "18+ confirmado" : "18+ não confirmado"}`}
+        descricao={`Cadastro em ${data(conta.createdAt)} · último login ${data(conta.lastLoginAt)} · ${conta.isAdultConfirmed ? "18+ confirmado" : "18+ não confirmado"} · ${conta.semSenha ? "convite pendente" : conta.isEmailConfirmed ? "e-mail confirmado" : "e-mail não confirmado"}`}
       />
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -99,6 +99,9 @@ export default function ContaPage() {
             <p className="text-sm text-admin-ink min-w-0 flex-1 truncate">{conta.email}</p>
             {!souEu && (
               <div className="flex flex-wrap gap-2">
+                {conta.semSenha && (
+                  <BotaoAdmin onClick={() => setAcao("convite")}>Reenviar convite</BotaoAdmin>
+                )}
                 <BotaoAdmin secundario onClick={() => { setEdicao({ email: conta.email, novaSenha: "" }); setAcao("editar"); }}>
                   Editar e-mail ou senha
                 </BotaoAdmin>
@@ -109,6 +112,9 @@ export default function ContaPage() {
             )}
           </div>
           {souEu && <p className="mt-3 text-xs text-admin-muted">A sua própria conta se edita nas configurações do painel da criadora.</p>}
+          {conta.semSenha && (
+            <p className="mt-3 text-xs text-admin-muted">Convite pendente: a pessoa ainda não criou a senha pelo link do e-mail. Sem senha, ela não entra.</p>
+          )}
           {!souEu && conta.role === "admin" && <p className="mt-3 text-xs text-admin-muted">Para apagar, tire o papel de admin antes.</p>}
         </CartaoAdmin>
 
@@ -254,6 +260,14 @@ export default function ContaPage() {
         perigo
         onFechar={() => setAcao(null)}
         onConfirmar={(motivo) => executar(() => api.admin.rebaixarPro(conta.id, motivo), "Conta voltou ao Free.")}
+      />
+      <DialogoDeAcao
+        aberto={acao === "convite"}
+        titulo="Reenviar convite"
+        descricao="Manda de novo o e-mail com o link para criar a senha. O link anterior deixa de valer; o novo vale 7 dias."
+        rotulo="Reenviar"
+        onFechar={() => setAcao(null)}
+        onConfirmar={(motivo) => executar(() => api.admin.reenviarConvite(conta.id, motivo), "Convite reenviado.")}
       />
       <DialogoDeAcao
         aberto={acao === "sessoes"}

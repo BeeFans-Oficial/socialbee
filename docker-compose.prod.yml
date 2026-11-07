@@ -108,6 +108,10 @@ services:
       # conectar um domínio próprio, e o que o painel compara ao conferir o
       # DNS. Opcional — sem ele o painel pede para ela falar com a equipe.
       SERVER_PUBLIC_IP: ${SERVER_PUBLIC_IP:-}
+      # E-mail transacional (Resend). Obrigatória: sem ela a API não sobe.
+      RESEND_API_KEY: ${RESEND_API_KEY:?defina RESEND_API_KEY (painel do Resend, chave com Sending access)}
+      EMAIL_FROM: ${EMAIL_FROM:-BeeSocial <links@beesocial.bio>}
+      EMAIL_REPLY_TO: ${EMAIL_REPLY_TO:-}
       # Cloudflare R2, pela API S3 (ver .env.production.example, bloco
       # IMAGENS). `S3_REGION` é `auto` por exigência do R2; o SDK pede uma
       # região, o R2 ignora.

@@ -6,6 +6,7 @@ import { loadEnv } from "../config/env";
 import { ProfilesModule } from "../profiles/profiles.module";
 import { AuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { ConfirmacaoDeEmailService } from "./confirmacao-de-email.service";
 import { Session } from "./entities/session.entity";
 import { User } from "./entities/user.entity";
 import { JwtAuthGuard } from "./jwt-auth.guard";
@@ -29,7 +30,7 @@ import { JwtAuthGuard } from "./jwt-auth.guard";
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtAuthGuard],
-  exports: [AuthService, JwtAuthGuard],
+  providers: [AuthService, ConfirmacaoDeEmailService, JwtAuthGuard],
+  exports: [AuthService, ConfirmacaoDeEmailService, JwtAuthGuard],
 })
 export class AuthModule {}

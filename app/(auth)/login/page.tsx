@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CartaoDeAuth } from "@/components/auth/CartaoDeAuth";
+import { BotaoReenviar } from "@/components/auth/ConfiraSeuEmail";
 import { api, ApiError } from "@/lib/api/client";
 
 export default function LoginPage() {
@@ -16,6 +17,8 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  /** Senha certa, e-mail ainda não confirmado: mostra o reenvio. */
+  const [naoConfirmado, setNaoConfirmado] = useState(false);
 
   /**
    * Login de verdade.
@@ -32,6 +35,7 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setNaoConfirmado(false);
     setLoading(true);
 
     try {
@@ -48,6 +52,7 @@ export default function LoginPage() {
       // A mensagem vem da API: ela é a única que sabe se foi credencial errada,
       // excesso de tentativas ou o serviço fora do ar.
       setError(caught instanceof ApiError ? caught.message : "Não foi possível entrar.");
+      setNaoConfirmado(caught instanceof ApiError && caught.code === "email_nao_confirmado");
       setLoading(false);
     }
   };
@@ -116,6 +121,7 @@ export default function LoginPage() {
             <p className="text-sm text-red-500">{error}</p>
           </div>
         )}
+        {naoConfirmado && <BotaoReenviar email={email.trim().toLowerCase()} />}
 
         {/* "Esqueci minha senha" saiu daqui: apontava para `#`, porque a
             recuperação de senha ainda não existe (ver README). Volta junto com
