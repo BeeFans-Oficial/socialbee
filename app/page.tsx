@@ -3,6 +3,8 @@ import { Check } from "lucide-react";
 
 import { BuscaDeEndereco } from "@/components/landing/BuscaDeEndereco";
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
+import { CamadasDaPagina } from "@/components/landing/CamadasDaPagina";
+import { Revelar, RevelarItem, RevelarLista } from "@/components/landing/Revelar";
 import { LogoAnimada } from "@/components/landing/LogoAnimada";
 
 /**
@@ -28,24 +30,6 @@ const NAV = [
 ];
 
 const DESTAQUES = ["Abre no navegador do celular", "Seu endereço, seu nome", "Barreira de idade", "Grátis para começar"];
-
-const COMO_FUNCIONA = [
-  {
-    titulo: "Abre no navegador do celular",
-    texto:
-      "Quem chega pelo link de dentro de um aplicativo vê uma tela de boas-vindas com a sua foto e um botão para continuar no navegador do celular, onde login e pagamento funcionam.",
-  },
-  {
-    titulo: "A mesma página para todo mundo",
-    texto:
-      "Fã, prévia do WhatsApp ou do Instagram: todo mundo vê a mesma página, com o seu nome e os seus botões. Sem versão escondida, sem surpresa.",
-  },
-  {
-    titulo: "Seu endereço, seu nome",
-    texto:
-      "Escolha o nome da sua página e, no Pro, o domínio entre os disponíveis. Trocou de endereço? O antigo continua levando até você.",
-  },
-];
 
 const RECURSOS = [
   { titulo: "Modelos prontos", texto: "Escolha um layout e troque foto, textos, cores e botões." },
@@ -76,7 +60,7 @@ const PLANOS = [
 
 export default function LandingPage() {
   return (
-    <div className="relative min-h-screen bg-bee-bg text-white font-sans overflow-x-hidden">
+    <div className="relative min-h-screen bg-bee-bg text-white font-sans overflow-x-clip">
       {/* ── Navegação ─────────────────────────────────────────────────── */}
       <header className="relative z-20">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 h-[88px] flex items-center justify-between">
@@ -110,39 +94,41 @@ export default function LandingPage() {
         <div className="relative z-10 mx-auto max-w-5xl px-4 sm:px-6 pt-6 pb-24 text-center">
           <LogoAnimada className="mb-6 sm:mb-8" />
 
-          <h1 className="relative font-semibold text-[48px] leading-[1.02] sm:text-[88px] md:text-[104px] tracking-[-0.02em]">
+          <Revelar como="h1" atraso={0.2} className="relative font-semibold text-[48px] leading-[1.02] sm:text-[88px] md:text-[104px] tracking-[-0.02em]">
             Seu link,
             <br />
             sempre no ar
-          </h1>
+          </Revelar>
 
-          <p className="mt-6 text-lg sm:text-xl text-white/80">
+          <Revelar como="p" atraso={0.35} className="mt-6 text-lg sm:text-xl text-white/80">
             O link na bio feito para criadoras de conteúdo
-          </p>
+          </Revelar>
 
-          <ul className="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-3">
+          <RevelarLista como="ul" className="mt-12 flex flex-wrap justify-center gap-x-8 gap-y-3">
             {DESTAQUES.map((d) => (
-              <li
+              <RevelarItem
+                como="li"
                 key={d}
                 className="flex items-center gap-2 text-[13px] sm:text-sm uppercase tracking-[0.14em] text-white/65"
               >
                 <span className="w-1 h-1 rounded-full bg-bee-pink" />
                 {d}
-              </li>
+              </RevelarItem>
             ))}
-          </ul>
+          </RevelarLista>
 
-          <Link
-            href="/cadastro"
-            className="inline-block mt-10 px-8 py-3.5 rounded-md bg-bee-pink text-white text-[15px] font-semibold hover:bg-bee-pink-hot transition-colors glow-pink-sm"
-          >
-            Começar grátis
-          </Link>
-
-          <p className="mt-10 text-sm text-white/50">Sem cartão de crédito. Pronto em dois minutos.</p>
+          <Revelar atraso={0.15}>
+            <Link
+              href="/cadastro"
+              className="inline-block mt-10 px-8 py-3.5 rounded-md bg-bee-pink text-white text-[15px] font-semibold hover:bg-bee-pink-hot transition-colors glow-pink-sm"
+            >
+              Começar grátis
+            </Link>
+            <p className="mt-10 text-sm text-white/50">Sem cartão de crédito. Pronto em dois minutos.</p>
+          </Revelar>
 
           {/* Busca de endereço */}
-          <div className="mt-8 mx-auto max-w-2xl rounded-2xl border border-bee-border bg-bee-surface/60 backdrop-blur-sm px-5 sm:px-6 pt-8 pb-5">
+          <Revelar className="mt-8 mx-auto max-w-2xl rounded-2xl border border-bee-border bg-bee-surface/60 backdrop-blur-sm px-5 sm:px-6 pt-8 pb-5">
             <h2 className="font-semibold text-3xl sm:text-[34px] leading-tight tracking-[-0.01em]">
               Sua página. Seu nome. Seu link.
             </h2>
@@ -150,44 +136,49 @@ export default function LandingPage() {
               Veja na hora se o endereço que você quer está livre.
             </p>
             <BuscaDeEndereco />
-          </div>
+          </Revelar>
         </div>
       </section>
 
       {/* ── Como funciona ─────────────────────────────────────────────── */}
+      {/* ── Como funciona ─────────────────────────────────────────────── */}
       <section id="como-funciona" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
-        <Cabecalho
-          rotulo="Como funciona"
-          titulo="Simples de abrir, fácil de confiar"
-          texto="Uma página só, pronta para o celular, com o mesmo conteúdo para quem quer que abra."
-        />
-        <div className="mt-14 grid gap-4 md:grid-cols-3">
-          {COMO_FUNCIONA.map((p) => (
-            <Cartao key={p.titulo} titulo={p.titulo} texto={p.texto} />
-          ))}
-        </div>
+        <Revelar>
+          <Cabecalho
+            rotulo="Como funciona"
+            titulo="Uma página, quatro camadas"
+            texto="Cada camada faz uma promessa a quem abre o seu link. Desça e veja a página se montar."
+          />
+        </Revelar>
+        <CamadasDaPagina />
       </section>
 
       {/* ── Recursos ──────────────────────────────────────────────────── */}
       <section id="recursos" className="relative mx-auto max-w-6xl px-4 sm:px-6 py-24 scroll-mt-8">
-        <Cabecalho
-          rotulo="Recursos"
-          titulo="Tudo o que a sua bio precisa"
-          texto="Monte em minutos, ajuste quando quiser."
-        />
-        <div className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Revelar>
+          <Cabecalho
+            rotulo="Recursos"
+            titulo="Tudo o que a sua bio precisa"
+            texto="Monte em minutos, ajuste quando quiser."
+          />
+        </Revelar>
+        <RevelarLista className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {RECURSOS.map((r) => (
-            <Cartao key={r.titulo} titulo={r.titulo} texto={r.texto} />
+            <RevelarItem key={r.titulo}>
+              <Cartao titulo={r.titulo} texto={r.texto} />
+            </RevelarItem>
           ))}
-        </div>
+        </RevelarLista>
       </section>
 
       {/* ── Planos ────────────────────────────────────────────────────── */}
       <section id="planos" className="relative mx-auto max-w-4xl px-4 sm:px-6 py-24 scroll-mt-8">
-        <Cabecalho rotulo="Planos" titulo="Comece grátis" texto="Passe para o Pro quando precisar de mais." />
-        <div className="mt-14 grid gap-4 md:grid-cols-2">
+        <Revelar>
+          <Cabecalho rotulo="Planos" titulo="Comece grátis" texto="Passe para o Pro quando precisar de mais." />
+        </Revelar>
+        <RevelarLista className="mt-14 grid gap-4 md:grid-cols-2">
           {PLANOS.map((plano) => (
-            <div
+            <RevelarItem
               key={plano.nome}
               className={
                 plano.destaque
@@ -215,9 +206,9 @@ export default function LandingPage() {
               >
                 {plano.destaque ? "Começar e pedir o Pro" : "Começar grátis"}
               </Link>
-            </div>
+            </RevelarItem>
           ))}
-        </div>
+        </RevelarLista>
       </section>
 
       {/* ── Rodapé ────────────────────────────────────────────────────── */}
@@ -246,7 +237,7 @@ function Cabecalho({ rotulo, titulo, texto }: { rotulo: string; titulo: string; 
 
 function Cartao({ titulo, texto }: { titulo: string; texto: string }) {
   return (
-    <div className="rounded-2xl border border-bee-border bg-bee-surface/60 p-6 text-left">
+    <div className="h-full rounded-2xl border border-bee-border bg-bee-surface/60 p-6 text-left">
       <h3 className="font-semibold text-xl">{titulo}</h3>
       <p className="mt-2 text-[15px] leading-relaxed text-white/60">{texto}</p>
     </div>
