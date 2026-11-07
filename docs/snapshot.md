@@ -65,7 +65,7 @@ fim, marca-se o que entrou.
 ### E-mail
 
 - [x] **Boas-vindas com confirmação obrigatória do e-mail** (sessão de
-      06/11, sem PR): Resend em produção, log em dev e teste; o cadastro não
+      06/11, PR #47): Resend em produção, log em dev e teste; o cadastro não
       abre sessão e o login recusa conta não confirmada (`email_nao_confirmado`)
       com reenvio público por e-mail; token hasheado em `email_tokens`, 24 h;
       `POST /v1/auth/email/confirmar` e `/reenviar`, ambas públicas; página
@@ -173,4 +173,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | --- | --- | --- |
 | 2026-11-06 | — | Snapshot inicial, a partir da `main` em `ba9313ba`. |
 | 2026-11-06 | `feat/admin-pool-de-dominios`, PR #46 | Tela Domínios no admin: pool com listar, adicionar pausado, ativar, pausar, renomear; 5 rotas em `/v1/admin/dominios*`; 1 teste e2e novo (51 no total). |
-| 2026-11-06 | `feat/email-de-boas-vindas` (sem PR ainda) | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
+| 2026-11-06 | `feat/email-de-boas-vindas`, PR #47 (empilhada na #46) | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
