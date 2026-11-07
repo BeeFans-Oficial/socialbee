@@ -79,7 +79,7 @@ fim, marca-se o que entrou.
 
 ### Revisão da Meta
 
-- [x] **Simulador da revisão da Meta** (sessão de 06/11, sem PR): quatro
+- [x] **Simulador da revisão da Meta** (sessão de 06/11, PR #50): quatro
       verificações (consistência entre 5 identidades, destino final de cada
       botão, barreira 18+, domínio e home), veredito verde/amarelo/vermelho
       com ação por item, histórico em `page_reviews`, cron diário com e-mail
@@ -196,4 +196,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-06 | `feat/admin-pool-de-dominios`, PR #46 | Tela Domínios no admin: pool com listar, adicionar pausado, ativar, pausar, renomear; 5 rotas em `/v1/admin/dominios*`; 1 teste e2e novo (51 no total). |
 | 2026-11-06 | `feat/email-de-boas-vindas`, PR #48 | Resend: e-mail de boas-vindas com confirmação obrigatória antes do login, tokens, rotas públicas, telas de cadastro/login/confirmação, expurgo de contas não confirmadas; convite com criação de senha para conta aberta pelo admin; 3 testes e2e novos. Domínio `beesocial.bio` verificado no Resend. |
 | 2026-11-06 | `feat/filtros-no-analytics`, PR #49 | Filtros e janela livre no Analytics, comparação com o período anterior, quebras por aparelho e endereço de chegada; 1 teste e2e novo (55 no total). |
-| 2026-11-06 | `feat/simulador-da-revisao-da-meta` (sem PR ainda) | Simulador da revisão da Meta: API, cron, e-mail, editor, lista de páginas, admin, verificação por link; 5 e2e + 4 unitários novos (60 e 62). |
+| 2026-11-06 | `feat/simulador-da-revisao-da-meta`, PR #50 (empilhada na #49) | Simulador da revisão da Meta: API, cron, e-mail, editor, lista de páginas, admin, verificação por link; 5 e2e + 4 unitários novos (60 e 62). |
