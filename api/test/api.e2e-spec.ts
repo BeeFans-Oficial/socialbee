@@ -3,6 +3,7 @@ import type { DataSource } from "typeorm";
 import request from "supertest";
 
 import { EmailService } from "../src/common/email/email.service";
+import { RevisaoService } from "../src/revisao/revisao.service";
 
 /**
  * Ponta a ponta: HTTP + Postgres de verdade.
@@ -1249,5 +1250,164 @@ describe("confirmação de e-mail", () => {
     const antes = app.get(EmailService).enviados.filter((m) => m.para === email).length;
     await servidor.post("/v1/auth/email/reenviar").send({ email }).expect(200);
     expect(app.get(EmailService).enviados.filter((m) => m.para === email)).toHaveLength(antes);
+  });
+});
+
+describe("simulador da revisão da Meta", () => {
+  /**
+   * Um site de mentira no lugar do `fetch`: serve a página, o `/r/` e os
+   * destinos externos, com botões para o teste simular cada condição que
+   * derrubou ou poupou contas em 15/10.
+   */
+  const site = {
+    cloaking: false,
+    vazarLinks: false,
+    homeSuja: false,
+    quebrarLink: null as string | null,
+    destinoDe: {} as Record<string, string>,
+  };
+  let servicoReal: RevisaoService["buscar"];
+
+  const resposta = (status: number, corpo = "", headers: Record<string, string> = {}) =>
+    new Response(status >= 300 && status < 400 ? null : corpo, { status, headers });
+
+  beforeAll(async () => {
+    const servico = app.get(RevisaoService);
+    servicoReal = servico.buscar;
+    servico.buscar = async (url: string, init?: RequestInit) => {
+      const u = new URL(url);
+      const ua = String((init?.headers as Record<string, string>)?.["user-agent"] ?? "");
+      const crawler = /facebookexternalhit|meta-externalagent/i.test(ua);
+      // Destinos externos.
+      if (!/^(localhost|127\.0\.0\.1)/.test(u.host)) {
+        if (u.host === "t.me" || u.host === "privacy.com.br" || u.host === "onlyfans.com") return resposta(200, "<html><body>destino</body></html>");
+        return resposta(404, "nada");
+      }
+      if (u.pathname === "/") return resposta(200, `<html><body><h1>BeeSocial</h1>${site.homeSuja ? "<p>Sai do Instagram sem bloqueio</p>" : ""}</body></html>`);
+      if (u.pathname.startsWith("/r/")) {
+        const code = u.pathname.slice(3);
+        if (site.quebrarLink === code) return resposta(404, "não existe");
+        const destino = site.destinoDe[code];
+        return destino ? resposta(307, "", { location: destino }) : resposta(307, "", { location: "http://localhost:3000/" });
+      }
+      // A página.
+      const botoes = site.vazarLinks ? Object.keys(site.destinoDe).map((c) => `<a href="/r/${c}">botão</a>`).join("") : "";
+      const extra = site.cloaking && crawler ? "<p>versão limpa só para o crawler</p>" : "";
+      return resposta(200, `<html><head><script nonce="${Math.random()}">x</script></head><body><h1>Bella</h1>${extra}${botoes}</body></html>`);
+    };
+  });
+
+  afterAll(() => {
+    app.get(RevisaoService).buscar = servicoReal;
+  });
+
+  it("página adulta com barreira e destinos atrás dela fica verde", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: lista } = await servidor.get("/v1/me/links").set(auth).expect(200);
+    for (const link of lista.links) site.destinoDe[link.shortCode] = link.destinationUrl;
+    const { body: eu } = await servidor.get("/v1/auth/me").set(auth).expect(200);
+    const profileId: string = eu.profile.id;
+    await servidor.patch("/v1/me/profile").set(auth).send({ isAdult: true }).expect(200);
+
+    const { body } = await servidor.post(`/v1/me/profiles/${profileId}/revisao`).set(auth).expect(200);
+    expect(body.veredito).toBe("verde");
+    expect(body.itens.map((i: { chave: string; estado: string }) => [i.chave, i.estado])).toEqual([
+      ["consistencia", "verde"],
+      ["destinos", "verde"],
+      ["barreira", "verde"],
+      ["dominio", "verde"],
+    ]);
+    expect(body.limites.length).toBeGreaterThan(0);
+
+    const { body: ultima } = await servidor.get(`/v1/me/profiles/${profileId}/revisao`).set(auth).expect(200);
+    expect(ultima.revisao.id).toBe(body.id);
+    const { body: historico } = await servidor.get(`/v1/me/profiles/${profileId}/revisao/historico`).set(auth).expect(200);
+    expect(historico.revisoes[0].id).toBe(body.id);
+    await servidor.get(`/v1/me/profiles/${profileId}/revisao/historico`).set("authorization", `Bearer ${tokenLuna}`).expect(404);
+  });
+
+  it("destino adulto sem barreira fica vermelho nos dois itens, com a ação de ligar a barreira", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: eu } = await servidor.get("/v1/auth/me").set(auth).expect(200);
+    await servidor.patch("/v1/me/profile").set(auth).send({ isAdult: false }).expect(200);
+    const { body } = await servidor.post(`/v1/me/profiles/${eu.profile.id}/revisao`).set(auth).expect(200);
+    expect(body.veredito).toBe("vermelho");
+    const destinos = body.itens.find((i: { chave: string }) => i.chave === "destinos");
+    const barreira = body.itens.find((i: { chave: string }) => i.chave === "barreira");
+    expect(destinos.estado).toBe("vermelho");
+    expect(destinos.detalhe).toContain("onlyfans.com");
+    expect(barreira.estado).toBe("vermelho");
+    expect(barreira.acao).toMatch(/18\+/);
+    await servidor.patch("/v1/me/profile").set(auth).send({ isAdult: true }).expect(200);
+  });
+
+  it("cloaking, botões vazados no documento e home suja viram vermelho e amarelo", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: eu } = await servidor.get("/v1/auth/me").set(auth).expect(200);
+    const id = eu.profile.id;
+
+    site.cloaking = true;
+    let r = await servidor.post(`/v1/me/profiles/${id}/revisao`).set(auth).expect(200);
+    expect(r.body.itens.find((i: { chave: string }) => i.chave === "consistencia").estado).toBe("vermelho");
+    site.cloaking = false;
+
+    site.vazarLinks = true;
+    r = await servidor.post(`/v1/me/profiles/${id}/revisao`).set(auth).expect(200);
+    expect(r.body.itens.find((i: { chave: string }) => i.chave === "barreira").estado).toBe("vermelho");
+    site.vazarLinks = false;
+
+    site.homeSuja = true;
+    r = await servidor.post(`/v1/me/profiles/${id}/revisao`).set(auth).expect(200);
+    expect(r.body.veredito).toBe("amarelo");
+    expect(r.body.itens.find((i: { chave: string }) => i.chave === "dominio").dados.termosNaHome).toEqual(["sai do instagram"]);
+    site.homeSuja = false;
+
+    const code = Object.keys(site.destinoDe)[0];
+    site.quebrarLink = code;
+    r = await servidor.post(`/v1/me/profiles/${id}/revisao`).set(auth).expect(200);
+    expect(r.body.itens.find((i: { chave: string }) => i.chave === "destinos").estado).toBe("vermelho");
+    site.quebrarLink = null;
+  });
+
+  it("verifica um link só, na hora, com a mesma régua", async () => {
+    const auth = { authorization: `Bearer ${tokenBella}` };
+    const { body: lista } = await servidor.get("/v1/me/links").set(auth).expect(200);
+    const link = lista.links.find((l: { destinationUrl: string }) => l.destinationUrl.includes("onlyfans"));
+
+    // Página adulta: destino adulto fica verde, atrás da barreira.
+    let r = await servidor.post(`/v1/me/links/${link.id}/verificar`).set(auth).expect(200);
+    expect(r.body.estado).toBe("verde");
+    expect(r.body.cadeia.destino).toBe("onlyfans.com");
+    expect(r.body.cadeia.classe).toBe("checkout_adulto");
+    expect(r.body.paginaAdulta).toBe(true);
+
+    // Sem barreira: vermelho, com a ação.
+    await servidor.patch("/v1/me/profile").set(auth).send({ isAdult: false }).expect(200);
+    r = await servidor.post(`/v1/me/links/${link.id}/verificar`).set(auth).expect(200);
+    expect(r.body.estado).toBe("vermelho");
+    expect(r.body.acao).toMatch(/18\+/);
+    await servidor.patch("/v1/me/profile").set(auth).send({ isAdult: true }).expect(200);
+
+    // Quebrado.
+    site.quebrarLink = link.shortCode;
+    r = await servidor.post(`/v1/me/links/${link.id}/verificar`).set(auth).expect(200);
+    expect(r.body.estado).toBe("vermelho");
+    expect(r.body.cadeia.erro).toContain("404");
+    site.quebrarLink = null;
+
+    // De outra conta: 404.
+    await servidor.post(`/v1/me/links/${link.id}/verificar`).set("authorization", `Bearer ${tokenLuna}`).expect(404);
+  });
+
+  it("página de outra conta é 404, e o admin vê as que não estão verdes", async () => {
+    const { body: eu } = await servidor.get("/v1/auth/me").set("authorization", `Bearer ${tokenBella}`).expect(200);
+    await servidor.post(`/v1/me/profiles/${eu.profile.id}/revisao`).set("authorization", `Bearer ${tokenLuna}`).expect(404);
+
+    // A última rodada de Bella foi a do link quebrado: vermelha.
+    const { body: pendentes } = await servidor.get("/v1/admin/revisoes").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    const daBella = pendentes.find((p: { profileId: string }) => p.profileId === eu.profile.id);
+    expect(daBella.veredito).toBe("vermelho");
+    const { body: visao } = await servidor.get("/v1/admin/visao-geral").set("authorization", `Bearer ${tokenLuna}`).expect(200);
+    expect(visao.revisoes.vermelhas).toBeGreaterThanOrEqual(1);
   });
 });

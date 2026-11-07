@@ -3,23 +3,25 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Activity, Globe, LayoutGrid, Link2, MousePointer2, ShieldCheck, Users } from "lucide-react";
+import { Activity, Globe, LayoutGrid, Link2, MousePointer2, ShieldAlert, ShieldCheck, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { BotaoAdmin, CabecalhoAdmin, CartaoAdmin, EsqueletoAdmin, StatAdmin, TelaAdmin } from "@/components/admin/Ui";
 import { api, ApiError } from "@/lib/api/client";
-import type { AdminVisaoGeral } from "@/lib/api/types";
+import type { AdminRevisaoPendente, AdminVisaoGeral } from "@/lib/api/types";
 import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
 
 /** Visão geral: os números da plataforma e o que pede atenção agora. */
 export default function VisaoGeralPage() {
   const [dados, setDados] = useState<AdminVisaoGeral | null>(null);
+  const [revisoes, setRevisoes] = useState<AdminRevisaoPendente[]>([]);
 
   useEffect(() => {
     api.admin
       .visaoGeral()
       .then(setDados)
       .catch((caught) => toast.error(caught instanceof ApiError ? caught.message : "Não foi possível carregar."));
+    api.admin.revisoes().then(setRevisoes).catch(() => setRevisoes([]));
   }, []);
 
   return (
@@ -52,7 +54,10 @@ export default function VisaoGeralPage() {
             </motion.div>
           </motion.div>
 
-          <motion.div variants={LISTA} className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <motion.div variants={LISTA} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <motion.div variants={ITEM_DA_LISTA}>
+              <StatAdmin icone={ShieldAlert} rotulo="Páginas em vermelho" valor={dados.revisoes?.vermelhas ?? 0} nota="revisão da Meta" />
+            </motion.div>
             <motion.div variants={ITEM_DA_LISTA}>
               <StatAdmin icone={Activity} rotulo="Visitas hoje" valor={dados.hoje.visitas} nota="humanas, sem robô" />
             </motion.div>
@@ -68,6 +73,24 @@ export default function VisaoGeralPage() {
               />
             </motion.div>
           </motion.div>
+
+          {revisoes.length > 0 && (
+            <motion.div variants={ITEM_DA_LISTA}>
+              <CartaoAdmin titulo="Revisão da Meta — páginas fora do verde">
+                <ul className="divide-y divide-admin-line text-sm">
+                  {revisoes.slice(0, 8).map((r) => (
+                    <li key={r.profileId} className="flex items-center gap-3 py-2">
+                      <span className={r.veredito === "vermelho" ? "w-2 h-2 rounded-full bg-admin-danger" : "w-2 h-2 rounded-full bg-amber-500"} aria-hidden />
+                      <span className="font-mono text-[13px] text-admin-ink truncate">{r.host}/{r.slug}</span>
+                      <Link href={`/admin/contas/${r.userId}`} className="ml-auto text-xs text-admin-muted underline decoration-dotted underline-offset-2 hover:text-admin-accent truncate max-w-[220px]">
+                        {r.email}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </CartaoAdmin>
+            </motion.div>
+          )}
 
           <motion.div variants={ITEM_DA_LISTA}>
             <CartaoAdmin titulo="Atalhos">

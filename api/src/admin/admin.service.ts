@@ -35,6 +35,8 @@ export interface VisaoGeral {
   links: { total: number; ativos: number };
   dominios: { pool: number; propriosPendentes: number; propriosAtivos: number };
   hoje: { visitas: number; cliques: number };
+  /** Páginas cuja última revisão da Meta ficou vermelha. */
+  revisoes: { vermelhas: number };
 }
 
 export interface ContaResumo {
@@ -136,6 +138,7 @@ export class AdminService {
         proprios_ativos: string;
         visitas: string;
         cliques: string;
+        vermelhas: string;
       }[]
     >(`
       SELECT
@@ -154,7 +157,8 @@ export class AdminService {
         (SELECT count(*) FROM tracking_events
           WHERE type = 'view' AND occurred_at >= date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AS visitas,
         (SELECT count(*) FROM tracking_events
-          WHERE type = 'click' AND occurred_at >= date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AS cliques
+          WHERE type = 'click' AND occurred_at >= date_trunc('day', now() AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo') AS cliques,
+        (SELECT count(*) FROM (SELECT DISTINCT ON (profile_id) verdict FROM page_reviews ORDER BY profile_id, ran_at DESC) ultimas WHERE verdict = 'vermelho') AS vermelhas
     `);
     const n = (v: string) => Number(v);
     return {
@@ -163,6 +167,7 @@ export class AdminService {
       links: { total: n(c.links), ativos: n(c.ativos) },
       dominios: { pool: n(c.pool), propriosPendentes: n(c.pendentes), propriosAtivos: n(c.proprios_ativos) },
       hoje: { visitas: n(c.visitas), cliques: n(c.cliques) },
+      revisoes: { vermelhas: n(c.vermelhas) },
     };
   }
 

@@ -36,6 +36,7 @@ export interface AdminVisaoGeral {
   links: { total: number; ativos: number };
   dominios: { pool: number; propriosPendentes: number; propriosAtivos: number };
   hoje: { visitas: number; cliques: number };
+  revisoes: { vermelhas: number };
 }
 
 export interface AdminContaResumo {
@@ -297,6 +298,50 @@ export interface TrackingReport {
   filters: ReportFilters;
   /** O que existe para filtrar na janela, antes dos filtros. */
   options: { links: string[]; sources: string[]; arrivalHosts: string[]; devices: string[]; countries: string[] };
+}
+
+// ── Simulador da revisão da Meta ──────────────────────────────────────────────
+
+export type EstadoDaRevisao = "verde" | "amarelo" | "vermelho" | "neutro";
+
+export interface ApiItemDaRevisao {
+  chave: "consistencia" | "destinos" | "barreira" | "dominio";
+  estado: EstadoDaRevisao;
+  titulo: string;
+  detalhe: string;
+  acao?: string;
+  dados?: Record<string, unknown>;
+}
+
+export interface ApiRevisao {
+  id: string;
+  profileId: string;
+  veredito: "verde" | "amarelo" | "vermelho";
+  trigger: "manual" | "cron";
+  itens: ApiItemDaRevisao[];
+  ranAt: string;
+  /** O que o simulador não cobre. */
+  limites: string[];
+}
+
+/** "Verificar destino" de um link: instantâneo, sem histórico. */
+export interface ApiVerificacaoDeLink {
+  estado: "verde" | "amarelo" | "vermelho";
+  titulo: string;
+  detalhe: string;
+  acao?: string;
+  cadeia: { saltos: string[]; destino: string; classe: string; erro: string | null; observacao: string | null };
+  paginaAdulta: boolean;
+}
+
+export interface AdminRevisaoPendente {
+  profileId: string;
+  slug: string;
+  host: string;
+  veredito: "amarelo" | "vermelho";
+  ranAt: string;
+  userId: string;
+  email: string;
 }
 
 export interface ReportFilters {

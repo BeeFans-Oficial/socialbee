@@ -3,6 +3,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
 import { Roles } from "../common/decorators/roles.decorator";
 import { SemPagina } from "../common/decorators/sem-pagina.decorator";
+import { RevisaoService } from "../revisao/revisao.service";
 import { AdminService } from "./admin.service";
 import { AdicionarDominioDto } from "./dto/adicionar-dominio.dto";
 import { ApagarContaDto } from "./dto/apagar-conta.dto";
@@ -24,7 +25,10 @@ import { EditarDominioDto } from "./dto/editar-dominio.dto";
 @Roles("admin")
 @SemPagina()
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly revisao: RevisaoService,
+  ) {}
 
   @Get("visao-geral")
   visaoGeral() {
@@ -119,6 +123,12 @@ export class AdminController {
   @Post("dominios/:id/ativar")
   ativarDominio(@CurrentUser() auth: AuthContext, @Param("id", ParseUUIDPipe) id: string, @Body() body: { motivo: string }) {
     return this.admin.ativarDominio(auth.userId, id, body.motivo);
+  }
+
+  /** As páginas cuja última revisão da Meta não está verde. */
+  @Get("revisoes")
+  revisoes() {
+    return this.revisao.pendentes();
   }
 
   @Get("auditoria")

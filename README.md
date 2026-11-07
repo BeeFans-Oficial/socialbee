@@ -238,6 +238,32 @@ de propósito. É o mesmo mecanismo que a recuperação de senha vai usar.
 Remetente `EMAIL_FROM` (default `BeeSocial <links@beesocial.bio>`, domínio
 verificado no Resend em 06/11/2026) e `EMAIL_REPLY_TO` opcional.
 
+## Revisão da Meta (simulador)
+
+Quando um link entra na bio, a Meta abre a página com várias identidades no
+mesmo segundo, compara, clica nos botões com um navegador real e vai até o
+destino. O simulador (`api/src/revisao/`) faz o mesmo percurso antes de a
+criadora colar o link, e compara com o que derrubou e com o que poupou contas
+em 15/10/2026 (`docs/incidente-meta-2026-10-15.md`): consistência entre
+identidades, destino final de cada botão (checkout adulto é o que derrubou com
+HTML idêntico), barreira 18+ (a única página que sobreviveu tinha), e domínio
+(HTTPS, home sem os termos tirados em 15/10, tráfego de dentro do Instagram
+não secando). Verde é "está como a que sobreviveu", não aprovação da Meta; o
+relatório lista o que o simulador não cobre.
+
+`POST /me/profiles/:id/revisao` (todos os planos, 3 por 10 minutos) e `GET`
+da última. Cron às 5h revisa toda página no ar e manda e-mail quando uma que
+não estava fica vermelha. Histórico em `page_reviews` (90 dias). O selo na lista
+de páginas e a linha no editor levam a `/paginas/:id/revisao`, o histórico
+de toda rodada com data, hora, veredito e as quatro camadas em vista
+explodida 3D (`components/painel/revisao/VistaExplodida.tsx`); clicar numa
+camada mergulha nela, com o que o simulador viu e navegação por setas
+(copiar link em vermelho pede um segundo clique). O admin vê as páginas fora do verde na
+Visão geral.
+Hosts conhecidos em `hosts-conhecidos.ts`, editáveis sem migration. No editor
+de cada link, "Verificar destino" (`POST /me/links/:id/verificar`) segue só
+aquele botão até o fim, na hora e sem gravar, com a mesma régua.
+
 ## Analytics
 
 `GET /me/tracking/report` aceita a janela (`days=7|30|90` ou `de`+`ate`, até

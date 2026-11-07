@@ -4,6 +4,7 @@ import { ScheduleModule } from "@nestjs/schedule";
 import { ThrottlerGuard, ThrottlerModule } from "@nestjs/throttler";
 
 import { AdminModule } from "./admin/admin.module";
+import { RevisaoModule } from "./revisao/revisao.module";
 import { AuthModule } from "./auth/auth.module";
 import { RolesGuard } from "./common/guards/roles.guard";
 import { StorageModule } from "./common/storage/storage.module";
@@ -54,6 +55,7 @@ import { TrackingModule } from "./tracking/tracking.module";
     LinksModule,
     TrackingModule,
     AdminModule,
+    RevisaoModule,
     HealthModule,
   ],
   providers: [
