@@ -241,7 +241,7 @@ const PONTO = { verde: "bg-emerald-400", amarelo: "bg-amber-400", vermelho: "bg-
 function resumo(r: ApiRevisao): string {
   if (r.veredito === "verde") return "Verde: nenhum sinal do que derruba contas.";
   const ruins = r.itens.filter((i) => i.estado === "vermelho").length;
-  if (r.veredito === "vermelho") return `Vermelho: ${ruins === 1 ? "um item" : `${ruins} itens`} com o que já derrubou contas.`;
+  if (r.veredito === "vermelho") return `Vermelho: ${ruins === 1 ? "um item" : `${ruins} itens`} com o que derruba contas.`;
   return "Amarelo: responde, mas com sinal de alerta.";
 }
 

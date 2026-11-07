@@ -48,7 +48,7 @@ const NOME_CURTO: Record<ApiItemDaRevisao["chave"], string> = {
 const O_QUE_A_META_FAZ: Record<ApiItemDaRevisao["chave"], string> = {
   consistencia: "No segundo em que o link entra na bio, a Meta abre a página com várias identidades ao mesmo tempo e compara o que cada uma recebeu. Documento diferente por identidade é o que ela chama de cloaking.",
   destinos: "Com um navegador de verdade, ela clica em cada botão e segue os redirecionamentos até o fim. O que decide é onde a cadeia termina, não a plataforma escolhida no ícone.",
-  barreira: "Quando encontra a confirmação de idade na frente dos botões, ela não clica. Foi a única diferença entre a conta que ficou no ar e as que caíram em 15/10.",
+  barreira: "Quando encontra a confirmação de idade na frente dos botões, ela não clica e não chega ao destino. É a camada que mais pesa.",
   dominio: "Ela também abre a raiz do domínio e lembra dele: um endereço marcado derruba qualquer página que passe por ele. O tráfego de dentro do Instagram é a única pista de que isso aconteceu.",
 };
 
@@ -630,7 +630,7 @@ function Fatos({ item, host }: { item: ApiItemDaRevisao; host?: string }) {
         <dt className="text-bee-muted">No pool</dt>
         <dd className={d.dominioPausado ? "text-amber-300" : "text-white/90"}>{d.dominioPausado ? "pausado pela equipe" : "ativo"}</dd>
         <dt className="text-bee-muted">Home</dt>
-        <dd className={termos.length ? "text-amber-300" : "text-white/90"}>{termos.length ? `diz "${termos.join('", "')}"` : "sem os termos de 15/10"}</dd>
+        <dd className={termos.length ? "text-amber-300" : "text-white/90"}>{termos.length ? `diz "${termos.join('", "')}"` : "sem termos de risco"}</dd>
       </dl>
       {visitas && (
         <div className="mt-3">
