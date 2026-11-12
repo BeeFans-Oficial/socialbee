@@ -9,6 +9,7 @@ import { Logo } from "@/components/shared/Logo";
 import { ProfileHeader } from "@/components/profile/ProfileHeader";
 import { resolverVisual } from "@/lib/templates";
 import { fetchPublicProfile, type PublicProfileForRender } from "@/lib/api/server";
+import { COOKIE_DA_CHEGADA, cookieDaChegadaValido } from "@/lib/passe-chegada";
 import { SESSION_COOKIE } from "@/lib/session-cookie";
 import { urlDaPagina } from "@/lib/site";
 import type { Link as LinkType, User } from "@/lib/catalog";
@@ -188,7 +189,8 @@ export default async function ProfilePage({
    * é a tag `canonical` em `generateMetadata`, que não congela nada.
    */
   const { preview } = await searchParams;
-  const temSessao = (await cookies()).has(SESSION_COOKIE);
+  const cookiesDaVisita = await cookies();
+  const temSessao = cookiesDaVisita.has(SESSION_COOKIE);
 
   const hostDaRequisicao = (await headers()).get("host");
   const canonico = view.profile.host;
@@ -240,11 +242,20 @@ export default async function ProfilePage({
   const previaDaPagina = preview === "pagina" && temSessao;
 
   /**
-   * Não existe parâmetro de "já saí do app": o botão da chegada fecha a tela
-   * no próprio documento (navegador comum) ou abre este MESMO endereço no
-   * navegador de fora (dentro de um app). A URL da página é uma só, sem marca
-   * de por onde a pessoa passou.
+   * Quem já passou pela chegada dentro de um aplicativo não a vê de novo no
+   * navegador de fora. O botão, no app, abre `/<slug>/p/<passe>`; essa rota
+   * troca o passe por um cookie e devolve a pessoa a este endereço, limpo —
+   * a URL da página continua uma só, sem parâmetro. Ver
+   * `lib/passe-chegada.ts`.
+   *
+   * A decisão é do servidor e não depende de user-agent nem de IP: sem o
+   * cookie (fã de primeira visita, robô, navegador da Meta), o documento é o
+   * de sempre, com a chegada.
    */
+  const jaPassouPelaChegada = cookieDaChegadaValido(
+    slug,
+    cookiesDaVisita.get(COOKIE_DA_CHEGADA)?.value,
+  );
   const iab = view.profile.iab;
   /**
    * A prévia da PÁGINA no editor (`?preview=pagina`) nunca recebe a chegada:
@@ -255,7 +266,8 @@ export default async function ProfilePage({
    * capa que a criadora acabou de trocar.
    */
   const mostrarChegada =
-    forcarChegadaNaPrevia || (iab?.enabled === true && !previaDaPagina);
+    forcarChegadaNaPrevia ||
+    (iab?.enabled === true && !previaDaPagina && !jaPassouPelaChegada);
 
   /**
    * Humano: a página real, já renderizada no servidor.

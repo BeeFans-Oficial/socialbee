@@ -187,6 +187,9 @@ function Tela({
   const [mostrarInstrucao, setMostrarInstrucao] = useState(false);
   const telaRef = useRef<HTMLDivElement>(null);
   const toque = useRef<{ x: number; y: number; scrollTop: number; rolando: boolean } | null>(null);
+  /** Passe que o navegador de fora troca por "já passei pela chegada". Pedido
+   *  ANTES do toque, para o botão navegar no mesmo gesto, sem esperar rede. */
+  const passe = useRef<string | null>(null);
   // O editor mantém o botão visível e inerte para permitir avaliar o layout.
   const mostrarBotao = preview || noFim;
 
@@ -265,6 +268,30 @@ function Tela({
     };
   }, [preview, rolagemIniciada]);
 
+  // Dentro de um app, a rolagem pede o passe ao servidor e o renova enquanto
+  // a tela fica aberta (ele vale 10 minutos). Se o pedido falhar, o botão
+  // abre o endereço limpo e a pessoa só vê esta tela de novo lá fora.
+  useEffect(() => {
+    if (preview || !dentroDeApp || !rolagemIniciada) return;
+    let ativo = true;
+    const pedir = async () => {
+      try {
+        const resposta = await fetch(`/${encodeURIComponent(slug)}/p`, { method: "POST" });
+        if (!resposta.ok) return;
+        const corpo = (await resposta.json()) as { passe?: string | null };
+        if (ativo && corpo.passe) passe.current = corpo.passe;
+      } catch {
+        // Fica com o passe anterior, se houver.
+      }
+    };
+    void pedir();
+    const renovacao = setInterval(pedir, 4 * 60 * 1000);
+    return () => {
+      ativo = false;
+      clearInterval(renovacao);
+    };
+  }, [preview, dentroDeApp, rolagemIniciada, slug]);
+
   const abrir = () => {
     if (preview) return;
     // Num navegador comum não há de onde sair: o botão só tira esta tela da
@@ -275,10 +302,11 @@ function Tela({
       return;
     }
     // Dentro de um app, o pedido parte exclusivamente da ativação explícita
-    // do botão, e leva ao MESMO endereço, limpo: o navegador de fora abre a
-    // página como qualquer visitante e a pessoa passa por esta tela ali, sem
-    // marca na URL dizendo de onde veio.
-    const destino = `${window.location.origin}/${slug}`;
+    // do botão. O navegador de fora abre a rota que troca o passe por um
+    // cookie e cai no endereço limpo da página, já sem esta tela — a pessoa
+    // não repete a rolagem. Ver `lib/passe-chegada.ts`.
+    const pagina = `${window.location.origin}/${slug}`;
+    const destino = passe.current ? `${pagina}/p/${passe.current}` : pagina;
     window.location.replace(urlDeSaida(destino, plataforma, app));
     setMostrarInstrucao(true);
   };
