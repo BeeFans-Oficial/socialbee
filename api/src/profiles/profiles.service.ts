@@ -8,6 +8,7 @@ import { Link } from "../links/entities/link.entity";
 import { PLANOS, TEMPLATE_DO_FREE, cabeMais, exigirPro, planoDe, type PlanoId } from "../plans/plans";
 import { Domain } from "./entities/domain.entity";
 import { Profile } from "./entities/profile.entity";
+import { OwnersService } from "./owners.service";
 import { isReservedSlug } from "./reserved-slugs";
 import type { CreateProfileDto } from "./dto/create-profile.dto";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
@@ -58,6 +59,8 @@ export interface OwnProfileView {
   published: boolean;
   /** Domínio escolhido. `null` = o padrão da instalação. */
   domainId: string | null;
+  /** Dono da página dentro da conta. `null` = sem dono. */
+  ownerId: string | null;
   /**
    * O host em que esta página é servida, já resolvido.
    *
@@ -102,6 +105,7 @@ export class ProfilesService {
     @InjectRepository(Profile) private readonly profiles: Repository<Profile>,
     @InjectRepository(Domain) private readonly domains: Repository<Domain>,
     @InjectRepository(Link) private readonly links: Repository<Link>,
+    private readonly owners: OwnersService,
   ) {}
 
   /**
@@ -233,7 +237,7 @@ export class ProfilesService {
       where: { id: profileId },
       relations: { domain: true },
     });
-    if (!profile) throw new NotFoundException("Página não encontrada.");
+    if (!profile) throw new NotFoundException("Perfil não encontrado.");
     return profile;
   }
 
@@ -297,6 +301,7 @@ export class ProfilesService {
     }
 
     await this.assertSlugAvailable(dto.slug);
+    if (dto.ownerId) await this.owners.exigirDaConta(userId, dto.ownerId);
 
     const primeira = await this.profiles.findOne({
       where: { userId },
@@ -311,6 +316,7 @@ export class ProfilesService {
         bio: "",
         templateId: dto.templateId ?? "classico",
         isAdult: dto.isAdult ?? primeira?.isAdult ?? false,
+        ownerId: dto.ownerId ?? null,
       }),
     );
 
@@ -338,18 +344,37 @@ export class ProfilesService {
    */
   async deleteForUser(userId: string, profileId: string): Promise<void> {
     const profile = await this.profiles.findOne({ where: { id: profileId, userId } });
-    if (!profile) throw new NotFoundException("Página não encontrada.");
+    if (!profile) throw new NotFoundException("Perfil não encontrado.");
 
     const total = await this.profiles.count({ where: { userId } });
     if (total <= 1) {
       throw new ConflictException({
         code: "ultima_pagina",
         message:
-          "Esta é sua única página e não pode ser apagada. Para sumir do ar, tire-a do ar — assim nada é perdido.",
+          "Este é o seu único perfil e não pode ser apagado. Para sumir do ar, tire-o do ar — assim nada é perdido.",
       });
     }
 
     await this.profiles.delete({ id: profileId, userId });
+  }
+
+  /**
+   * Muda o dono de uma página, ou tira (`null`).
+   *
+   * As duas pontas são conferidas contra a conta: a página tem que ser dela e
+   * o dono também. Sem a segunda, bastaria um id para pendurar uma página no
+   * dono de outra pessoa.
+   */
+  async setOwner(userId: string, profileId: string, ownerId: string | null): Promise<OwnProfileView> {
+    const profile = await this.profiles.findOne({
+      where: { id: profileId, userId },
+      relations: { domain: true },
+    });
+    if (!profile) throw new NotFoundException("Perfil não encontrado.");
+    if (ownerId) await this.owners.exigirDaConta(userId, ownerId);
+    profile.ownerId = ownerId;
+    await this.profiles.save(profile);
+    return toOwnProfileView(profile);
   }
 
   /**
@@ -430,7 +455,7 @@ export class ProfilesService {
    */
   async setImage(profileId: string, campo: ImagemDoPerfil, chave: string | null): Promise<string | null> {
     const atual = await this.profiles.findOne({ where: { id: profileId }, select: { id: true, [campo]: true } });
-    if (!atual) throw new NotFoundException("Página não encontrada.");
+    if (!atual) throw new NotFoundException("Perfil não encontrado.");
     await this.profiles.update({ id: profileId }, { [campo]: chave });
     return atual[campo];
   }
@@ -583,6 +608,7 @@ export function toOwnProfileView(profile: Profile): OwnProfileView {
     isAdult: profile.isAdult,
     published: profile.published,
     domainId: profile.domainId ?? null,
+    ownerId: profile.ownerId ?? null,
     host: profile.domain?.host ?? hostPadrao(),
     joinedAt: profile.createdAt.toISOString(),
     template: {

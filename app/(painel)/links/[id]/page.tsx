@@ -178,7 +178,7 @@ export default function EditorDeLink() {
                 className="mx-2 mb-2 inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors"
               >
                 <Palette className="w-4 h-4" />
-                Estilo e cor ficam na aba Aparência, com a prévia da página
+                Estilo e cor ficam na aba Aparência, com a prévia do perfil
               </Link>
             </Secao>
 
@@ -315,7 +315,7 @@ function NovoLink({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
-          placeholder="Como o botão aparece na página"
+          placeholder="Como o botão aparece no perfil"
           className="w-full h-11 px-3 rounded-lg bg-bee-surface border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-bee-pink/50"
         />
       </label>
@@ -520,7 +520,7 @@ function ApagarLink({
       <DialogContent className="bg-bee-surface border-white/10 max-w-md">
         <DialogTitle className="text-white">Apagar &quot;{titulo}&quot;?</DialogTitle>
         <p className="text-sm text-bee-muted">
-          O botão some da sua página e o contador de cliques dele é apagado. Não dá para desfazer.
+          O botão some do seu perfil e o contador de cliques dele é apagado. Não dá para desfazer.
         </p>
         <button
           onClick={async () => {

@@ -161,6 +161,14 @@ export class Profile {
   @Column({ name: "iab_button_label", type: "text", nullable: true })
   iabButtonLabel: string | null;
 
+  /**
+   * De quem é a página, dentro da conta. `null` = sem dono, que é o estado de
+   * toda conta de uma pessoa só. Só o id, sem relação mapeada: a lista de
+   * páginas devolve o id e o painel já tem os donos em mãos.
+   */
+  @Column({ name: "owner_id", type: "uuid", nullable: true })
+  ownerId: string | null;
+
   @CreateDateColumn({ name: "created_at", type: "timestamptz" })
   createdAt: Date;
 

@@ -32,7 +32,7 @@ export function BarraDoTopo() {
 
   return (
     <header className="sticky top-0 z-30 h-14 lg:h-16 flex items-center gap-3 px-4 lg:px-8 border-b border-bee-line bg-bee-bg/85 backdrop-blur">
-      <Link href="/paginas" aria-label="Páginas" className="lg:hidden flex-shrink-0">
+      <Link href="/paginas" aria-label="Perfis" className="lg:hidden flex-shrink-0">
         <Logo variant="icon" size="sm" />
       </Link>
       <span className="hidden lg:block text-sm font-medium text-white">{tituloDaRota(pathname)}</span>

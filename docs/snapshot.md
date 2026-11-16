@@ -6,9 +6,9 @@ fim, marca-se o que entrou.
 
 | | |
 | --- | --- |
-| **Commit da `main`** | `d1aebc89` (merge da PR #54, 2026-11-12) |
+| **Commit da `main`** | `e61aaa54` (merge da PR #56, 2026-11-16) |
 | **Snapshot tirado em** | 2026-11-16 |
-| **PRs mergeadas** | #1 a #54 (#55 e #56 abertas) |
+| **PRs mergeadas** | #1 a #56 (#57 aberta) |
 | **Produção** | https://beesocial.bio, deploy automático a cada merge na `main` |
 
 ## 1. Implementado
@@ -59,6 +59,16 @@ fim, marca-se o que entrou.
       Falta conferir em aparelho real e com as fotos das criadoras.
 
 ### Painel da criadora
+
+- [x] **Perfis por dono e novo vocabulário** (sessão de 16/11, PR #57): a
+      "página" da criadora passa a se chamar "perfil" em todo o painel, nas
+      mensagens da API e nos e-mails (as rotas `/paginas` não mudam; "página
+      de chegada" e "página segura" ficam). Nível novo conta → dono → perfil:
+      tabela `page_owners`, `profiles.owner_id` opcional, rotas `me/owners` e
+      `PATCH me/profiles/:id/owner`; filtro por dono na lista, campo "Dono"
+      no cartão, seletor da faixa de abas agrupado. Guia das telas reescrito
+      para o desenho de abas e donos. A Saúde ainda não filtra por dono. Os
+      itens deste snapshot escritos antes desta data dizem "página".
 
 - [x] **Painel por página** (sessão de 16/11, PR #55): a lista de páginas é a
       entrada; dentro de cada uma, abas Links · Aparência · Saúde · Analytics
@@ -247,3 +257,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-12 | `fix/chegada-nao-repete-fora-do-app`, PR #54 | Passe assinado da chegada: quem rola e sai do Instagram abre o perfil direto no navegador de fora, sem repetir a tela de rolagem; rotas `/<slug>/p` e `/<slug>/p/<passe>`, cookie `HttpOnly` de 30 min; verificado com Playwright local, sem teste automatizado novo. |
 | 2026-11-16 | `feat/painel-por-pagina`, PR #55 | Painel reorganizado por página: abas dentro da página, navegação menor, editor de link sem prévia, aparência dos botões na aba Aparência, renomear no cartão; verificado com Playwright, sem teste automatizado novo. |
 | 2026-11-16 | `feat/chegada-ensina-o-gesto`, PR #56 | Chegada com a dica do gesto primeiro (dedo e setas), alça de folha e botão como protagonista no fim da rolagem; verificado com Playwright em cinco situações, sem teste automatizado novo. |
+| 2026-11-16 | `feat/dono-da-pagina`, PR #57 | Dono de perfil (migration `DonoDaPagina`, rotas `me/owners`, filtro e grupos na lista), "página" renomeada para "perfil", guia das telas novo e a chegada sem área vazia; 3 testes e2e novos (65 no total). |

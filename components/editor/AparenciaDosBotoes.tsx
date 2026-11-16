@@ -61,8 +61,8 @@ export function AparenciaDosBotoes({
   if (uniformes) {
     return (
       <p className="px-2 pb-3 text-sm leading-relaxed text-white/55">
-        No modelo desta página os botões são todos iguais, então não há estilo nem cor por botão. Para
-        personalizar cada um, escolha outro modelo em “Página”, acima.
+        No modelo deste perfil os botões são todos iguais, então não há estilo nem cor por botão. Para
+        personalizar cada um, escolha outro modelo em “Visual”, acima.
       </p>
     );
   }
@@ -76,7 +76,7 @@ export function AparenciaDosBotoes({
         className="mx-2 my-2 inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors"
       >
         <Plus className="w-4 h-4" />
-        Esta página ainda não tem links. Criar o primeiro
+        Este perfil ainda não tem links. Criar o primeiro
       </Link>
     );
   }

@@ -39,7 +39,7 @@ export function LinhaDeSaude({ profileId }: { profileId: string }) {
     <Link
       href={`/saude/${profileId}`}
       className="group inline-flex items-center gap-2 max-w-full text-sm text-white hover:text-bee-pink transition-colors"
-      title="Ver a saúde desta página"
+      title="Ver a saúde deste perfil"
     >
       <Selo revisao={revisao} />
       <span className="truncate">
@@ -77,7 +77,7 @@ export function Pastilha({ profileId, revisao }: { profileId: string; revisao: A
   return (
     <Link
       href={`/saude/${profileId}`}
-      title="Ver a saúde desta página"
+      title="Ver a saúde deste perfil"
       className={cn(
         "inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-xs font-semibold transition-colors hover:brightness-110",
         COR_DA_PASTILHA[revisao.veredito],

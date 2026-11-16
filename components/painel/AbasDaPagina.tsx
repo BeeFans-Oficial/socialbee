@@ -107,23 +107,23 @@ export function AbasDaPagina() {
           className="flex items-center gap-1 h-9 pl-1 pr-2 -ml-1 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors flex-shrink-0 lg:self-center"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Páginas</span>
+          <span className="hidden sm:inline">Perfis</span>
         </Link>
         <EscolhaDePagina alinhar="esquerda" className="lg:self-center" />
         <a
           href={urlDaPagina(pagina.host, pagina.slug)}
           target="_blank"
           rel="noreferrer"
-          title="Abrir a página"
+          title="Abrir o perfil numa aba nova"
           className="ml-auto flex items-center gap-1.5 h-9 px-2.5 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors flex-shrink-0 lg:order-last lg:self-center"
         >
           <ExternalLink className="w-4 h-4" />
-          <span className="hidden sm:inline">Ver página</span>
+          <span className="hidden sm:inline">Ver perfil</span>
         </a>
       </div>
 
       <nav
-        aria-label="Seções da página"
+        aria-label="Seções do perfil"
         data-tour="abas-da-pagina"
         className="flex gap-1 px-2 mt-1 overflow-x-auto sem-barra lg:mt-0 lg:px-0 lg:min-w-0"
       >

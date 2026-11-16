@@ -42,7 +42,7 @@ export interface ItemDoPainel {
 }
 
 export const ITENS: ItemDoPainel[] = [
-  { href: "/paginas", label: "Páginas", curto: "Páginas", icone: LayoutGrid },
+  { href: "/paginas", label: "Perfis", curto: "Perfis", icone: LayoutGrid },
   { href: "/saude", label: "Saúde", curto: "Saúde", icone: ShieldCheck },
   { href: "/dominios", label: "Domínio próprio", curto: "Domínio", icone: Globe, pro: true },
 ];
@@ -75,10 +75,10 @@ export function itemAtivo(pathname: string, href: string): boolean {
 
 /** O que a barra do topo mostra como título da tela atual. */
 export function tituloDaRota(pathname: string): string {
-  if (/^\/paginas\/[^/]+$/.test(pathname)) return "Editar página";
+  if (/^\/paginas\/[^/]+$/.test(pathname)) return "Aparência do perfil";
   if (pathname === "/links/novo") return "Novo link";
   if (/^\/links\/[^/]+$/.test(pathname)) return "Editar link";
-  if (/^\/saude\/[^/]+$/.test(pathname)) return "Saúde da página";
+  if (/^\/saude\/[^/]+$/.test(pathname)) return "Saúde do perfil";
   if (pathname === "/links") return "Links";
   if (pathname === "/analytics") return "Analytics";
   return [...ITENS, ...ITENS_DA_CONTA].find((i) => itemAtivo(pathname, i.href))?.label ?? "";
@@ -106,7 +106,7 @@ export function Sidebar({ compacta }: { compacta: boolean }) {
       )}
     >
       <div className={cn("h-16 flex items-center border-b border-bee-line", compacta ? "justify-center" : "px-5")}>
-        <Link href="/paginas" aria-label="Páginas">
+        <Link href="/paginas" aria-label="Perfis">
           <Logo variant={compacta ? "icon" : "full"} size="sm" />
         </Link>
       </div>

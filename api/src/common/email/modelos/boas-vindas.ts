@@ -30,10 +30,10 @@ export function boasVindas(input: {
     "",
     `O link vale por ${input.validadeEmHoras} horas. Se vencer, peça outro em Configurações, dentro do painel.`,
     "",
-    "Enquanto isso, três passos para a sua página ficar pronta:",
-    "1. Coloque foto e nome em Páginas.",
+    "Enquanto isso, três passos para o seu perfil ficar pronto:",
+    "1. Abra o seu perfil em Perfis e coloque foto e capa na aba Aparência.",
     "2. Adicione seus links em Links.",
-    "3. Copie o endereço da página e cole na bio do Instagram.",
+    "3. Copie o endereço do perfil e cole na bio do Instagram.",
     "",
     "Se você não criou essa conta, ignore este e-mail: sem o clique, nada acontece.",
     "",
@@ -55,7 +55,7 @@ export function boasVindas(input: {
       <div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:#FF3C6E;font-weight:700;">BeeSocial</div>
     </td></tr>
     <tr><td style="padding:8px 28px 0;font-family:Helvetica,Arial,sans-serif;color:#ffffff;">
-      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:700;">${saudacao}<br>Sua página está a um clique.</h1>
+      <h1 style="margin:0 0 12px;font-size:24px;line-height:1.25;font-weight:700;">${saudacao}<br>Seu perfil está a um clique.</h1>
       <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#c9c9c9;">
         Sua conta no BeeSocial está criada. Falta só confirmar que este e-mail é seu.
       </p>
@@ -67,11 +67,11 @@ export function boasVindas(input: {
       </a>
     </td></tr>
     <tr><td style="padding:0 28px 24px;font-family:Helvetica,Arial,sans-serif;color:#c9c9c9;font-size:14px;line-height:1.6;">
-      <p style="margin:0 0 16px;">Enquanto isso, três passos para a sua página ficar pronta:</p>
+      <p style="margin:0 0 16px;">Enquanto isso, três passos para o seu perfil ficar pronto:</p>
       <ol style="margin:0 0 20px;padding-left:20px;">
-        <li>Coloque foto e nome em <strong style="color:#fff;">Páginas</strong>.</li>
+        <li>Abra o seu perfil em <strong style="color:#fff;">Perfis</strong> e coloque foto e capa na aba Aparência.</li>
         <li>Adicione seus links em <strong style="color:#fff;">Links</strong>.</li>
-        <li>Copie o endereço da página e cole na bio do Instagram.</li>
+        <li>Copie o endereço do perfil e cole na bio do Instagram.</li>
       </ol>
       <p style="margin:0;font-size:12px;color:#8a8a8a;">
         O link vale por ${input.validadeEmHoras} horas. Se vencer, peça outro em Configurações, dentro do painel.

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { motion, useReducedMotion, type Easing } from "framer-motion";
-import { ArrowUpRight, ChevronUp, ChevronsDown, ChevronsUp, MoreHorizontal, Pointer } from "lucide-react";
+import { ArrowUpRight, ChevronUp, ChevronsDown, ChevronsUp, Lock, MoreHorizontal, Pointer } from "lucide-react";
 
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
 import { detectIAB, urlDeSaida, type IABDetection } from "@/lib/cloak";
@@ -405,7 +405,7 @@ function Tela({
 
         {/* A imagem escolhida pela criadora ocupa o topo. É o que a fã vê
             antes de qualquer texto. */}
-        <motion.div {...entrada(0)} className="absolute inset-x-0 top-0 h-[46%] overflow-hidden">
+        <motion.div {...entrada(0)} className="absolute inset-x-0 top-0 h-[64%] overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element -- a rota serve
               bytes de uma coluna do banco; `next/image` exige loader ou domínio
               configurado e não acrescentaria nada a uma imagem só. */}
@@ -414,12 +414,12 @@ function Tela({
             className="absolute inset-0"
             // Escurece cedo: a dica do gesto fica sobre a metade de baixo da
             // foto e precisa de contraste mesmo com imagem clara.
-            style={{ background: `linear-gradient(to bottom, transparent 15%, ${bg} 82%)` }}
+            style={{ background: `linear-gradient(to bottom, transparent 25%, ${bg} 88%)` }}
           />
         </motion.div>
 
-        {/* O bloco fica na metade de cima da tela, longe do rodapé. O espaço
-            que sobra embaixo é da alça da folha. */}
+        {/* A foto desce até quase dois terços da tela e o bloco fica no
+            centro, sobre a parte de baixo dela. */}
         <div
           className="relative z-10 mx-auto flex w-full min-w-0 max-w-lg flex-1 flex-col px-6"
           // Conforme a folha sobe, o que está atrás recua: no fim da rolagem
@@ -429,7 +429,10 @@ function Tela({
           {/* A dica do gesto vem PRIMEIRO, acima do nome: é o que a pessoa
               precisa notar antes de qualquer outra coisa. O nome e a frase
               ficam logo abaixo, como legenda. */}
-          <div aria-hidden className="h-[27%] min-h-[72px] flex-none [@media(max-height:640px)]:h-[16%] [@media(max-height:640px)]:min-h-[48px]" />
+          {/* O espaço livre é repartido 5 para 2: a dica cai no centro da
+              tela, sobre a parte de baixo da foto, e sobra pouco vazio entre
+              a frase e a folha. */}
+          <div aria-hidden className="min-h-[40px] flex-[5]" />
           <motion.div {...entrada(1)} className="min-h-14">
             {preview ? acesso : <DicaDeRolagem porToque={porToque} semMovimento={semMovimento} />}
           </motion.div>
@@ -445,6 +448,7 @@ function Tela({
           >
             {displayName} está compartilhando os links dela com você
           </motion.p>
+          <div aria-hidden className="min-h-[20px] flex-[2]" />
         </div>
 
         {/* A alça da folha: a borda do que continua abaixo. Decoração — não é
@@ -459,8 +463,18 @@ function Tela({
               : { duration: 0.2 }
           }
         >
-          <div className="h-11 rounded-t-3xl border border-b-0 border-white/10 bg-white/[0.05]">
-            <div className="mx-auto mt-2.5 h-1 w-10 rounded-full bg-white/30" />
+          {/* A folha aparece mais (e diz o que guarda): ocupa o pé da tela em
+              vez de deixá-lo vazio. O rótulo não é o botão. */}
+          <div className="flex h-[104px] flex-col items-center rounded-t-3xl border border-b-0 border-white/10 bg-white/[0.06] [@media(max-height:640px)]:h-[76px]">
+            <div className="mt-2.5 h-1 w-10 flex-none rounded-full bg-white/30" />
+            {/* No fim da rolagem o botão fala por si; o rótulo sai. */}
+            <div
+              className="flex flex-1 items-center gap-2 text-sm font-medium text-white/60 transition-opacity duration-200"
+              style={{ opacity: noFim ? 0 : 1 }}
+            >
+              <Lock className="h-4 w-4" />
+              Seu acesso está aqui embaixo
+            </div>
           </div>
         </motion.div>
       </div>
@@ -470,7 +484,7 @@ function Tela({
         // sozinho, com o resto esmaecido atrás. Enquanto a rolagem não
         // termina, o lugar dele mostra quanto falta.
         <div className="mx-auto w-full max-w-lg px-3">
-          <div className="flex min-h-[max(280px,42vh)] w-full min-w-0 flex-col justify-center border-x border-white/10 bg-white/[0.05] px-5 py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="flex min-h-[max(240px,36vh)] w-full min-w-0 flex-col justify-center border-x border-white/10 bg-white/[0.06] px-5 py-8 pb-[max(2rem,env(safe-area-inset-bottom))]">
             {noFim ? (
               <>
                 <motion.p

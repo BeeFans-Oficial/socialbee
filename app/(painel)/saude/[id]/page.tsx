@@ -96,7 +96,7 @@ export default function SaudeDaPaginaPage() {
         Saúde
       </Link>
       <CabecalhoDeTela
-        titulo={pagina?.displayName ?? "Saúde da página"}
+        titulo={pagina?.displayName ?? "Saúde do perfil"}
         descricao={pagina ? `${pagina.host}/${pagina.slug} · o que a Meta faz quando o link entra na bio, feito antes de você colar.` : "Carregando…"}
       />
 
@@ -105,7 +105,7 @@ export default function SaudeDaPaginaPage() {
         <SeloDeSaude estado={rodando ? "revisando" : ultima ? ultima.veredito : "nenhuma"} />
         <div className="min-w-0 flex-1 basis-48">
           <p className="text-sm text-white">
-            {revisoes === null ? "Carregando…" : ultima ? resumo(ultima) : "Esta página ainda não foi checada."}
+            {revisoes === null ? "Carregando…" : ultima ? resumo(ultima) : "Este perfil ainda não foi checado."}
           </p>
           <p className="text-xs text-bee-muted">
             {ultima ? `${ultima.trigger === "cron" ? "Checagem automática" : "Checagem manual"} · ${quando(ultima.ranAt)}` : "A primeira checagem leva alguns segundos."}

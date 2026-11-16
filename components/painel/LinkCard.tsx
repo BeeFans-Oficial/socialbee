@@ -183,11 +183,11 @@ export function LinkCard({ link, profileSlug, profileHost, onVerMetricas, onEdit
               // painel foi servido: ela edita em beesocial.bio e a página dela
               // pode viver em outro domínio do pool.
               navigator.clipboard.writeText(urlDaPagina(profileHost, profileSlug));
-              toast.success("Link da página copiado.");
+              toast.success("Link do perfil copiado.");
             }}
             disabled={!profileSlug || !profileHost}
             title={enderecoPublico ? `Copiar ${enderecoPublico}` : "Carregando..."}
-            aria-label="Copiar o link da página"
+            aria-label="Copiar o link do perfil"
             data-tour="copiar-pagina"
             className="hidden sm:flex w-9 h-9 items-center justify-center rounded-lg text-white/35 hover:text-white hover:bg-white/[0.05] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-bee-pink disabled:opacity-40"
           >

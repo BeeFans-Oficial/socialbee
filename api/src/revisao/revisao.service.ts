@@ -168,20 +168,20 @@ export class RevisaoService {
   /** A criadora pediu. A página precisa ser dela. */
   async revisar(userId: string, profileId: string, trigger: Gatilho = "manual"): Promise<Revisao> {
     const pagina = await this.carregar(profileId, userId);
-    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Página não encontrada." });
+    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Perfil não encontrado." });
     return this.executarEGuardar(pagina, trigger);
   }
 
   async ultima(userId: string, profileId: string): Promise<Revisao | null> {
     const pagina = await this.carregar(profileId, userId);
-    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Página não encontrada." });
+    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Perfil não encontrado." });
     return this.ultimaDe(profileId);
   }
 
   /** Todas as rodadas da página, da mais recente para a mais antiga. */
   async historico(userId: string, profileId: string, limite = 50): Promise<Revisao[]> {
     const pagina = await this.carregar(profileId, userId);
-    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Página não encontrada." });
+    if (!pagina) throw new NotFoundException({ code: "pagina_nao_encontrada", message: "Perfil não encontrado." });
     const linhas = await this.db.query<{ id: string; verdict: Veredito; trigger: Gatilho; items: ItemDaRevisao[]; ran_at: Date }[]>(
       `SELECT id, verdict, trigger, items, ran_at FROM page_reviews WHERE profile_id = $1 ORDER BY ran_at DESC LIMIT $2`,
       [profileId, Math.min(Math.max(limite, 1), 200)],
@@ -575,7 +575,7 @@ export class RevisaoService {
 
     // Pool: domínio pausado sai do sorteio, mas a página continua nele.
     if (pagina.dominio && !pagina.dominio.proprio && (!pagina.dominio.active || pagina.dominio.status !== "active")) {
-      avisos.push("este endereço foi pausado pela equipe; troque de domínio em Página");
+      avisos.push("este endereço foi pausado pela equipe; troque de domínio na aba Aparência");
     }
 
     // A home do domínio: o que foi tirado em 15/10 não pode voltar.
