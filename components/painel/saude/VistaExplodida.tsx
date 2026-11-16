@@ -272,7 +272,7 @@ export function VistaExplodida({
         <motion.div
           className={cn("flex flex-col gap-3", largo ? "absolute right-5 top-14 w-[210px]" : "relative px-4 pt-[296px] pb-4")}
           role="tablist"
-          aria-label="Camadas da página"
+          aria-label="Camadas do perfil"
           animate={{ opacity: imersa ? 0 : 1, pointerEvents: imersa ? "none" : "auto" }}
           transition={{ duration: DURACAO.rapida }}
         >
@@ -570,7 +570,7 @@ function Fatos({ item, host }: { item: ApiItemDaRevisao; host?: string }) {
     return (
       <Bloco titulo="Cada botão, até o fim da cadeia">
         {links.length === 0 ? (
-          <p className="text-xs text-bee-muted">A página não tem links ativos.</p>
+          <p className="text-xs text-bee-muted">O perfil não tem links ativos.</p>
         ) : (
           <ul className="space-y-3">
             {links.map((l) => (

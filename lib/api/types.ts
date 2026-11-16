@@ -199,6 +199,8 @@ export interface ApiProfile {
   published: boolean;
   /** Domínio escolhido no pool. `null` = o padrão da instalação. */
   domainId: string | null;
+  /** Dono da página dentro da conta. `null` = sem dono. */
+  ownerId: string | null;
   /**
    * O host em que esta página é servida, JÁ RESOLVIDO pelo servidor.
    *
@@ -473,6 +475,19 @@ export interface CreateProfileInput {
   slug: string;
   templateId?: string;
   isAdult?: boolean;
+  /** Dono já existente na conta. Ausente = sem dono. */
+  ownerId?: string;
+}
+
+/**
+ * Dono de páginas dentro da conta: o agrupamento de quem administra as
+ * páginas de várias pessoas com um login só. Não tem acesso próprio.
+ */
+export interface ApiOwner {
+  id: string;
+  name: string;
+  /** Quantas páginas da conta são dele, na hora da resposta. */
+  paginas: number;
 }
 
 export interface RegisterInput {

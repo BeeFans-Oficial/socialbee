@@ -1,8 +1,9 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Post } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post } from "@nestjs/common";
 
 import { CurrentUser, type AuthContext } from "../common/decorators/current-user.decorator";
 import { SemPagina } from "../common/decorators/sem-pagina.decorator";
 import { CreateProfileDto } from "./dto/create-profile.dto";
+import { SetOwnerDto } from "./dto/owner.dto";
 import { ProfilesService } from "./profiles.service";
 
 /**
@@ -47,6 +48,17 @@ export class MyProfilesController {
    * comum, mas apagar outra da lista também precisa funcionar — e as duas
    * passam pela mesma verificação de posse no serviço.
    */
+  /** De quem é a página. Pelo id, como o apagar: quem organiza a lista não
+   *  precisa tornar a página a ativa do painel para movê-la de dono. */
+  @Patch(":id/owner")
+  async setOwner(
+    @CurrentUser() auth: AuthContext,
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body() dto: SetOwnerDto,
+  ) {
+    return this.profilesService.setOwner(auth.userId, id, dto.ownerId ?? null);
+  }
+
   @Delete(":id")
   @HttpCode(204)
   async remove(

@@ -86,7 +86,7 @@ export class JwtAuthGuard implements CanActivate {
         context.getClass(),
       ]);
       if (!podeSemPagina) {
-        throw new BadRequestException({ code: "sem_pagina", message: "Crie a sua primeira página para continuar." });
+        throw new BadRequestException({ code: "sem_pagina", message: "Crie o seu primeiro perfil para continuar." });
       }
     }
 

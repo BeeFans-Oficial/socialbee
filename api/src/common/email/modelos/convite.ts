@@ -17,7 +17,7 @@ export function convite(input: { para: string; linkParaCriarSenha: string; siteU
     "",
     `O link vale por ${input.validadeEmDias} dias. Se vencer, peça outro à equipe.`,
     "",
-    "Com a senha criada, você entra no painel, monta a sua página (foto, nome, links) e copia o endereço para a bio.",
+    "Com a senha criada, você entra no painel, monta o seu perfil (foto, nome, links) e copia o endereço para a bio.",
     "",
     "Se você não esperava este e-mail, ignore: sem o clique, nada acontece.",
     "",
@@ -51,7 +51,7 @@ export function convite(input: { para: string; linkParaCriarSenha: string; siteU
       </a>
     </td></tr>
     <tr><td style="padding:0 28px 24px;font-family:Helvetica,Arial,sans-serif;color:#c9c9c9;font-size:14px;line-height:1.6;">
-      <p style="margin:0 0 16px;">Com a senha criada, você entra no painel, monta a sua página (foto, nome, links) e copia o endereço para a bio.</p>
+      <p style="margin:0 0 16px;">Com a senha criada, você entra no painel, monta o seu perfil (foto, nome, links) e copia o endereço para a bio.</p>
       <p style="margin:0;font-size:12px;color:#8a8a8a;">
         O link vale por ${input.validadeEmDias} dias. Se vencer, peça outro à equipe.
         Se você não esperava este e-mail, ignore: sem o clique, nada acontece.

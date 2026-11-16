@@ -30,6 +30,7 @@ import type {
   ApiLink,
   ApiDomain,
   ApiDominiosDaConta,
+  ApiOwner,
   ApiProfile,
   ApiPublicProfile,
   ApiSession,
@@ -243,6 +244,21 @@ export const api = {
 
   createProfile: (input: CreateProfileInput) =>
     request<ApiProfile>("/me/profiles", { method: "POST", body: JSON.stringify(input) }),
+
+  // ── Donos de página ──────────────────────────────────────────────────────
+  owners: () => request<{ owners: ApiOwner[] }>("/me/owners").then((r) => r.owners),
+  createOwner: (name: string) =>
+    request<ApiOwner>("/me/owners", { method: "POST", body: JSON.stringify({ name }) }),
+  renameOwner: (ownerId: string, name: string) =>
+    request<ApiOwner>(`/me/owners/${ownerId}`, { method: "PATCH", body: JSON.stringify({ name }) }),
+  /** Apaga o dono; as páginas dele ficam, sem dono. */
+  deleteOwner: (ownerId: string) => request<void>(`/me/owners/${ownerId}`, { method: "DELETE" }),
+  /** Muda o dono de uma página (`null` tira), pelo id dela. */
+  setProfileOwner: (profileId: string, ownerId: string | null) =>
+    request<ApiProfile>(`/me/profiles/${profileId}/owner`, {
+      method: "PATCH",
+      body: JSON.stringify({ ownerId }),
+    }),
 
   /** Apaga uma página e, por cascata, os links e os cliques dela. Irreversível.
    *  A API recusa apagar a única página da conta. */

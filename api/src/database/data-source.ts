@@ -7,6 +7,7 @@ import { Link } from "../links/entities/link.entity";
 import { SafePage } from "../links/entities/safe-page.entity";
 import { SafePageSocialLink } from "../links/entities/safe-page-social-link.entity";
 import { Domain } from "../profiles/entities/domain.entity";
+import { PageOwner } from "../profiles/entities/page-owner.entity";
 import { Profile } from "../profiles/entities/profile.entity";
 import { LinkCounter } from "../tracking/entities/link-counter.entity";
 import { TrackingEvent } from "../tracking/entities/tracking-event.entity";
@@ -23,6 +24,7 @@ import { ImagensComoChave1790900000000 } from "./migrations/1790900000000-Imagen
 import { PapelDeAdmin1791000000000 } from "./migrations/1791000000000-PapelDeAdmin";
 import { ConfirmacaoDeEmail1791100000000 } from "./migrations/1791100000000-ConfirmacaoDeEmail";
 import { RevisaoDaMeta1791200000000 } from "./migrations/1791200000000-RevisaoDaMeta";
+import { DonoDaPagina1791300000000 } from "./migrations/1791300000000-DonoDaPagina";
 import { AdminAction } from "../admin/entities/admin-action.entity";
 
 /**
@@ -62,6 +64,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       User,
       Session,
       Profile,
+      PageOwner,
       Domain,
       Link,
       SafePage,
@@ -84,6 +87,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
       PapelDeAdmin1791000000000,
       ConfirmacaoDeEmail1791100000000,
       RevisaoDaMeta1791200000000,
+      DonoDaPagina1791300000000,
     ],
     migrationsTableName: "migrations",
     synchronize: false,

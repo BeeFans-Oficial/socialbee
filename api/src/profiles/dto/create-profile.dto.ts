@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, IsOptional, IsString, IsUUID, Matches, MaxLength, MinLength } from "class-validator";
 
 /**
  * Criação de uma PÁGINA nova para a conta.
@@ -14,7 +14,7 @@ import { IsBoolean, IsOptional, IsString, Matches, MaxLength, MinLength } from "
  */
 export class CreateProfileDto {
   @IsString()
-  @MinLength(1, { message: "Dê um nome à página." })
+  @MinLength(1, { message: "Dê um nome ao perfil." })
   @MaxLength(60)
   @Transform(({ value }) => (typeof value === "string" ? value.trim() : value))
   displayName: string;
@@ -36,4 +36,9 @@ export class CreateProfileDto {
   @IsOptional()
   @IsBoolean()
   isAdult?: boolean;
+
+  /** Dono da página, já existente na conta. Ausente = sem dono. */
+  @IsOptional()
+  @IsUUID()
+  ownerId?: string;
 }

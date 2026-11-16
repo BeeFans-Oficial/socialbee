@@ -41,7 +41,7 @@ export default function SaudePage() {
           router.replace("/login?de=/saude");
           return;
         }
-        toast.error("Não foi possível carregar a saúde das páginas.");
+        toast.error("Não foi possível carregar a saúde dos perfis.");
         setPaginas([]);
       });
   }, [router]);
@@ -73,7 +73,7 @@ export default function SaudePage() {
       const r = await api.checarTodas();
       setPaginas(r.paginas);
       const vermelhas = r.paginas.filter((p) => p.revisao?.veredito === "vermelho").length;
-      toast[vermelhas ? "warning" : "success"](vermelhas ? `${vermelhas} ${vermelhas === 1 ? "página pede" : "páginas pedem"} correção.` : "Todas as páginas verdes.");
+      toast[vermelhas ? "warning" : "success"](vermelhas ? `${vermelhas} ${vermelhas === 1 ? "perfil pede" : "perfis pedem"} correção.` : "Todos os perfis verdes.");
     } catch (caught) {
       toast.error(caught instanceof ApiError && caught.status === 429 ? "Já checamos todas há pouco. Espere alguns minutos." : "Não foi possível checar agora.");
     } finally {
@@ -89,8 +89,8 @@ export default function SaudePage() {
   return (
     <Tela>
       <CabecalhoDeTela
-        titulo="Saúde da página"
-        descricao='Suas páginas, conferidas antes de ir para a bio. Verde é "nenhum sinal do que derruba contas", não aprovação da Meta.'
+        titulo="Saúde dos perfis"
+        descricao='Seus perfis, conferidos antes de ir para a bio. Verde é "nenhum sinal do que derruba contas", não aprovação da Meta.'
         acoes={
           <motion.button
             type="button"
@@ -119,12 +119,12 @@ export default function SaudePage() {
         <EsqueletoDeLinhas linhas={3} />
       ) : paginas.length === 0 ? (
         <p className="rounded-xl border border-bee-line bg-bee-surface px-5 py-8 text-center text-sm text-bee-muted">
-          Você ainda não tem páginas. <Link href="/paginas?nova=1" className="text-bee-pink hover:underline">Crie a primeira</Link> e cheque antes de colar na bio.
+          Você ainda não tem perfis. <Link href="/paginas?nova=1" className="text-bee-pink hover:underline">Crie o primeiro</Link> e cheque antes de colar na bio.
         </p>
       ) : (
         <motion.ol data-tour="lista-da-saude" variants={LISTA} initial="initial" animate="animate" className="rounded-2xl border border-bee-line bg-bee-surface divide-y divide-bee-line overflow-hidden">
           <li className="hidden md:grid grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)_minmax(0,1.4fr)_auto] gap-4 px-5 py-2.5 text-[10px] font-semibold tracking-[0.14em] uppercase text-white/35">
-            <span>Página</span>
+            <span>Perfil</span>
             <span>Última checagem</span>
             <span>O que falta</span>
             <span className="w-20" />
@@ -138,7 +138,7 @@ export default function SaudePage() {
       )}
 
       <p className="mt-4 text-xs text-bee-dim">
-        A checagem automática roda todo dia às 5h nas páginas no ar. Quando uma fica vermelha, você recebe um e-mail.
+        A checagem automática roda todo dia às 5h nos perfis no ar. Quando um fica vermelho, você recebe um e-mail.
       </p>
     </Tela>
   );

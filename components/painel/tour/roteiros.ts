@@ -19,7 +19,7 @@ export interface Passo {
   so?: "celular" | "computador";
   /**
    * Passo de reserva para o estado VAZIO: só entra quando este outro alvo
-   * NÃO está na tela. Numa página sem links, a alça de arrastar não existe,
+   * NÃO está na tela. Num perfil sem links, a alça de arrastar não existe,
    * mas a caixa "Nenhum link ainda" existe — e é nela que se explica o que a
    * lista vai permitir. Sem isso, o tour de uma tela vazia era um passo só.
    */
@@ -35,51 +35,83 @@ export interface Roteiro {
   passos: Passo[];
 }
 
+/**
+ * Os ids levam em conta o DESENHO da tela, não só a rota: o motor guarda por
+ * id o que cada conta já viu, e um roteiro reescrito para um desenho novo
+ * (perfis com abas e donos, novembro de 2026) ganhou id novo para voltar a
+ * aparecer uma vez para quem já tinha visto o antigo.
+ */
 export const ROTEIROS: Roteiro[] = [
   {
-    id: "paginas",
+    id: "perfis",
     rota: /^\/paginas$/,
-    nome: "Páginas",
+    nome: "Perfis",
     passos: [
       {
-        alvo: "nova-pagina",
-        titulo: "Crie quantas páginas quiser",
-        texto: "Uma para cada perfil ou campanha. Cada uma tem o próprio endereço, modelo e links.",
+        alvo: "cartao-da-pagina",
+        titulo: "Cada cartão é um perfil",
+        texto: "Um perfil é um endereço para a bio, com os próprios links, visual e relatório. Abrir entra nele; Copiar link entrega o endereço pronto.",
       },
       {
-        alvo: "cartao-da-pagina",
-        titulo: "O cartão de cada página",
-        texto: "Abrir entra na página: links, aparência, saúde e analytics ficam em abas lá dentro. Copiar link entrega o endereço pronto para a bio.",
+        alvo: "renomear-perfil",
+        titulo: "Mude o nome aqui mesmo",
+        texto: "O lápis troca o nome do perfil sem sair da lista. O endereço não muda, então o link da bio continua valendo.",
+      },
+      {
+        alvo: "nova-pagina",
+        titulo: "Crie quantos perfis precisar",
+        texto: "Um para cada pessoa ou campanha. Cada um nasce com endereço próprio e você monta o resto depois.",
+      },
+      {
+        alvo: "novo-dono",
+        exigeAusente: "filtro-de-donos",
+        titulo: "Cuida dos perfis de mais gente?",
+        texto: "Crie um dono para cada pessoa. A lista passa a vir separada por dono, e você vê os perfis de um por vez.",
+      },
+      {
+        alvo: "filtro-de-donos",
+        titulo: "Veja os perfis de um dono por vez",
+        texto: "Toque num dono para ver só os perfis dele. Todos mostra a lista inteira, separada por dono. A escolha fica guardada.",
+      },
+      {
+        alvo: "dono-no-cartao",
+        titulo: "De quem é este perfil",
+        texto: "Troque o dono por aqui para mover o perfil de um grupo para outro. É só organização: nada muda para a fã.",
       },
       {
         alvo: "barra-inferior",
         titulo: "Para onde ir",
-        texto: "Páginas, Saúde e Domínio ficam sempre aqui embaixo. Links e analytics estão dentro de cada página. Em Mais estão conta e sair.",
+        texto: "Perfis, Saúde e Domínio ficam sempre aqui embaixo. Links e analytics estão dentro de cada perfil. Em Mais estão conta e sair.",
         so: "celular",
       },
       {
         alvo: "barra-lateral",
         titulo: "Para onde ir",
-        texto: "Páginas, Saúde e Domínio próprio. Links e analytics estão dentro de cada página. Configurações e sair ficam no menu da conta, no topo.",
+        texto: "Perfis, Saúde e Domínio próprio. Links e analytics estão dentro de cada perfil. Configurações e sair ficam no menu da conta, no topo.",
         so: "computador",
       },
     ],
   },
   {
-    id: "editor-de-pagina",
+    id: "aparencia-do-perfil",
     rota: /^\/paginas\/[^/]+$/,
-    nome: "Editor da página",
+    nome: "Aparência do perfil",
     passos: [
+      {
+        alvo: "abas-da-pagina",
+        titulo: "Esta é a aba Aparência",
+        texto: "Aqui você cuida de como o perfil aparece. Os botões se configuram na aba Links; a checagem e os números, nas outras duas.",
+      },
       {
         alvo: "previa",
         titulo: "É assim que a fã vê",
-        texto: "A prévia é a sua página de verdade, no celular. Cada ajuste aparece aqui na hora.",
+        texto: "A prévia é o seu perfil de verdade, no celular. Cada ajuste aparece aqui na hora.",
         so: "computador",
       },
       {
         alvo: "botao-previa",
         titulo: "Veja como está ficando",
-        texto: "Toque em Prévia para abrir a sua página por cima do painel, a qualquer momento.",
+        texto: "Toque em Prévia para abrir o seu perfil por cima do painel, a qualquer momento.",
         so: "celular",
       },
       {
@@ -102,7 +134,7 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "sair-do-instagram",
         titulo: "Por que sair do Instagram",
         texto:
-          "Quem toca no seu link de dentro do Instagram abre a página num navegador escondido do app, onde login e pagamento costumam falhar. Em Automático, a fã vê primeiro uma tela com a sua foto e um botão que abre a página no navegador do celular, onde tudo funciona. Em Manual, ela entra direto, ainda dentro do Instagram.",
+          "Quem toca no seu link de dentro do Instagram abre o perfil num navegador escondido do app, onde login e pagamento costumam falhar. Em Automático, a fã vê primeiro uma tela com a sua foto e um botão que abre o perfil no navegador do celular, onde tudo funciona. Em Manual, ela entra direto, ainda dentro do Instagram.",
       },
       {
         alvo: "barreira-de-idade",
@@ -113,53 +145,63 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "no-ar",
         titulo: "No ar ou fora do ar",
-        texto: "Fora do ar, a página some para o público e tudo fica guardado. Ligue de novo quando quiser.",
+        texto: "Fora do ar, o perfil some para o público e tudo fica guardado. Ligue de novo quando quiser.",
+      },
+      {
+        alvo: "aparencia-dos-botoes",
+        titulo: "A cara de cada botão",
+        texto: "Abra um botão para mudar estilo, cor, ícone e seta só dele. A prévia mostra o resultado no meio dos outros.",
       },
       {
         alvo: "ver-pagina",
-        titulo: "Abra a sua página",
-        texto: "Ver página abre o endereço público numa aba nova. O ícone ao lado leva aos links dela.",
+        titulo: "Abra o seu perfil",
+        texto: "Ver perfil abre o endereço público numa aba nova. O ícone ao lado leva aos links dele.",
       },
     ],
   },
   {
-    id: "links",
+    id: "links-do-perfil",
     rota: /^\/links$/,
     nome: "Links",
-    // Escrito para quem nunca viu um "link na bio": primeiro o que a tela é,
-    // depois o gesto principal, depois o resto. Sem jargão: "botão" em vez de
-    // "link" sempre que dá, "para onde leva" em vez de "destino".
+    // Escrito para quem nunca viu um "link na bio": primeiro onde a pessoa
+    // está, depois o gesto principal, depois o resto. Sem jargão: "botão" em
+    // vez de "link" sempre que dá, "para onde leva" em vez de "destino".
     passos: [
       {
         alvo: "abas-da-pagina",
-        titulo: "Você está dentro de uma página",
-        texto: "Estas abas são tudo o que é dela: os links, a aparência, a saúde e o relatório. Para trocar de página, toque no nome dela acima.",
+        titulo: "Você está dentro de um perfil",
+        texto: "Estas abas são tudo o que é dele: os links, a aparência, a saúde e o relatório.",
+      },
+      {
+        alvo: "seletor-de-pagina",
+        titulo: "Troque de perfil sem voltar",
+        texto: "Toque no nome para ir a outro perfil, na mesma aba. Com donos, a lista vem separada por dono.",
       },
       {
         alvo: "titulo-da-tela",
         titulo: "Esta tela é a lista dos seus botões",
-        texto: "Cada botão fica na sua página e leva a fã para um lugar: seu OnlyFans, WhatsApp, Telegram, o que você quiser.",
+        texto: "Cada botão fica no seu perfil e leva a fã para um lugar: seu OnlyFans, WhatsApp, Telegram, o que você quiser.",
       },
       {
         alvo: "novo-link",
         titulo: "Comece criando um botão",
-        texto: "Toque em Novo link, escolha onde ele leva, dê um nome e cole o endereço. Pronto, ele já aparece na sua página.",
+        texto: "Toque em Novo link, escolha onde ele leva, dê um nome e cole o endereço. Pronto, ele já aparece no seu perfil.",
       },
       {
         alvo: "links-vazio",
         exigeAusente: "arrastar",
         titulo: "Seus botões vão aparecer aqui",
-        texto: "Depois de criar, cada botão vira uma linha nesta lista, na mesma ordem em que aparece na sua página.",
+        texto: "Depois de criar, cada botão vira uma linha nesta lista, na mesma ordem em que aparece no seu perfil.",
       },
       {
         alvo: "arrastar",
-        titulo: "A ordem daqui é a ordem da página",
+        titulo: "A ordem daqui é a ordem do perfil",
         texto: "Segure esta alça e arraste para cima ou para baixo. O primeiro da lista é o primeiro que a fã vê.",
       },
       {
         alvo: "ligar",
         titulo: "Esconda sem apagar",
-        texto: "Desligado, o botão some da página mas fica guardado aqui. Ligue de novo quando quiser.",
+        texto: "Desligado, o botão some do perfil mas fica guardado aqui. Ligue de novo quando quiser.",
       },
       {
         alvo: "cliques",
@@ -170,18 +212,18 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "editar-link",
         titulo: "Mude o botão quando quiser",
-        texto: "Nome, endereço e proteção ficam no editor do botão. A cor e o estilo dele ficam na aba Aparência, com a prévia da página.",
+        texto: "Nome, endereço e proteção ficam no editor do botão. A cor e o estilo dele ficam na aba Aparência, com a prévia do perfil.",
       },
       {
         alvo: "copiar-pagina",
         titulo: "Este é o endereço que vai na bio",
-        texto: "Copia o link da SUA página, com todos os botões. É ele que você cola no Instagram, não o endereço de um botão só.",
+        texto: "Copia o link do SEU perfil, com todos os botões. É ele que você cola no Instagram, não o endereço de um botão só.",
         so: "computador",
       },
     ],
   },
   {
-    id: "editor-de-link",
+    id: "configurar-link",
     rota: /^\/links\/[^/]+$/,
     nome: "Editor do link",
     passos: [
@@ -203,8 +245,8 @@ export const ROTEIROS: Roteiro[] = [
       },
       {
         alvo: "aparencia-do-botao",
-        titulo: "A cara do botão",
-        texto: "Estilo e cor ficam na aba Aparência, onde a prévia mostra o botão dentro da página inteira.",
+        titulo: "A cara do botão fica em Aparência",
+        texto: "Esta tela é só configuração. Estilo e cor ficam na aba Aparência, onde a prévia mostra o botão dentro do perfil inteiro.",
       },
     ],
   },
@@ -215,18 +257,18 @@ export const ROTEIROS: Roteiro[] = [
     passos: [
       {
         alvo: "resumo-da-saude",
-        titulo: "Suas páginas, conferidas",
-        texto: "Quantas estão verdes, quantas pedem correção e quantas nunca foram checadas. Verde é 'nenhum sinal do que derruba contas', não aprovação da Meta.",
+        titulo: "Seus perfis, conferidos",
+        texto: "Quantos estão verdes, quantos pedem correção e quantos nunca foram checados. Verde é 'nenhum sinal do que derruba contas', não aprovação da Meta.",
       },
       {
         alvo: "lista-da-saude",
-        titulo: "Uma linha por página",
+        titulo: "Uma linha por perfil",
         texto: "A última checagem, quando foi e o que falta. Clique na linha para ver as quatro camadas e o histórico.",
       },
       {
         alvo: "checar-todas",
-        titulo: "Checar todas de uma vez",
-        texto: "Roda a checagem em cada página. Leva alguns segundos por página; a automática roda sozinha todo dia às 5h.",
+        titulo: "Checar todos de uma vez",
+        texto: "Roda a checagem em cada perfil. Leva alguns segundos por perfil; a automática roda sozinha todo dia às 5h.",
       },
     ],
   },
@@ -254,7 +296,7 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "sem-trafego",
         exigeAusente: "origem",
         titulo: "Ainda sem cliques",
-        texto: "Abra a sua página e toque num link: ele aparece aqui na hora. Com cliques, você vê também de onde cada um veio.",
+        texto: "Abra o seu perfil e toque num link: ele aparece aqui na hora. Com cliques, você vê também de onde cada um veio.",
       },
       {
         alvo: "origem",
