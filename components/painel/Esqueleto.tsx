@@ -58,15 +58,29 @@ export function EsqueletoDeCartoes({ cartoes = 2 }: { cartoes?: number }) {
   );
 }
 
-/** O editor: o celular à esquerda e as linhas do painel à direita. */
-export function EsqueletoDeEditor() {
+/** O editor: o celular à esquerda e as linhas do painel à direita. Com
+ *  `semPrevia` (editor de link), só o painel, numa coluna no meio da tela. */
+export function EsqueletoDeEditor({ semPrevia = false }: { semPrevia?: boolean }) {
   return (
-    <div className="flex flex-col lg:flex-row" role="status" aria-label="Carregando o editor" data-esqueleto>
-      <section className="hidden lg:flex flex-1 flex-col items-center px-4 py-5 lg:h-[calc(100dvh-4rem)]">
-        <Esqueleto className="h-10 w-64 rounded-full" />
-        <Esqueleto className="mt-5 h-[min(calc(100dvh-13.5rem),900px)] min-h-[520px] aspect-[440/956] rounded-[68px]" />
-      </section>
-      <aside className="w-full lg:w-[380px] lg:flex-shrink-0 border-l border-bee-line bg-bee-panel pb-10">
+    <div
+      className={semPrevia ? "mx-auto w-full max-w-2xl lg:px-8 lg:py-8" : "flex flex-col lg:flex-row"}
+      role="status"
+      aria-label="Carregando o editor"
+      data-esqueleto
+    >
+      {!semPrevia && (
+        <section className="hidden lg:flex flex-1 flex-col items-center px-4 py-5 lg:h-[calc(100dvh-4rem-var(--abas,0px))]">
+          <Esqueleto className="h-10 w-64 rounded-full" />
+          <Esqueleto className="mt-5 h-[min(calc(100dvh-13.5rem),900px)] min-h-[520px] aspect-[440/956] rounded-[68px]" />
+        </section>
+      )}
+      <aside
+        className={
+          semPrevia
+            ? "w-full bg-bee-panel pb-10 lg:rounded-2xl lg:border lg:border-bee-line"
+            : "w-full lg:w-[380px] lg:flex-shrink-0 border-l border-bee-line bg-bee-panel pb-10"
+        }
+      >
         <div className="h-14 lg:h-16 px-4 flex items-center gap-3 border-b border-bee-line">
           <Esqueleto className="w-9 h-9" />
           <Esqueleto className="h-4 w-32" />

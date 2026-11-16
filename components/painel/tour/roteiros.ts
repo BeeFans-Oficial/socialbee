@@ -42,11 +42,6 @@ export const ROTEIROS: Roteiro[] = [
     nome: "Páginas",
     passos: [
       {
-        alvo: "seletor-de-pagina",
-        titulo: "Esta é a página que você está editando",
-        texto: "Tudo no painel fala desta página: links, visual e relatório. Com mais de uma, troque aqui.",
-      },
-      {
         alvo: "nova-pagina",
         titulo: "Crie quantas páginas quiser",
         texto: "Uma para cada perfil ou campanha. Cada uma tem o próprio endereço, modelo e links.",
@@ -54,18 +49,18 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "cartao-da-pagina",
         titulo: "O cartão de cada página",
-        texto: "Editar abre o visual, os textos e a proteção. Copiar link entrega o endereço pronto para a bio.",
+        texto: "Abrir entra na página: links, aparência, saúde e analytics ficam em abas lá dentro. Copiar link entrega o endereço pronto para a bio.",
       },
       {
         alvo: "barra-inferior",
         titulo: "Para onde ir",
-        texto: "Páginas, Links, Saúde e Analytics ficam sempre aqui embaixo. Em Mais estão domínio, conta e sair.",
+        texto: "Páginas, Saúde e Domínio ficam sempre aqui embaixo. Links e analytics estão dentro de cada página. Em Mais estão conta e sair.",
         so: "celular",
       },
       {
         alvo: "barra-lateral",
         titulo: "Para onde ir",
-        texto: "Páginas, Links, Saúde, Analytics e Domínio próprio. Configurações e sair ficam no menu da conta, no topo.",
+        texto: "Páginas, Saúde e Domínio próprio. Links e analytics estão dentro de cada página. Configurações e sair ficam no menu da conta, no topo.",
         so: "computador",
       },
     ],
@@ -136,6 +131,11 @@ export const ROTEIROS: Roteiro[] = [
     // "link" sempre que dá, "para onde leva" em vez de "destino".
     passos: [
       {
+        alvo: "abas-da-pagina",
+        titulo: "Você está dentro de uma página",
+        texto: "Estas abas são tudo o que é dela: os links, a aparência, a saúde e o relatório. Para trocar de página, toque no nome dela acima.",
+      },
+      {
         alvo: "titulo-da-tela",
         titulo: "Esta tela é a lista dos seus botões",
         texto: "Cada botão fica na sua página e leva a fã para um lugar: seu OnlyFans, WhatsApp, Telegram, o que você quiser.",
@@ -170,7 +170,7 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "editar-link",
         titulo: "Mude o botão quando quiser",
-        texto: "Nome, endereço, proteção e a cor do botão ficam no editor, com a prévia da sua página ao lado.",
+        texto: "Nome, endereço e proteção ficam no editor do botão. A cor e o estilo dele ficam na aba Aparência, com a prévia da página.",
       },
       {
         alvo: "copiar-pagina",
@@ -189,7 +189,7 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "novo-link-form",
         exigeAusente: "destino",
         titulo: "Crie o seu link",
-        texto: "Escolha a plataforma, dê um título e cole o destino. Proteção e aparência do botão vêm logo depois de criar.",
+        texto: "Escolha a plataforma, dê um título e cole o destino. A proteção vem logo depois de criar.",
       },
       {
         alvo: "destino",
@@ -204,7 +204,7 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "aparencia-do-botao",
         titulo: "A cara do botão",
-        texto: "Estilo e cor valem só para este botão. Sem escolha, ele segue o visual da página.",
+        texto: "Estilo e cor ficam na aba Aparência, onde a prévia mostra o botão dentro da página inteira.",
       },
     ],
   },

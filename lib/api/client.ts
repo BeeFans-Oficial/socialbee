@@ -187,6 +187,15 @@ export const api = {
   updateProfile: (input: ProfileInput) =>
     request<ApiProfile>("/me/profile", { method: "PATCH", body: JSON.stringify(input) }),
 
+  /** Renomeia UMA página pelo id, sem torná-la a ativa do painel: o
+   *  `x-profile-id` vai só neste pedido. É o que a lista de páginas usa. */
+  renameProfile: (profileId: string, displayName: string) =>
+    request<ApiProfile>("/me/profile", {
+      method: "PATCH",
+      headers: { "x-profile-id": profileId },
+      body: JSON.stringify({ displayName }),
+    }),
+
   /**
    * Imagens do perfil: avatar, capa (`cover`) e foto da página de chegada
    * (`iab`). O arquivo vai em multipart e a API o redimensiona antes de

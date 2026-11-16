@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Loader2, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { EsqueletoDeCartoes } from "@/components/painel/Esqueleto";
 import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva, paginaAtiva } from "@/lib/api/client";
-import { invalidateSession, usePlano, useSession } from "@/lib/api/use-session";
+import { invalidateSession, usePlano } from "@/lib/api/use-session";
 import type { ApiProfile } from "@/lib/api/types";
 import { CARTAO_DA_GRADE, LISTA } from "@/lib/movimento";
 import { Pastilha, acaoDaChecagem, resumoDaChecagem, useUltimaChecagem } from "@/components/painel/saude/Pecas";
@@ -24,12 +24,11 @@ import { cn, slugify, validateSlug } from "@/lib/utils";
  * Páginas: todas as páginas da conta, em cartões.
  *
  * É a porta de entrada do painel. Cada cartão mostra uma miniatura com as
- * cores da página, o endereço completo e as ações. Clicar abre o editor da
- * página (`/paginas/[id]`).
+ * cores da página, o endereço completo e as ações. Clicar entra na área da
+ * página: links, aparência, saúde e analytics, em abas (`AbasDaPagina`).
  */
 export default function PaginasPage() {
   const router = useRouter();
-  const { session } = useSession();
   const { plano, ehPro } = usePlano();
   const [paginas, setPaginas] = useState<ApiProfile[] | null>(null);
   const [criando, setCriando] = useState(false);
@@ -55,14 +54,41 @@ export default function PaginasPage() {
       });
   }, [router]);
 
-  // A ativa é a do cabeçalho `x-profile-id`; sem ele, a que a sessão abriu.
-  const idAtiva = paginaAtiva() ?? session?.profile?.id ?? null;
   const limite = plano?.limits.paginas ?? null;
   const total = paginas?.length ?? 0;
   const noLimite = limite !== null && total >= limite;
 
-  // O editor da página é quem a torna a ativa do painel, ao abrir.
-  const editar = (pagina: ApiProfile) => router.push(`/paginas/${pagina.id}`);
+  // Abrir uma página é entrar na área dela: ela vira a ativa do painel e a
+  // primeira aba são os links. As outras abas (aparência, saúde, analytics)
+  // ficam na faixa que aparece dali em diante (`AbasDaPagina`).
+  const abrir = (pagina: ApiProfile) => {
+    definirPaginaAtiva(pagina.id);
+    invalidateSession();
+    router.push("/links");
+  };
+  // Página recém-criada começa pela aparência: ainda não há o que listar.
+  const editar = (pagina: ApiProfile) => {
+    definirPaginaAtiva(pagina.id);
+    invalidateSession();
+    router.push(`/paginas/${pagina.id}`);
+  };
+
+  // O nome se muda AQUI, no cartão, e não no editor de aparência: é a lista
+  // que quem administra várias páginas usa para se achar. O pedido leva o id
+  // da página do cartão, sem trocar a ativa do painel.
+  const renomear = async (pagina: ApiProfile, nome: string): Promise<boolean> => {
+    try {
+      const salva = await api.renameProfile(pagina.id, nome);
+      setPaginas((atual) => atual?.map((p) => (p.id === salva.id ? salva : p)) ?? null);
+      // A sessão guarda o nome da página ativa (faixa de abas, seletor).
+      invalidateSession();
+      toast.success("Nome atualizado.");
+      return true;
+    } catch (caught) {
+      toast.error(caught instanceof ApiError ? caught.message : "Não foi possível renomear.");
+      return false;
+    }
+  };
 
   const copiar = async (pagina: ApiProfile) => {
     try {
@@ -107,8 +133,8 @@ export default function PaginasPage() {
             <motion.div key={pagina.id} variants={CARTAO_DA_GRADE} data-tour={i === 0 ? "cartao-da-pagina" : undefined}>
               <CartaoDePagina
                 pagina={pagina}
-                ativa={pagina.id === idAtiva}
-                onEditar={() => editar(pagina)}
+                onAbrir={() => abrir(pagina)}
+                onRenomear={(nome) => renomear(pagina, nome)}
                 onCopiar={() => copiar(pagina)}
                 onApagar={() => setApagando(pagina)}
               />
@@ -147,14 +173,14 @@ export default function PaginasPage() {
 
 function CartaoDePagina({
   pagina,
-  ativa,
-  onEditar,
+  onAbrir,
+  onRenomear,
   onCopiar,
   onApagar,
 }: {
   pagina: ApiProfile;
-  ativa: boolean;
-  onEditar: () => void;
+  onAbrir: () => void;
+  onRenomear: (nome: string) => Promise<boolean>;
   onCopiar: () => void;
   onApagar: () => void;
 }) {
@@ -179,15 +205,15 @@ function CartaoDePagina({
       className={cn(
         "h-full rounded-2xl border overflow-hidden bg-bee-surface transition-[border-color,transform,box-shadow] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
         "hover:-translate-y-0.5 hover:shadow-[0_12px_32px_rgba(0,0,0,0.35)]",
-        ativa ? "border-bee-pink/50" : "border-white/[0.08] hover:border-white/20",
+        "border-white/[0.08] hover:border-white/20",
       )}
     >
       {/* Miniatura */}
       <button
-        onClick={onEditar}
+        onClick={onAbrir}
         className="relative block w-full h-44 px-8 pt-8 text-center"
         style={{ background: visual.bg }}
-        aria-label={`Editar ${pagina.displayName}`}
+        aria-label={`Abrir ${pagina.displayName}`}
       >
         <div className="text-sm font-semibold text-white truncate">{pagina.displayName}</div>
         <div className="mt-5 space-y-2.5">
@@ -199,16 +225,11 @@ function CartaoDePagina({
             />
           ))}
         </div>
-        {ativa && (
-          <span className="absolute top-3 left-3 px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wider bg-black/40 text-white border border-white/15">
-            EDITANDO
-          </span>
-        )}
       </button>
 
       {/* Dados e ações */}
       <div className="p-5">
-        <div className="text-[15px] font-medium text-white truncate">{pagina.displayName}</div>
+        <NomeDaPagina nome={pagina.displayName} onRenomear={onRenomear} />
         <div className="mt-2.5 flex items-center gap-2 min-w-0">
           <span className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-bee-bg/60 font-mono text-xs text-white/85 flex-shrink-0">
             <span
@@ -254,10 +275,10 @@ function CartaoDePagina({
             {revisao?.veredito === "vermelho" && avisado ? "Copiar mesmo assim" : "Copiar link"}
           </button>
           <button
-            onClick={onEditar}
+            onClick={onAbrir}
             className="px-5 py-2 rounded-full bg-white text-bee-bg text-sm font-semibold hover:bg-white/90 transition-colors"
           >
-            Editar
+            Abrir
           </button>
           <div className="ml-auto flex items-center gap-2">
             <a
@@ -280,6 +301,93 @@ function CartaoDePagina({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * O nome da página no cartão, editável no lugar: o lápis troca o texto por um
+ * campo. Enter ou sair do campo salva; Esc desiste. Nome vazio ou igual ao
+ * atual não salva nada.
+ */
+function NomeDaPagina({ nome, onRenomear }: { nome: string; onRenomear: (nome: string) => Promise<boolean> }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(nome);
+  const [salvando, setSalvando] = useState(false);
+  const desistiu = useRef(false);
+
+  const concluir = async () => {
+    if (desistiu.current) {
+      desistiu.current = false;
+      return;
+    }
+    const novo = valor.trim();
+    if (!novo || novo === nome) {
+      setEditando(false);
+      return;
+    }
+    setSalvando(true);
+    const ok = await onRenomear(novo);
+    setSalvando(false);
+    if (ok) setEditando(false);
+  };
+
+  if (!editando) {
+    return (
+      <div className="flex items-center gap-1.5 min-w-0">
+        <span className="text-[15px] font-medium text-white truncate">{nome}</span>
+        <button
+          onClick={() => {
+            setValor(nome);
+            setEditando(true);
+          }}
+          title="Renomear a página"
+          aria-label={`Renomear ${nome}`}
+          className="w-7 h-7 flex-shrink-0 rounded-md flex items-center justify-center text-white/40 hover:text-white hover:bg-white/[0.06] transition-colors"
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      className="flex items-center gap-1.5"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void concluir();
+      }}
+    >
+      <input
+        autoFocus
+        value={valor}
+        maxLength={60}
+        disabled={salvando}
+        aria-label="Nome da página"
+        onChange={(e) => setValor(e.target.value)}
+        onFocus={(e) => e.target.select()}
+        onBlur={() => void concluir()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") {
+            desistiu.current = true;
+            setEditando(false);
+          }
+        }}
+        className="min-w-0 flex-1 h-8 px-2 -ml-2 rounded-md border border-white/20 bg-bee-bg/60 text-[15px] font-medium text-white focus:outline-none focus:border-bee-pink/60"
+      />
+      {/* `onMouseDown` sem tirar o foco: o blur do campo já salva, e os dois
+          juntos salvariam duas vezes. */}
+      <button
+        type="submit"
+        disabled={salvando}
+        onMouseDown={(e) => e.preventDefault()}
+        title="Salvar"
+        aria-label="Salvar o nome"
+        className="w-7 h-7 flex-shrink-0 rounded-md flex items-center justify-center text-white/70 hover:text-white hover:bg-white/[0.06] transition-colors"
+      >
+        {salvando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+      </button>
+    </form>
   );
 }
 
