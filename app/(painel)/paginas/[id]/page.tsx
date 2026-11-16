@@ -40,6 +40,7 @@ import {
   PreviaDoEditor,
   Secao,
 } from "@/components/editor/Painel";
+import { AparenciaDosBotoes } from "@/components/editor/AparenciaDosBotoes";
 import { EsqueletoDeEditor } from "@/components/painel/Esqueleto";
 import { LinhaDeSaude } from "@/components/painel/saude/Pecas";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
@@ -692,12 +693,12 @@ export default function EditorDePagina() {
         </div>
 
         <Secao titulo="Link">
-          <CampoDeTexto
-            rotulo="Nome da página"
-            valor={pagina.displayName}
-            maxLength={60}
-            onSalvar={(v) => (v.trim() ? salvar({ displayName: v.trim() }) : Promise.resolve(false))}
-          />
+          {/* Só leitura: o nome se muda na lista de páginas, no cartão dela. */}
+          <Linha rotulo="Nome da página">
+            <span className="min-w-0 truncate text-[15px] text-white/60" title="Para renomear, use o lápis no cartão da página, em Páginas">
+              {pagina.displayName}
+            </span>
+          </Linha>
           <CampoDeAvatar
             imagem={pagina.avatarUrl}
             nome={pagina.displayName}
@@ -918,6 +919,14 @@ export default function EditorDePagina() {
               onMudar={(published) => salvar({ published })}
             />
           </Grupo>
+        </Secao>
+
+        <Secao
+          titulo="Botões"
+          dataTour="aparencia-dos-botoes"
+          info="Estilo, cor, ícone e seta de cada botão. Vale só para aquele botão; sem escolha, ele segue o visual da página. Destino e proteção ficam na aba Links."
+        >
+          <AparenciaDosBotoes uniformes={visual.botoesUniformes} onMudou={() => setRecarga((r) => r + 1)} />
         </Secao>
 
         {pagina.iab.enabled && (

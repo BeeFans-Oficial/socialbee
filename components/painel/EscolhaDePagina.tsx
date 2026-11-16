@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
  * seus links e seu relatório. Links, Analytics e os editores mostram a página
  * ATIVA (`x-profile-id`), e este é o único lugar que diz qual é. Havia dois
  * seletores — um na barra lateral, outro no cabeçalho de Links e Analytics —
- * cada um com a sua lista; ficou um, na barra do topo, em toda tela.
+ * cada um com a sua lista; ficou um, na faixa de abas da página
+ * (`AbasDaPagina`), que é onde se está "dentro" de uma.
  *
  * A lista é buscada só quando abre: o seletor existe em toda tela do painel,
  * e buscar as páginas a cada navegação seria uma requisição a mais por tela.
@@ -33,7 +34,14 @@ import { cn } from "@/lib/utils";
  * o editor de página torna ativa a página DELE ao montar — recarregar no
  * mesmo endereço desfaria a escolha.
  */
-export function EscolhaDePagina({ className }: { className?: string }) {
+export function EscolhaDePagina({
+  className,
+  alinhar = "direita",
+}: {
+  className?: string;
+  /** De que lado a lista abre: o lado em que o botão está na tela. */
+  alinhar?: "esquerda" | "direita";
+}) {
   const pathname = usePathname();
   const { session } = useSession();
   const { plano, ehPro } = usePlano();
@@ -82,6 +90,8 @@ export function EscolhaDePagina({ className }: { className?: string }) {
     invalidateSession();
     if (pathname.startsWith("/paginas/")) {
       window.location.href = `/paginas/${id}`;
+    } else if (pathname.startsWith("/saude/")) {
+      window.location.href = `/saude/${id}`;
     } else if (pathname.startsWith("/links/")) {
       window.location.href = "/links";
     } else {
@@ -122,8 +132,11 @@ export function EscolhaDePagina({ className }: { className?: string }) {
           initial="initial"
           animate="animate"
           exit="exit"
-          style={{ transformOrigin: "top right" }}
-          className="absolute right-0 z-40 mt-2 w-[calc(100vw-2rem)] max-w-xs rounded-xl border border-white/10 bg-bee-surface shadow-2xl overflow-hidden"
+          style={{ transformOrigin: alinhar === "esquerda" ? "top left" : "top right" }}
+          className={cn(
+            alinhar === "esquerda" ? "left-0" : "right-0",
+            "absolute z-40 mt-2 w-[calc(100vw-2rem)] max-w-xs rounded-xl border border-white/10 bg-bee-surface shadow-2xl overflow-hidden",
+          )}
         >
           <div className="px-3 pt-3 pb-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/40">
             SUAS PÁGINAS
