@@ -6,9 +6,9 @@ fim, marca-se o que entrou.
 
 | | |
 | --- | --- |
-| **Commit da `main`** | `adaf9f0f` (merge da PR #53, 2026-11-07) |
-| **Snapshot tirado em** | 2026-11-12 |
-| **PRs mergeadas** | #1 a #53 (#54 aberta) |
+| **Commit da `main`** | `d1aebc89` (merge da PR #54, 2026-11-12) |
+| **Snapshot tirado em** | 2026-11-16 |
+| **PRs mergeadas** | #1 a #54 (#55 e #56 abertas) |
 | **Produção** | https://beesocial.bio, deploy automático a cada merge na `main` |
 
 ## 1. Implementado
@@ -51,7 +51,23 @@ fim, marca-se o que entrou.
 - [x] Domínio próprio: a criadora conecta, a API checa o DNS, a equipe ativa por
       script (`dominio:ativar`) e configura nginx + certificado à mão. (PR #21)
 
+- [x] **Chegada que ensina o gesto** (sessão de 16/11, PR #56): a dica vem
+      primeiro, na metade de cima (setas em sequência, dedo deslizando,
+      "Deslize para cima"; no mouse, trilho e "Role para baixo"), alça de
+      folha no pé da tela, e no fim da rolagem a folha sobe até o meio e o
+      botão entra como protagonista. Só a rolagem revela o botão, como antes.
+      Falta conferir em aparelho real e com as fotos das criadoras.
+
 ### Painel da criadora
+
+- [x] **Painel por página** (sessão de 16/11, PR #55): a lista de páginas é a
+      entrada; dentro de cada uma, abas Links · Aparência · Saúde · Analytics
+      (`AbasDaPagina`), com o seletor de página na faixa. Barra lateral com
+      Páginas, Saúde e Domínio próprio. Editor de link sem prévia; aparência
+      dos botões na aba Aparência (seção "Botões"). Nome da página editável
+      no cartão da lista, só leitura na Aparência. Os itens abaixo que citam
+      o seletor na barra do topo e a tela Links na barra lateral descrevem a
+      navegação anterior.
 
 - [x] Telas: Páginas (lista e editor), Links (lista e editor), Analytics,
       Domínios, Configurações. Seletor de página em Links e Analytics.
@@ -229,3 +245,5 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-07 | `feat/historia-em-camadas`, PR #52 | Tela inicial que se constrói na rolagem (`Revelar`) e "Como funciona" como a pilha de camadas se montando placa a placa; sem testes novos. |
 | 2026-11-07 | `fix/chegada-sem-flash-e-dominio-padrao`, PR #53 | Chegada sem piscar o perfil (script inline esconde `data-perfil` até a tela montar), botão só no fim da rolagem e some ao subir, fechamento no documento sem `?fora=1`; "padrão da plataforma" some do seletor com o host padrão pausado no pool (`padrao` em `GET /me/domains`, 409 ao voltar); mensagens da Saúde sem citar o incidente; 1 e2e novo (62). |
 | 2026-11-12 | `fix/chegada-nao-repete-fora-do-app`, PR #54 | Passe assinado da chegada: quem rola e sai do Instagram abre o perfil direto no navegador de fora, sem repetir a tela de rolagem; rotas `/<slug>/p` e `/<slug>/p/<passe>`, cookie `HttpOnly` de 30 min; verificado com Playwright local, sem teste automatizado novo. |
+| 2026-11-16 | `feat/painel-por-pagina`, PR #55 | Painel reorganizado por página: abas dentro da página, navegação menor, editor de link sem prévia, aparência dos botões na aba Aparência, renomear no cartão; verificado com Playwright, sem teste automatizado novo. |
+| 2026-11-16 | `feat/chegada-ensina-o-gesto`, PR #56 | Chegada com a dica do gesto primeiro (dedo e setas), alça de folha e botão como protagonista no fim da rolagem; verificado com Playwright em cinco situações, sem teste automatizado novo. |
