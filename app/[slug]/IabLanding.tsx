@@ -6,6 +6,7 @@ import { motion, useReducedMotion, type Easing } from "framer-motion";
 import { ArrowUpRight, ChevronUp, ChevronsDown, ChevronsUp, Lock, MoreHorizontal, Pointer } from "lucide-react";
 
 import { CeuEstrelado } from "@/components/landing/CeuEstrelado";
+import { api } from "@/lib/api/client";
 import { detectIAB, urlDeSaida, type IABDetection } from "@/lib/cloak";
 import { THEMES } from "@/lib/catalog";
 import { MOLA, SUAVE } from "@/lib/movimento";
@@ -314,6 +315,9 @@ function Tela({
 
   const abrir = () => {
     if (preview) return;
+    // Etapa do funil: tocou no botão. Igual dentro e fora de app; `keepalive`
+    // na chamada deixa o registro terminar mesmo com a saída do aplicativo.
+    api.recordView(slug, "continue");
     // Num navegador comum não há de onde sair: o botão só tira esta tela da
     // frente. Nada de navegação nem de parâmetro na URL — o perfil já está
     // no documento, igual para todo mundo.

@@ -291,14 +291,16 @@ export const api = {
   publicProfile: (slug: string) =>
     request<ApiPublicProfile>(`/public/profiles/${encodeURIComponent(slug)}`),
 
-  /** Registra a visualização do perfil (`view`) ou a chegada (`arrival`: todo
-   *  carregamento, antes da barreira de idade — não é contada, só diz de onde a
-   *  pessoa veio). Recebe SLUG, nunca id: o cliente não
+  /** Registra um passo da visitante: a visualização do perfil (`view`, a única
+   *  contada), a chegada (`arrival`: todo carregamento, antes da barreira de
+   *  idade), o toque no botão da tela de chegada (`continue`) ou a passagem
+   *  pela barreira de 18+ (`age`). As três últimas alimentam o funil e a
+   *  origem. Recebe SLUG, nunca id: o cliente não
    *  escolhe em qual perfil grava. `keepalive` porque a visitante pode tocar num
    *  link imediatamente — sem ele o navegador cancela a requisição ao sair da
    *  página e a view some, inflando a taxa de clique justamente nos perfis que
    *  convertem mais rápido. */
-  recordView: (slug: string, tipo: "view" | "arrival" = "view") =>
+  recordView: (slug: string, tipo: "view" | "arrival" | "continue" | "age" = "view") =>
     fetch(`${BASE}/public/tracking/view`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

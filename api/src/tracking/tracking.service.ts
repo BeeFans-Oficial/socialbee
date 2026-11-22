@@ -16,9 +16,12 @@ import {
 import { detectBot } from "./bots";
 import { countryOfIp } from "./geo";
 import { PostgresTrackingStore } from "./tracking.store";
+import { ETAPAS } from "./types";
 import type {
   Breakdown,
   DateRange,
+  Etapa,
+  FunnelStage,
   HeaderBag,
   LinkReport,
   ReportEvent,
@@ -63,8 +66,8 @@ export interface ClickOutcome {
 
 export interface ViewInput {
   profileId: string;
-  /** `arrival` é a chegada (todo carregamento); `view`, a visita contada. */
-  type?: "view" | "arrival";
+  /** A etapa (ver `ETAPAS`). Só `view` é a visita contada. */
+  type?: Exclude<Etapa, "click">;
   /** URL da PÁGINA, informada pelo navegador: é dela que saem UTM e click ids.
    *  A URL da requisição é a da API e nunca carrega nada disso. */
   requestUrl: URL;
@@ -77,7 +80,7 @@ export interface ViewInput {
 }
 
 /** Quantas linhas a lista de eventos do relatório devolve. */
-export const MAX_EVENTOS_NA_LISTA = 100;
+export const MAX_EVENTOS_NA_LISTA = 200;
 
 /** Por quanto tempo um evento sem origem herda a do mesmo visitante. */
 const JANELA_DA_SESSAO_MS = 30 * 60_000;
@@ -195,6 +198,14 @@ export class TrackingService {
     };
 
     const { views, clicks } = separar(aplicarFiltros(contados, filters), filters);
+    // O caminho inteiro, com os mesmos recortes: as etapas que não entram nos
+    // totais (chegada, continuar, 18+) e as visitas e cliques já filtrados.
+    const passos = [
+      ...aplicarFiltros(resolvidos, filters).filter((r) => !["view", "click"].includes(r.event.type) && etapaDe(r) !== undefined),
+      ...views,
+      ...clicks,
+    ];
+    const alcance = alcancePorVisitante(passos);
     const janelaAnterior = separar(aplicarFiltros(resolver(eventosAnteriores), filters), filters);
 
     const botHits = Object.values(counters).reduce((sum, counter) => sum + counter.botHits, 0);
@@ -233,10 +244,11 @@ export class TrackingService {
         inAppClicks: emApp(janelaAnterior.clicks),
         clickRate: janelaAnterior.views.length ? janelaAnterior.clicks.length / janelaAnterior.views.length : 0,
       },
-      events: [...views, ...clicks]
+      funnel: funil(passos, alcance),
+      events: [...passos]
         .sort((x, y) => y.event.occurredAt.getTime() - x.event.occurredAt.getTime())
         .slice(0, MAX_EVENTOS_NA_LISTA)
-        .map(linhaDaLista),
+        .map((r) => linhaDaLista(r, alcance)),
       filters,
       options,
     };
@@ -371,6 +383,14 @@ export function resolver(eventos: TrackingEventRecord[]): Resolvido[] {
       }
     }
 
+    // Mesma pessoa, mesma origem, sem campanha neste evento: vale a da sessão.
+    // Sem isto, um passo sem UTM (o toque em "continuar" dentro do app, cuja
+    // origem é o próprio aplicativo) apagava a campanha que a chegada trouxe.
+    if (origem && !campanha) {
+      const antes = porVisitante.get(visitante);
+      if (antes && antes.origem === origem && em - antes.em <= JANELA_DA_SESSAO_MS) campanha = antes.campanha;
+    }
+
     if (origem) {
       porVisitante.set(visitante, { origem, campanha, em });
       if (event.client.inAppBrowser && rede) appPorRede.set(rede, { origem, campanha, visitante, em });
@@ -416,10 +436,50 @@ function rotuloDoVisitante(chave: string): string {
   return createHash("sha256").update(chave).digest("hex").slice(0, 6).toUpperCase();
 }
 
-function linhaDaLista(r: Resolvido): ReportEvent {
+function etapaDe(r: Resolvido): number | undefined {
+  const i = (ETAPAS as readonly string[]).indexOf(r.event.type);
+  return i >= 0 ? i : undefined;
+}
+
+/** A etapa mais adiantada de cada visitante. */
+function alcancePorVisitante(passos: Resolvido[]): Map<string, number> {
+  const alcance = new Map<string, number>();
+  for (const r of passos) {
+    const etapa = etapaDe(r);
+    if (etapa === undefined) continue;
+    if (etapa > (alcance.get(r.visitante) ?? -1)) alcance.set(r.visitante, etapa);
+  }
+  return alcance;
+}
+
+/**
+ * O funil: quantos visitantes chegaram a cada etapa.
+ *
+ * Conta PESSOAS (a chave diária do visitante, já costurada entre o app e o
+ * navegador do celular), não eventos. Quem tem evento numa etapa conta em
+ * todas as anteriores — os links não aparecem sem a pessoa ter aberto a
+ * página, mesmo que o evento da abertura não exista (histórico anterior à
+ * chegada ser gravada, requisição perdida). É o que mantém o funil sempre
+ * decrescente.
+ *
+ * `continue` e `age` só entram quando há evento delas no recorte: página sem
+ * tela de chegada ou sem barreira de idade não tem essas etapas, e mostrá-las
+ * com o número da etapa seguinte inventaria um passo que não existiu.
+ */
+function funil(passos: Resolvido[], alcance: Map<string, number>): FunnelStage[] {
+  if (alcance.size === 0) return [];
+  const presentes = new Set(passos.map((r) => r.event.type));
+  const ate = [...alcance.values()];
+  return ETAPAS.map((stage, i) => ({ stage, i }))
+    .filter(({ stage }) => (stage !== "continue" && stage !== "age") || presentes.has(stage))
+    .map(({ stage, i }) => ({ stage, visitors: ate.filter((n) => n >= i).length }));
+}
+
+function linhaDaLista(r: Resolvido, alcance: Map<string, number>): ReportEvent {
   const { event } = r;
   return {
-    type: event.type === "click" ? "click" : "view",
+    type: ETAPAS[etapaDe(r) ?? 0],
+    reached: ETAPAS[alcance.get(r.visitante) ?? etapaDe(r) ?? 0],
     at: event.occurredAt.toISOString(),
     linkId: event.linkId,
     channel: event.channel,

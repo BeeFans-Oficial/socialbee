@@ -281,10 +281,22 @@ export interface LinkCounters {
   lastClickAt?: string;
 }
 
-/** Uma linha da lista de eventos: uma visita ou um clique. Sem nome, sem IP
+/** As etapas do caminho de uma visitante, em ordem: abriu a página, tocou no
+ *  botão da tela de chegada, passou pela barreira de 18+, viu os links, clicou. */
+export type Etapa = "arrival" | "continue" | "age" | "view" | "click";
+
+/** Uma etapa do funil: quantos visitantes chegaram até ela. */
+export interface FunnelStage {
+  stage: Etapa;
+  visitors: number;
+}
+
+/** Uma linha da lista de eventos: um passo de uma visitante. Sem nome, sem IP
  *  inteiro — a API não tem nenhum dos dois. */
 export interface ReportEvent {
-  type: "view" | "click";
+  type: Etapa;
+  /** A etapa mais adiantada a que este visitante chegou no recorte. */
+  reached: Etapa;
   at: string;
   linkId?: string;
   channel?: string;
@@ -333,8 +345,11 @@ export interface TrackingReport {
   daily: Array<{ date: string; views: number; clicks: number }>;
   /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
   previous: { from: string; to: string; views: number; visitors: number; clicks: number; inAppClicks: number; clickRate: number };
-  /** As visitas e cliques mais recentes do recorte, da mais nova para a mais
-   *  antiga (até 100). */
+  /** Quantos visitantes chegaram a cada etapa; quem está numa conta nas
+   *  anteriores. Vazio quando não houve ninguém. */
+  funnel: FunnelStage[];
+  /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
+   *  mais antigo (até 200). */
   events: ReportEvent[];
   filters: ReportFilters;
   /** O que existe para filtrar na janela, antes dos filtros. */
