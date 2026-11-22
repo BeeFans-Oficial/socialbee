@@ -734,7 +734,23 @@ describe("rastreamento", () => {
     const auth = { authorization: `Bearer ${tokenLuna}` };
     const soChegada = await servidor.get("/v1/me/tracking/report?days=7").set(auth).expect(200);
     expect(soChegada.body.report.views).toBe(0);
-    expect(soChegada.body.report.events).toHaveLength(0);
+    // A chegada aparece no passo a passo e no funil, mas não nos totais.
+    expect(soChegada.body.report.events).toHaveLength(1);
+    expect(soChegada.body.report.events[0]).toMatchObject({ type: "arrival", reached: "arrival", source: "instagram" });
+    expect(soChegada.body.report.funnel).toEqual([
+      { stage: "arrival", visitors: 1 },
+      { stage: "view", visitors: 0 },
+      { stage: "click", visitors: 0 },
+    ]);
+
+    // Tocou em continuar, ainda dentro do app.
+    await servidor
+      .post("/v1/public/tracking/view")
+      .set(visitante)
+      .set("user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148 Instagram 300.0.0.0")
+      .set("x-arrival-host", "luna.site")
+      .send({ slug: "luna-teste", tipo: "continue", url: "https://luna.site/luna-teste", referrer: "" })
+      .expect(204);
 
     await servidor
       .post("/v1/public/tracking/view")
@@ -761,6 +777,16 @@ describe("rastreamento", () => {
       network: "177.10.88.0/24",
     });
     expect(body.report.events[0].inApp).toBeUndefined();
+    // O funil conta a pessoa uma vez só, do app ao navegador do celular, e a
+    // etapa "continuar" entra porque houve evento dela.
+    expect(body.report.funnel).toEqual([
+      { stage: "arrival", visitors: 1 },
+      { stage: "continue", visitors: 1 },
+      { stage: "view", visitors: 1 },
+      { stage: "click", visitors: 0 },
+    ]);
+    expect(body.report.events.map((e: { type: string }) => e.type)).toEqual(["view", "continue", "arrival"]);
+    expect(body.report.events.every((e: { reached: string }) => e.reached === "view")).toBe(true);
 
     // Tipo desconhecido não entra.
     await servidor.post("/v1/public/tracking/view").send({ slug: "luna-teste", tipo: "click" }).expect(400);

@@ -1,4 +1,4 @@
-import { resolver } from "../src/tracking/tracking.service";
+import { resolver, TrackingService } from "../src/tracking/tracking.service";
 import { countryOfIp } from "../src/tracking/geo";
 import type { TrackingEventRecord } from "../src/tracking/types";
 
@@ -71,6 +71,17 @@ describe("resolver", () => {
     expect(clique.visitante).toBe(noApp.visitante);
   });
 
+  it("um passo sem UTM dentro do app não apaga a campanha da chegada", () => {
+    const [, continuar, fora] = resolver([
+      evento("arrival", 0, { visitor: "app", net: "n1", inApp: "instagram", campaign: "bio" }),
+      evento("continue", 1, { visitor: "app", net: "n1", inApp: "instagram" }),
+      evento("view", 2, { visitor: "safari", net: "n1" }),
+    ]);
+    expect(continuar.campanha).toBe("bio");
+    expect(fora.origem).toBe("instagram");
+    expect(fora.campanha).toBe("bio");
+  });
+
   it("não costura outra rede, nem depois de dez minutos", () => {
     const [, outraRede, tarde] = resolver([
       evento("arrival", 0, { visitor: "app", net: "n1", inApp: "instagram" }),
@@ -128,5 +139,71 @@ describe("countryOfIp", () => {
     expect(countryOfIp("2804:14c::1")).toBeUndefined();
     expect(countryOfIp("não é ip")).toBeUndefined();
     expect(countryOfIp(undefined)).toBeUndefined();
+  });
+});
+
+describe("funil", () => {
+  async function relatorio(eventos: TrackingEventRecord[], filtros = {}) {
+    const store = {
+      query: async (_: string, range: { from: Date; to: Date }) =>
+        eventos.filter((e) => e.occurredAt >= range.from && e.occurredAt <= range.to),
+      counters: async () => ({}),
+    };
+    const service = new TrackingService(store as never);
+    return service.report("p1", { from: new Date(T0 - 3_600_000), to: new Date(T0 + 86_400_000) }, filtros);
+  }
+
+  it("conta pessoas por etapa e mostra onde cada uma parou", async () => {
+    const r = await relatorio([
+      // A: só abriu.
+      evento("arrival", 0, { visitor: "a" }),
+      // B: abriu, continuou, passou a barreira, viu os links.
+      evento("arrival", 1, { visitor: "b" }),
+      evento("continue", 2, { visitor: "b" }),
+      evento("age", 3, { visitor: "b" }),
+      evento("view", 4, { visitor: "b" }),
+      // C: foi até o clique, abrindo a página duas vezes.
+      evento("arrival", 5, { visitor: "c" }),
+      evento("arrival", 6, { visitor: "c" }),
+      evento("continue", 7, { visitor: "c" }),
+      evento("age", 8, { visitor: "c" }),
+      evento("view", 9, { visitor: "c" }),
+      evento("click", 10, { visitor: "c" }),
+    ]);
+    expect(r.funnel).toEqual([
+      { stage: "arrival", visitors: 3 },
+      { stage: "continue", visitors: 2 },
+      { stage: "age", visitors: 2 },
+      { stage: "view", visitors: 2 },
+      { stage: "click", visitors: 1 },
+    ]);
+    // Os totais não mudam: só visita e clique contam.
+    expect(r.views).toBe(2);
+    expect(r.clicks).toBe(1);
+    expect(r.events[0]).toMatchObject({ type: "click", reached: "click" });
+    expect(r.events.find((e) => e.type === "arrival" && e.reached === "arrival")).toBeDefined();
+  });
+
+  it("omite continuar e 18+ quando a página não tem essas etapas, e segue decrescente sem a chegada", async () => {
+    // Histórico anterior à chegada ser gravada: só visita e clique.
+    const r = await relatorio([
+      evento("view", 0, { visitor: "a" }),
+      evento("view", 1, { visitor: "b" }),
+      evento("click", 2, { visitor: "b" }),
+    ]);
+    expect(r.funnel).toEqual([
+      { stage: "arrival", visitors: 2 },
+      { stage: "view", visitors: 2 },
+      { stage: "click", visitors: 1 },
+    ]);
+  });
+
+  it("fica vazio sem ninguém e respeita os recortes", async () => {
+    expect((await relatorio([])).funnel).toEqual([]);
+    const r = await relatorio(
+      [evento("arrival", 0, { visitor: "a", source: "tiktok" }), evento("arrival", 1, { visitor: "b" })],
+      { sources: ["tiktok"] },
+    );
+    expect(r.funnel[0]).toEqual({ stage: "arrival", visitors: 1 });
   });
 });

@@ -18,11 +18,12 @@ class RecordViewDto {
   @Matches(/^[a-z0-9-]{3,30}$/)
   slug: string;
 
-  /** `arrival` é a chegada: todo carregamento da página, antes da barreira de
-   *  idade. Ausente, é a visita (`view`), como sempre foi. */
+  /** A etapa do caminho (ver `ETAPAS` em `types.ts`). Ausente, é a visita
+   *  (`view`), como sempre foi. `click` não entra aqui: ele tem rota própria,
+   *  atrás do segredo interno. */
   @IsOptional()
-  @IsIn(["view", "arrival"])
-  tipo?: "view" | "arrival";
+  @IsIn(["view", "arrival", "continue", "age"])
+  tipo?: "view" | "arrival" | "continue" | "age";
 
   /** `location.href` da página: os UTM e click ids estão nela, e não na URL
    *  desta rota. */

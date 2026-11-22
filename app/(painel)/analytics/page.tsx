@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
+import { ArrowUpRight, DoorOpen, Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -21,7 +21,7 @@ import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
-import type { ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
+import type { Etapa, FunnelStage, ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
 import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
@@ -70,6 +70,15 @@ const NOME_DO_APARELHO: Record<string, string> = { mobile: "Celular", tablet: "T
 const NOME_DO_APP: Record<string, string> = {
   instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", twitter: "X", snapchat: "Snapchat",
   linkedin: "LinkedIn", pinterest: "Pinterest", telegram: "Telegram", line: "Line", kakao: "Kakao", wechat: "WeChat",
+};
+
+/** O que a visitante fez em cada etapa, e como dizer que ela parou ali. */
+const ETAPA: Record<Etapa, { fez: string; parou: string }> = {
+  arrival: { fez: "Abriu a página", parou: "Só abriu a página" },
+  continue: { fez: "Tocou em continuar", parou: "Parou depois de continuar" },
+  age: { fez: "Passou pela barreira 18+", parou: "Parou depois da barreira 18+" },
+  view: { fez: "Viu os links", parou: "Viu os links e não clicou" },
+  click: { fez: "Clicou em um link", parou: "Clicou em um link" },
 };
 
 /** `BR` → `Brasil`. O navegador conhece os nomes; sem suporte, fica o código. */
@@ -445,6 +454,13 @@ function Analytics() {
           </motion.div>
         </motion.div>
 
+        {/* Funil: até onde as pessoas foram. */}
+        {report.funnel.length > 0 && (
+          <motion.div variants={ITEM_DA_LISTA}>
+            <Funil etapas={report.funnel} />
+          </motion.div>
+        )}
+
         {/* Robôs filtrados — fica visível para o número baixo não parecer perda
             de tráfego. */}
         {report.botHits > 0 && (
@@ -707,16 +723,15 @@ function Analytics() {
         {report.events.length > 0 && (
           <motion.section variants={ITEM_DA_LISTA} className="bg-bee-surface rounded-xl p-6 border border-white/5">
             <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-              <h2 className="text-xl text-white font-semibold">Visitas e cliques, um a um</h2>
+              <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
               <span className="text-xs text-bee-muted">
-                {report.events.length < report.views + report.clicks
-                  ? `os ${report.events.length} mais recentes de ${formatNumber(report.views + report.clicks)}`
-                  : `${report.events.length} no recorte`}
+                {report.events.length >= 200 ? "os 200 passos mais recentes" : `${report.events.length} passos no recorte`}
               </span>
             </div>
             <p className="text-xs text-bee-muted mb-5 max-w-2xl">
-              O código em Visitante repete nas linhas da mesma pessoa no mesmo dia. Ele não identifica
-              ninguém: nome, perfil e telefone de quem visita nunca chegam à página.
+              Cada linha é um passo. O código em Visitante repete nas linhas da mesma pessoa no mesmo dia,
+              e embaixo dele está até onde ela foi. Ele não identifica ninguém: nome, perfil e telefone de
+              quem visita nunca chegam à página.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px]">
@@ -748,6 +763,7 @@ function Analytics() {
 
 function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titulo?: string; zebrada: boolean }) {
   const clique = evento.type === "click";
+  const Icone = clique ? MousePointer2 : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
   const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
   const campanha = [evento.medium, evento.campaign].filter(Boolean).join(" · ");
   return (
@@ -755,12 +771,8 @@ function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titul
       <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap tabular-nums">{dataEHora(evento.at)}</td>
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2 text-sm text-white">
-          {clique ? (
-            <MousePointer2 className="w-3.5 h-3.5 text-bee-pink flex-shrink-0" />
-          ) : (
-            <Eye className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
-          )}
-          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : "Visita"}</span>
+          <Icone className={cn("w-3.5 h-3.5 flex-shrink-0", clique ? "text-bee-pink" : "text-white/40")} />
+          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : ETAPA[evento.type].fez}</span>
         </div>
         {clique && evento.destinationHost && (
           <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{evento.destinationHost}</div>
@@ -783,8 +795,73 @@ function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titul
       </td>
       <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap">{evento.country ? nomeDoPais(evento.country) : "—"}</td>
       <td className="py-3 pr-4 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.network ?? "—"}</td>
-      <td className="py-3 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.visitor}</td>
+      <td className="py-3 whitespace-nowrap">
+        <div className="text-xs text-bee-muted font-mono">{evento.visitor}</div>
+        <div className={cn("mt-0.5 text-xs", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-dim")}>
+          {ETAPA[evento.reached].parou}
+        </div>
+      </td>
     </tr>
+  );
+}
+
+/**
+ * O funil: quantas pessoas chegaram a cada etapa e quantas ficaram em cada uma.
+ *
+ * A barra de cada etapa é proporcional à primeira; embaixo, quem parou ali —
+ * a diferença para a etapa seguinte, que é o número que diz onde a página
+ * perde gente.
+ */
+function Funil({ etapas }: { etapas: FunnelStage[] }) {
+  const total = etapas[0]?.visitors ?? 0;
+  return (
+    <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+        <h2 className="text-xl text-white font-semibold">Até onde as pessoas foram</h2>
+        <span className="text-xs text-bee-muted">visitantes únicos, por dia</span>
+      </div>
+      <p className="text-xs text-bee-muted mb-6 max-w-2xl">
+        Cada barra é quantas pessoas chegaram àquela etapa. Embaixo dela, quantas pararam ali.
+      </p>
+      <ol className="space-y-4">
+        {etapas.map((etapa, i) => {
+          const proxima = etapas[i + 1];
+          const pararam = proxima ? etapa.visitors - proxima.visitors : 0;
+          const fatia = total ? (etapa.visitors / total) * 100 : 0;
+          const ultima = i === etapas.length - 1;
+          return (
+            <li key={etapa.stage}>
+              <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                <span className="text-sm text-white">{ETAPA[etapa.stage].fez}</span>
+                <span className="text-sm text-white tabular-nums">
+                  {formatNumber(etapa.visitors)}
+                  <span className="ml-2 text-xs text-bee-muted">{Math.round(fatia)}%</span>
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-bee-bg rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full origin-left"
+                  initial={{ scaleX: 0 }}
+                  animate={{ scaleX: 1 }}
+                  transition={{ duration: 0.6, delay: 0.1 + i * 0.08 }}
+                  style={{
+                    width: `${fatia}%`,
+                    background: ultima ? "linear-gradient(90deg, #FF3C6E, #FF1F57)" : "rgba(255, 255, 255, 0.35)",
+                  }}
+                />
+              </div>
+              {!ultima && (
+                <p className={cn("mt-1.5 text-xs", pararam > 0 ? "text-amber-200/80" : "text-bee-dim")}>
+                  {pararam > 0
+                    ? `${formatNumber(pararam)} ${pararam === 1 ? "parou" : "pararam"} aqui (${Math.round((pararam / etapa.visitors) * 100)}%)`
+                    : "ninguém parou aqui"}
+                </p>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
 

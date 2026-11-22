@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { ArrowUpRight, MoreHorizontal, Plus } from "lucide-react";
 import { AgeGate } from "@/components/profile/AgeGate";
@@ -62,6 +62,7 @@ export function ProfileClient({
 }: ProfileClientProps) {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
+  const idadeRegistrada = useRef(false);
   const [links, setLinks] = useState<LinkType[]>(initialLinks ?? []);
 
   const needsAgeGate = isAdult && !ageVerified;
@@ -69,7 +70,15 @@ export function ProfileClient({
   // Referência estável: o `useEffect` do AgeGate depende de `onVerified`, e uma
   // arrow inline mudaria de identidade a cada render, reexecutando o efeito que
   // lê o localStorage.
-  const handleVerified = useCallback(() => setAgeVerified(true), []);
+  const handleVerified = useCallback(() => {
+    setAgeVerified(true);
+    // Etapa do funil: passou pela barreira (agora, ou numa visita anterior
+    // que o aparelho lembrou). Uma vez por carregamento.
+    if (!previa && slug && !idadeRegistrada.current) {
+      idadeRegistrada.current = true;
+      api.recordView(slug, "age");
+    }
+  }, [previa, slug]);
 
   // A página rola sem barra visível, como no celular — inclusive dentro da
   // moldura de iPhone das prévias do painel.

@@ -22,7 +22,30 @@
  * só acontece depois, já no navegador do celular, onde não sobra referrer nem
  * user-agent do aplicativo; sem a chegada, essa origem nunca seria vista.
  */
-export type TrackingEventType = "view" | "click" | "arrival" | (string & {});
+export type TrackingEventType = "view" | "click" | "arrival" | "continue" | "age" | (string & {});
+
+/**
+ * As etapas do caminho de uma visitante, na ordem em que acontecem.
+ *
+ *   arrival   abriu a página
+ *   continue  tocou no botão da tela de chegada (dentro de um app, é o que a
+ *             leva ao navegador do celular)
+ *   age       passou pela barreira de 18+
+ *   view      os links apareceram — é a visita contada
+ *   click     tocou num link
+ *
+ * `continue` e `age` só existem em página com tela de chegada ou barreira de
+ * idade, e só nos eventos posteriores a esta lista existir. Só `view` e
+ * `click` entram nos totais; as outras servem ao funil e à origem.
+ */
+export const ETAPAS = ["arrival", "continue", "age", "view", "click"] as const;
+export type Etapa = (typeof ETAPAS)[number];
+
+/** Uma etapa do funil: quantos visitantes chegaram até ela. */
+export interface FunnelStage {
+  stage: Etapa;
+  visitors: number;
+}
 
 /** Cabeçalhos como o Node os entrega: chaves em minúsculas, valor podendo ser
  *  lista (o caso de `set-cookie` e de cabeçalhos repetidos). */
@@ -141,9 +164,11 @@ export interface LinkReport {
  * ausentes não filtram. `links` só se aplica a cliques: visita não tem
  * link, e o relatório diz isso em vez de zerar as visitas.
  */
-/** Uma linha da lista de eventos da tela: uma visita ou um clique. */
+/** Uma linha da lista de eventos da tela: um passo de uma visitante. */
 export interface ReportEvent {
-  type: "view" | "click";
+  type: Etapa;
+  /** A etapa mais adiantada a que ESTE visitante chegou no recorte. */
+  reached: Etapa;
   at: string;
   linkId?: string;
   channel?: string;
@@ -213,8 +238,12 @@ export interface TrackingReport {
   daily: Array<{ date: string; views: number; clicks: number }>;
   /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
   previous: { from: string; to: string; views: number; visitors: number; clicks: number; inAppClicks: number; clickRate: number };
-  /** As visitas e cliques mais recentes do recorte, da mais nova para a mais
-   *  antiga, até `MAX_EVENTOS_NA_LISTA`. */
+  /** Quantos visitantes chegaram a cada etapa. Quem aparece numa etapa conta
+   *  em todas as anteriores; `continue` e `age` só entram quando há evento
+   *  delas no recorte. Vazio quando não houve ninguém. */
+  funnel: FunnelStage[];
+  /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
+   *  mais antigo, até `MAX_EVENTOS_NA_LISTA`. */
   events: ReportEvent[];
   filters: ReportFilters;
   options: ReportOptions;
