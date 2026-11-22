@@ -15,7 +15,14 @@
  * forma do Node/Express). É a única concessão do porte.
  */
 
-export type TrackingEventType = "view" | "click" | (string & {});
+/**
+ * `arrival` é a CHEGADA: todo carregamento da página, antes da barreira de
+ * idade. Não entra em nenhum total — existe para o relatório saber de onde a
+ * pessoa veio. Numa página adulta aberta dentro do Instagram, a visita (`view`)
+ * só acontece depois, já no navegador do celular, onde não sobra referrer nem
+ * user-agent do aplicativo; sem a chegada, essa origem nunca seria vista.
+ */
+export type TrackingEventType = "view" | "click" | "arrival" | (string & {});
 
 /** Cabeçalhos como o Node os entrega: chaves em minúsculas, valor podendo ser
  *  lista (o caso de `set-cookie` e de cabeçalhos repetidos). */
@@ -53,13 +60,21 @@ export interface ClientContext {
    *  mais valioso do produto: mede quanto do tráfego chega preso dentro do app
    *  e justifica o escape. */
   inAppBrowser?: string;
-  /** ISO 3166-1 alfa-2, quando a borda informa. */
+  /** ISO 3166-1 alfa-2: da borda, quando ela informa, senão da base de IP
+   *  embutida (`geo.ts`). */
   country?: string;
   /** Prefixo /24 do IPv4 (ou /48 do IPv6). O IP inteiro seria dado pessoal sem
-   *  uso: a tela nunca desce abaixo de país, e o filtro de robô decide ANTES de
-   *  o evento ser gravado. */
+   *  uso: a lista de eventos mostra a rede, nunca o endereço, e o filtro de
+   *  robô decide ANTES de o evento ser gravado. */
   ipPrefix?: string;
   userAgent?: string;
+  /** "Chrome", "Safari"… Ausente nos eventos antigos: o relatório deduz do
+   *  `userAgent` nesses casos. */
+  browser?: string;
+  /** Chave diária do visitante (rede + navegador). Ver `chavesDoVisitante`. */
+  visitor?: string;
+  /** Chave diária da rede, sem o navegador. Ver `chavesDoVisitante`. */
+  net?: string;
 }
 
 export interface BotVerdict {
@@ -126,6 +141,31 @@ export interface LinkReport {
  * ausentes não filtram. `links` só se aplica a cliques: visita não tem
  * link, e o relatório diz isso em vez de zerar as visitas.
  */
+/** Uma linha da lista de eventos da tela: uma visita ou um clique. */
+export interface ReportEvent {
+  type: "view" | "click";
+  at: string;
+  linkId?: string;
+  channel?: string;
+  destinationHost?: string;
+  arrivalHost?: string;
+  /** A origem RESOLVIDA (ver `resolver`), a mesma chave do filtro. */
+  source: string;
+  medium?: string;
+  campaign?: string;
+  /** Nomes dos identificadores de anúncio presentes (`fbclid`…), sem o valor. */
+  clickIds: string[];
+  device: string;
+  os?: string;
+  browser?: string;
+  inApp?: string;
+  country?: string;
+  /** Rede aproximada (prefixo do IP). */
+  network?: string;
+  /** Rótulo curto do visitante: repete nas linhas da mesma pessoa no dia. */
+  visitor: string;
+}
+
 export interface ReportFilters {
   links?: string[];
   /** `utm_source`, ou o host do referrer, ou "(direto)". */
@@ -153,6 +193,10 @@ export interface TrackingReport {
   from: string;
   to: string;
   views: number;
+  /** Visitantes diferentes entre as visitas. Contado POR DIA: a chave do
+   *  visitante troca à meia-noite UTC, então quem volta em outro dia soma de
+   *  novo. */
+  visitors: number;
   clicks: number;
   /** clicks / views. 0 quando não houve view — nunca divisão por zero. */
   clickRate: number;
@@ -168,7 +212,10 @@ export interface TrackingReport {
   byArrivalHost: Breakdown[];
   daily: Array<{ date: string; views: number; clicks: number }>;
   /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
-  previous: { from: string; to: string; views: number; clicks: number; inAppClicks: number; clickRate: number };
+  previous: { from: string; to: string; views: number; visitors: number; clicks: number; inAppClicks: number; clickRate: number };
+  /** As visitas e cliques mais recentes do recorte, da mais nova para a mais
+   *  antiga, até `MAX_EVENTOS_NA_LISTA`. */
+  events: ReportEvent[];
   filters: ReportFilters;
   options: ReportOptions;
 }

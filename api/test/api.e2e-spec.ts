@@ -626,7 +626,19 @@ describe("rastreamento", () => {
     // A janela anterior vem junto, vazia aqui, e as opções de filtro
     // refletem o que a janela tem.
     expect(body.report.previous.clicks).toBe(0);
-    expect(body.report.options.sources).toEqual(["(direto)", "instagram"]); // a visita entrou direto; o clique, do Instagram
+    // A visita abriu dentro do Instagram e o clique trouxe utm_source: as duas
+    // são do Instagram. Antes a visita aparecia como "(direto)".
+    expect(body.report.options.sources).toEqual(["instagram"]);
+    // Visita e clique vieram do mesmo aparelho e rede: uma pessoa só.
+    expect(body.report.visitors).toBe(1);
+    expect(body.report.previous.visitors).toBe(0);
+    // A lista, da mais nova para a mais antiga, sem IP nem user-agent cru.
+    expect(body.report.events).toHaveLength(2);
+    expect(body.report.events[0]).toMatchObject({ type: "view", source: "instagram", device: "mobile", inApp: "instagram" });
+    expect(body.report.events[1]).toMatchObject({ type: "click", source: "instagram", campaign: "stories", destinationHost: expect.any(String) });
+    expect(body.report.events[0].visitor).toBe(body.report.events[1].visitor);
+    expect(body.report.events[0].visitor).toMatch(/^[0-9A-F]{6}$/);
+    expect(JSON.stringify(body.report.events)).not.toContain("Mozilla");
     expect(body.report.options.devices).toEqual(["mobile"]);
     expect(body.report.byDevice[0]).toMatchObject({ key: "mobile", clicks: 1 });
   });
@@ -647,7 +659,7 @@ describe("rastreamento", () => {
     // Por origem, aparelho e app: vale para visita e clique.
     const tiktok = await servidor.get("/v1/me/tracking/report?days=7&origem=tiktok").set(auth).expect(200);
     expect(tiktok.body.report.clicks).toBe(0);
-    expect(tiktok.body.report.options.sources).toEqual(["(direto)", "instagram"]);
+    expect(tiktok.body.report.options.sources).toEqual(["instagram"]);
     const instagram = await servidor.get("/v1/me/tracking/report?days=7&origem=instagram").set(auth).expect(200);
     expect(instagram.body.report.clicks).toBe(1);
     const desktop = await servidor.get("/v1/me/tracking/report?days=7&aparelho=desktop").set(auth).expect(200);
@@ -702,6 +714,56 @@ describe("rastreamento", () => {
       .get(`/v1/me/tracking/links/${link.id}`)
       .set("authorization", `Bearer ${tokenLuna}`)
       .expect(404);
+  });
+
+  it("a chegada não conta como visita, dá origem e país, e costura a saída do app", async () => {
+    // A Luna está no Pro desde o caso acima. Página aberta dentro do Instagram
+    // (só a chegada acontece ali), depois a visita no navegador do celular:
+    // outro user-agent, mesma rede, sem referrer e com a URL limpa.
+    const visitante = { "accept-language": "pt-BR", accept: "text/html", "x-forwarded-for": "177.10.88.5" };
+    const safari = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+
+    await servidor
+      .post("/v1/public/tracking/view")
+      .set(visitante)
+      .set("user-agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Mobile/15E148 Instagram 300.0.0.0")
+      .set("x-arrival-host", "luna.site")
+      .send({ slug: "luna-teste", tipo: "arrival", url: "https://luna.site/luna-teste?utm_campaign=bio", referrer: "https://l.instagram.com/" })
+      .expect(204);
+
+    const auth = { authorization: `Bearer ${tokenLuna}` };
+    const soChegada = await servidor.get("/v1/me/tracking/report?days=7").set(auth).expect(200);
+    expect(soChegada.body.report.views).toBe(0);
+    expect(soChegada.body.report.events).toHaveLength(0);
+
+    await servidor
+      .post("/v1/public/tracking/view")
+      .set(visitante)
+      .set("user-agent", safari)
+      .set("x-arrival-host", "luna.site")
+      // O `Referer` da chamada é a própria página: não pode virar origem.
+      .set("referer", "https://luna.site/luna-teste")
+      .send({ slug: "luna-teste", url: "https://luna.site/luna-teste", referrer: "" })
+      .expect(204);
+
+    const { body } = await servidor.get("/v1/me/tracking/report?days=7").set(auth).expect(200);
+    expect(body.report.views).toBe(1);
+    expect(body.report.visitors).toBe(1);
+    expect(body.report.options.sources).toEqual(["instagram"]);
+    expect(body.report.options.countries).toEqual(["BR"]);
+    expect(body.report.events[0]).toMatchObject({
+      type: "view",
+      source: "instagram",
+      campaign: "bio",
+      browser: "Safari",
+      os: "iOS",
+      country: "BR",
+      network: "177.10.88.0/24",
+    });
+    expect(body.report.events[0].inApp).toBeUndefined();
+
+    // Tipo desconhecido não entra.
+    await servidor.post("/v1/public/tracking/view").send({ slug: "luna-teste", tipo: "click" }).expect(400);
   });
 
   it("responde 204 para view de perfil inexistente, sem revelar nada", async () => {
