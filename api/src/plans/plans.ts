@@ -58,11 +58,11 @@ export type RecursoPro =
   | "dominioProprio";
 
 const MENSAGENS: Record<RecursoPro, string> = {
-  paginas: "O plano Free tem uma página. Assine o Pro para criar mais.",
+  paginas: "O plano Free tem um perfil. Assine o Pro para criar mais.",
   links: `O plano Free tem até ${PLANOS.free.linksPorPagina} links por página. Assine o Pro para adicionar mais.`,
   cloaking: "Cloaking e página segura são do plano Pro.",
   aparencia: "Outros modelos, cores e fontes são do plano Pro.",
-  dominio: "Escolher o domínio da página é do plano Pro.",
+  dominio: "Escolher o domínio do perfil é do plano Pro.",
   relatorio: "O relatório de visitas e cliques é do plano Pro.",
   dominioProprio: "Domínio próprio é do plano Pro.",
 };

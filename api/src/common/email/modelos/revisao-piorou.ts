@@ -14,13 +14,13 @@ export function revisaoPiorou(input: {
   siteUrl: string;
 }): Mensagem {
   const nome = input.nome?.trim() || null;
-  const assunto = `Sua página ${input.host}/${input.slug} precisa de atenção antes de ir na bio`;
+  const assunto = `Seu perfil ${input.host}/${input.slug} precisa de atenção antes de ir na bio`;
   const lista = input.problemas.map((p) => `- ${p.titulo}: ${p.acao}`).join("\n");
 
   const texto = [
     nome ? `Oi, ${nome}!` : "Oi!",
     "",
-    `A checagem automática da sua página ${input.host}/${input.slug} encontrou o que derruba contas do Instagram:`,
+    `A checagem automática do seu perfil ${input.host}/${input.slug} encontrou o que derruba contas do Instagram:`,
     "",
     lista,
     "",
@@ -46,7 +46,7 @@ export function revisaoPiorou(input: {
       <div style="font-size:13px;letter-spacing:0.18em;text-transform:uppercase;color:#FF3C6E;font-weight:700;">BeeSocial</div>
     </td></tr>
     <tr><td style="padding:8px 28px 0;font-family:Helvetica,Arial,sans-serif;color:#ffffff;">
-      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;">${nome ? `Oi, ${escapar(nome)}. ` : ""}Sua página precisa de atenção.</h1>
+      <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3;font-weight:700;">${nome ? `Oi, ${escapar(nome)}. ` : ""}Seu perfil precisa de atenção.</h1>
       <p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#c9c9c9;">
         A checagem automática de <strong style="color:#fff;">${escapar(input.host)}/${escapar(input.slug)}</strong> encontrou o que derruba contas do Instagram:
       </p>

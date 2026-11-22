@@ -7,7 +7,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { CircleHelp, LogOut, Settings, ShieldCheck } from "lucide-react";
 
 import { Logo } from "@/components/shared/Logo";
-import { EscolhaDePagina } from "@/components/painel/EscolhaDePagina";
 import { tituloDaRota } from "@/components/painel/Navegacao";
 import { useTour } from "@/components/painel/tour/Tour";
 import type { ApiPlan } from "@/lib/api/types";
@@ -18,9 +17,9 @@ import { cn } from "@/lib/utils";
 /**
  * Barra do topo, em toda tela do painel.
  *
- * Responde três perguntas de uma vez: onde estou (título, no computador),
- * QUAL página estou editando (o seletor, que é o único lugar do painel que
- * troca de página) e qual é o meu plano. No celular o título sai — a própria
+ * Responde duas perguntas: onde estou (título, no computador) e qual é o
+ * meu plano. QUAL página está sendo editada não mora mais aqui: fica na
+ * faixa de abas da própria página (`AbasDaPagina`). No celular o título sai — a própria
  * tela tem o seu — e entra o símbolo da marca.
  *
  * Sair mora no menu da conta, longe da navegação: ação destrutiva não fica
@@ -33,13 +32,12 @@ export function BarraDoTopo() {
 
   return (
     <header className="sticky top-0 z-30 h-14 lg:h-16 flex items-center gap-3 px-4 lg:px-8 border-b border-bee-line bg-bee-bg/85 backdrop-blur">
-      <Link href="/paginas" aria-label="Páginas" className="lg:hidden flex-shrink-0">
+      <Link href="/paginas" aria-label="Perfis" className="lg:hidden flex-shrink-0">
         <Logo variant="icon" size="sm" />
       </Link>
       <span className="hidden lg:block text-sm font-medium text-white">{tituloDaRota(pathname)}</span>
 
       <div className="ml-auto flex items-center gap-2 lg:gap-3 min-w-0">
-        <EscolhaDePagina />
         {plano && <SeloDoPlano plano={plano} />}
         <MenuDaConta />
       </div>

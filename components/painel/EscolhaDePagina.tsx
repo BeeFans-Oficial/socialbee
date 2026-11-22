@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { api, ApiError, definirPaginaAtiva, paginaAtiva } from "@/lib/api/client";
 import { invalidateSession, usePlano, useSession } from "@/lib/api/use-session";
-import type { ApiProfile } from "@/lib/api/types";
+import type { ApiOwner, ApiProfile } from "@/lib/api/types";
 import { SURGIR } from "@/lib/movimento";
 import { cn } from "@/lib/utils";
 
@@ -21,7 +21,8 @@ import { cn } from "@/lib/utils";
  * seus links e seu relatório. Links, Analytics e os editores mostram a página
  * ATIVA (`x-profile-id`), e este é o único lugar que diz qual é. Havia dois
  * seletores — um na barra lateral, outro no cabeçalho de Links e Analytics —
- * cada um com a sua lista; ficou um, na barra do topo, em toda tela.
+ * cada um com a sua lista; ficou um, na faixa de abas da página
+ * (`AbasDaPagina`), que é onde se está "dentro" de uma.
  *
  * A lista é buscada só quando abre: o seletor existe em toda tela do painel,
  * e buscar as páginas a cada navegação seria uma requisição a mais por tela.
@@ -33,23 +34,34 @@ import { cn } from "@/lib/utils";
  * o editor de página torna ativa a página DELE ao montar — recarregar no
  * mesmo endereço desfaria a escolha.
  */
-export function EscolhaDePagina({ className }: { className?: string }) {
+export function EscolhaDePagina({
+  className,
+  alinhar = "direita",
+}: {
+  className?: string;
+  /** De que lado a lista abre: o lado em que o botão está na tela. */
+  alinhar?: "esquerda" | "direita";
+}) {
   const pathname = usePathname();
   const { session } = useSession();
   const { plano, ehPro } = usePlano();
   const [paginas, setPaginas] = useState<ApiProfile[] | null>(null);
+  /** Donos da conta, para a lista vir separada por dono. Sem donos (ou se a
+   *  busca falhar), a lista é a de sempre, sem títulos. */
+  const [donos, setDonos] = useState<ApiOwner[]>([]);
   const [aberto, setAberto] = useState(false);
   const caixa = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!aberto || paginas !== null) return;
+    api.owners().then(setDonos).catch(() => setDonos([]));
     api
       .profiles()
       .then(setPaginas)
       .catch((caught) => {
         setPaginas([]);
         if (!(caught instanceof ApiError && caught.isUnauthorized)) {
-          toast.error("Não foi possível carregar suas páginas.");
+          toast.error("Não foi possível carregar seus perfis.");
         }
       });
   }, [aberto, paginas]);
@@ -82,6 +94,8 @@ export function EscolhaDePagina({ className }: { className?: string }) {
     invalidateSession();
     if (pathname.startsWith("/paginas/")) {
       window.location.href = `/paginas/${id}`;
+    } else if (pathname.startsWith("/saude/")) {
+      window.location.href = `/saude/${id}`;
     } else if (pathname.startsWith("/links/")) {
       window.location.href = "/links";
     } else {
@@ -122,45 +136,55 @@ export function EscolhaDePagina({ className }: { className?: string }) {
           initial="initial"
           animate="animate"
           exit="exit"
-          style={{ transformOrigin: "top right" }}
-          className="absolute right-0 z-40 mt-2 w-[calc(100vw-2rem)] max-w-xs rounded-xl border border-white/10 bg-bee-surface shadow-2xl overflow-hidden"
+          style={{ transformOrigin: alinhar === "esquerda" ? "top left" : "top right" }}
+          className={cn(
+            alinhar === "esquerda" ? "left-0" : "right-0",
+            "absolute z-40 mt-2 w-[calc(100vw-2rem)] max-w-xs rounded-xl border border-white/10 bg-bee-surface shadow-2xl overflow-hidden",
+          )}
         >
           <div className="px-3 pt-3 pb-1.5 text-[10px] font-semibold tracking-[0.14em] text-white/40">
-            SUAS PÁGINAS
+            SEUS PERFIS
           </div>
           <div className="max-h-72 overflow-y-auto sem-barra pb-1">
             {paginas === null && <div className="px-3 py-3 text-xs text-white/30">Carregando…</div>}
-            {paginas?.map((p) => (
-              <button
-                key={p.id}
-                role="option"
-                aria-selected={p.id === idAtiva}
-                onClick={() => escolher(p.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
-                  p.id === idAtiva ? "bg-white/[0.05]" : "hover:bg-white/[0.04]",
+            {gruposDe(paginas ?? [], donos).map((grupo) => (
+              <div key={grupo.chave}>
+                {grupo.titulo && (
+                  <div className="px-3 pt-2.5 pb-1 text-[11px] font-medium text-white/45 truncate">{grupo.titulo}</div>
                 )}
-              >
-                <Avatar pagina={p} />
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm text-white truncate">{p.displayName}</span>
-                  <span className="block font-mono text-[11px] text-white/40 truncate">
-                    {p.host}/{p.slug}
-                    {!p.published && " · fora do ar"}
+                {grupo.paginas.map((p) => (
+                <button
+                  key={p.id}
+                  role="option"
+                  aria-selected={p.id === idAtiva}
+                  onClick={() => escolher(p.id)}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2 text-left transition-colors",
+                    p.id === idAtiva ? "bg-white/[0.05]" : "hover:bg-white/[0.04]",
+                  )}
+                >
+                  <Avatar pagina={p} />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-sm text-white truncate">{p.displayName}</span>
+                    <span className="block font-mono text-[11px] text-white/40 truncate">
+                      {p.host}/{p.slug}
+                      {!p.published && " · fora do ar"}
+                    </span>
                   </span>
-                </span>
-                {p.id === idAtiva && <Check className="w-4 h-4 text-bee-pink flex-shrink-0" />}
-              </button>
+                  {p.id === idAtiva && <Check className="w-4 h-4 text-bee-pink flex-shrink-0" />}
+                </button>
+                ))}
+              </div>
             ))}
           </div>
           <div className="border-t border-bee-line">
             {noLimite && !ehPro ? (
               <button
-                onClick={() => avisarPro("Mais de uma página")}
+                onClick={() => avisarPro("Mais de um perfil")}
                 className="flex items-center gap-2 w-full px-3 py-2.5 text-xs text-white/50 hover:text-white transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Nova página
+                Novo perfil
                 <SeloPro className="ml-auto" />
               </button>
             ) : (
@@ -170,7 +194,7 @@ export function EscolhaDePagina({ className }: { className?: string }) {
                 className="flex items-center gap-2 px-3 py-2.5 text-xs text-white/70 hover:text-white transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" />
-                Nova página
+                Novo perfil
               </Link>
             )}
             <Link
@@ -178,7 +202,7 @@ export function EscolhaDePagina({ className }: { className?: string }) {
               onClick={() => setAberto(false)}
               className="block px-3 pb-2.5 text-xs text-white/50 hover:text-white transition-colors"
             >
-              Gerenciar páginas
+              Ver todos os perfis
             </Link>
           </div>
         </motion.div>
@@ -186,6 +210,22 @@ export function EscolhaDePagina({ className }: { className?: string }) {
       </AnimatePresence>
     </div>
   );
+}
+
+/** As páginas separadas por dono, na ordem dos donos, com "Sem dono" no fim.
+ *  Conta sem donos: um grupo só, sem título. */
+function gruposDe(
+  paginas: ApiProfile[],
+  donos: ApiOwner[],
+): Array<{ chave: string; titulo: string | null; paginas: ApiProfile[] }> {
+  if (donos.length === 0) return [{ chave: "todas", titulo: null, paginas }];
+  const conhecidos = new Set(donos.map((d) => d.id));
+  const grupos = donos
+    .map((d) => ({ chave: d.id, titulo: d.name as string | null, paginas: paginas.filter((p) => p.ownerId === d.id) }))
+    .filter((g) => g.paginas.length > 0);
+  const semDono = paginas.filter((p) => !p.ownerId || !conhecidos.has(p.ownerId));
+  if (semDono.length > 0) grupos.push({ chave: "sem", titulo: "Sem dono", paginas: semDono });
+  return grupos;
 }
 
 function Avatar({ pagina }: { pagina: Pick<ApiProfile, "avatarUrl" | "displayName"> }) {

@@ -329,7 +329,7 @@ export function MolduraDeCelular({ children }: { children: React.ReactNode }) {
 /** Painel lateral dos editores: largura fixa no computador, grudado abaixo da
  *  barra do topo e rolando por dentro; no celular ocupa a largura toda. */
 export const CLASSE_DO_PAINEL = cn(
-  "w-full lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:overflow-y-auto sem-barra",
+  "w-full lg:w-[380px] lg:flex-shrink-0 lg:sticky lg:top-[calc(4rem+var(--abas,0px))] lg:h-[calc(100dvh-4rem-var(--abas,0px))] lg:overflow-y-auto sem-barra",
   "border-l border-bee-line pb-10",
   FUNDO_DO_PAINEL,
 );
@@ -356,7 +356,7 @@ export function PreviaDoEditor({ children }: { children: React.ReactNode }) {
         data-tour="previa"
         className={cn(
           "relative flex-col items-center overflow-hidden bg-bee-bg px-4 py-5",
-          "lg:flex lg:flex-1 lg:min-w-0 lg:sticky lg:top-16 lg:h-[calc(100dvh-4rem)] lg:inset-auto lg:z-auto lg:animate-none",
+          "lg:flex lg:flex-1 lg:min-w-0 lg:sticky lg:top-[calc(4rem+var(--abas,0px))] lg:h-[calc(100dvh-4rem-var(--abas,0px))] lg:inset-auto lg:z-auto lg:animate-none",
           // No celular a folha SOBE da base da tela (keyframe do Tailwind);
           // no computador a coluna é estática e não anima.
           aberta ? "flex fixed inset-0 z-50 pt-14 animate-folha-entrar" : "hidden",

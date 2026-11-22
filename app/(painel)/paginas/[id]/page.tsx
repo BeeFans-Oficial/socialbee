@@ -40,6 +40,7 @@ import {
   PreviaDoEditor,
   Secao,
 } from "@/components/editor/Painel";
+import { AparenciaDosBotoes } from "@/components/editor/AparenciaDosBotoes";
 import { EsqueletoDeEditor } from "@/components/painel/Esqueleto";
 import { LinhaDeSaude } from "@/components/painel/saude/Pecas";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
@@ -230,7 +231,7 @@ export default function EditorDePagina() {
         // devolve a página da sessão. Não é a pedida — volta para a lista.
         if (perfil.id !== id) {
           definirPaginaAtiva(null);
-          toast.error("Página não encontrada.");
+          toast.error("Perfil não encontrado.");
           router.replace("/paginas");
           return;
         }
@@ -243,7 +244,7 @@ export default function EditorDePagina() {
           router.replace(`/login?de=/paginas/${id}`);
           return;
         }
-        toast.error("Não foi possível abrir a página.");
+        toast.error("Não foi possível abrir o perfil.");
       });
   }, [id, router]);
 
@@ -403,7 +404,7 @@ export default function EditorDePagina() {
           {(
             [
               ["chegada", "Página de chegada"],
-              ["pagina", "Página"],
+              ["pagina", "Perfil"],
             ] as const
           ).map(([valor, rotulo]) => (
             <button
@@ -422,11 +423,11 @@ export default function EditorDePagina() {
         <MolduraDeCelular>
           {!pagina.published ? (
             <div className="w-full h-full flex items-center justify-center px-8 text-center text-sm text-white/40">
-              A página está fora do ar. Coloque no ar para ver a prévia.
+              O perfil está fora do ar. Coloque no ar para ver a prévia.
             </div>
           ) : lado === "chegada" && !pagina.iab.enabled ? (
             <div className="w-full h-full flex items-center justify-center px-8 text-center text-sm text-white/40">
-              A saída do Instagram está em Manual: a fã vai direto para a página, sem página de
+              A saída do Instagram está em Manual: a fã vai direto para o perfil, sem página de
               chegada.
             </div>
           ) : (
@@ -436,7 +437,7 @@ export default function EditorDePagina() {
               // `key` força recarregar depois de cada salvamento.
               key={`${lado}-${recarga}`}
               src={`/${pagina.slug}?preview=${lado === "chegada" ? "iab" : "pagina"}`}
-              title={lado === "chegada" ? "Página de chegada" : "Página"}
+              title={lado === "chegada" ? "Página de chegada" : "Perfil"}
               className="w-full h-full"
               // `allow-top-navigation-by-user-activation`: o "Adicionar link" da
               // prévia abre o editor de link na janela do painel — só com
@@ -645,7 +646,7 @@ export default function EditorDePagina() {
         <div className="sticky top-14 lg:static z-20 h-14 lg:h-16 px-4 flex items-center gap-3 border-b border-bee-line bg-bee-panel">
           <Link
             href="/paginas"
-            aria-label="Voltar às páginas"
+            aria-label="Voltar aos perfis"
             className="w-9 h-9 rounded-lg border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:border-white/25 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -679,11 +680,11 @@ export default function EditorDePagina() {
               className="flex-1 flex items-center justify-center gap-2 h-11 rounded-xl bg-white text-bee-panel text-[15px] font-semibold hover:bg-white/90 transition-colors"
             >
               <ExternalLink className="w-4 h-4" />
-              Ver página
+              Ver perfil
             </a>
             <Link
               href="/links"
-              title="Links da página"
+              title="Links do perfil"
               className="w-11 h-11 rounded-xl border border-white/10 flex items-center justify-center text-white/70 hover:text-white hover:border-white/25 transition-colors"
             >
               <Link2 className="w-4 h-4" />
@@ -692,12 +693,12 @@ export default function EditorDePagina() {
         </div>
 
         <Secao titulo="Link">
-          <CampoDeTexto
-            rotulo="Nome da página"
-            valor={pagina.displayName}
-            maxLength={60}
-            onSalvar={(v) => (v.trim() ? salvar({ displayName: v.trim() }) : Promise.resolve(false))}
-          />
+          {/* Só leitura: o nome se muda na lista de páginas, no cartão dela. */}
+          <Linha rotulo="Nome do perfil">
+            <span className="min-w-0 truncate text-[15px] text-white/60" title="Para renomear, use o lápis no cartão do perfil, em Perfis">
+              {pagina.displayName}
+            </span>
+          </Linha>
           <CampoDeAvatar
             imagem={pagina.avatarUrl}
             nome={pagina.displayName}
@@ -714,7 +715,7 @@ export default function EditorDePagina() {
             />
           </Linha>
           <CampoDeEndereco slug={pagina.slug} onSalvar={(slug) => salvar({ slug })} />
-          <Linha rotulo="Saúde da página">
+          <Linha rotulo="Saúde do perfil">
             <LinhaDeSaude profileId={pagina.id} />
           </Linha>
         </Secao>
@@ -726,8 +727,8 @@ export default function EditorDePagina() {
             info="Leva a fã do navegador embutido do Instagram para o navegador do celular, onde pagamento e login funcionam."
             nota={
               pagina.iab.enabled
-                ? "Automático tira a fã do navegador do Instagram antes de ela chegar na sua página."
-                : "Manual abre a página direto, dentro do Instagram. Pagamento e login podem falhar ali."
+                ? "Automático tira a fã do navegador do Instagram antes de ela chegar no seu perfil."
+                : "Manual abre o perfil direto, dentro do Instagram. Pagamento e login podem falhar ali."
             }
           >
             <Opcao
@@ -759,7 +760,7 @@ export default function EditorDePagina() {
           </Grupo>
         </Secao>
 
-        <Secao titulo="Página">
+        <Secao titulo="Visual">
           <Grupo titulo="Tema" nota={THEMES.find((t) => t.id === pagina.themeId)?.label ?? ""}>
             <div className="flex flex-wrap gap-2 px-1">
               {THEMES.map((t) => {
@@ -787,8 +788,8 @@ export default function EditorDePagina() {
 
           <Grupo
             titulo="Modelo"
-            info="O modelo muda o layout da página inteira."
-            nota={ehPro ? undefined : "No Free a página usa o Clássico. Os outros modelos são do Pro."}
+            info="O modelo muda o layout do perfil inteiro."
+            nota={ehPro ? undefined : "No Free o perfil usa o Clássico. Os outros modelos são do Pro."}
           >
             <div className="grid grid-cols-3 gap-2 px-1">
               {TEMPLATES.map((t) => {
@@ -908,22 +909,30 @@ export default function EditorDePagina() {
 
           <Grupo
             titulo="Visibilidade"
-            nota="Fora do ar, a página some para o público e tudo fica guardado."
+            nota="Fora do ar, o perfil some para o público e tudo fica guardado."
             dataTour="no-ar"
           >
             <OpcaoLigavel
               icone={<Eye className="w-3.5 h-3.5 text-sky-400" />}
-              rotulo="Página no ar"
+              rotulo="Perfil no ar"
               ligada={pagina.published}
               onMudar={(published) => salvar({ published })}
             />
           </Grupo>
         </Secao>
 
+        <Secao
+          titulo="Botões"
+          dataTour="aparencia-dos-botoes"
+          info="Estilo, cor, ícone e seta de cada botão. Vale só para aquele botão; sem escolha, ele segue o visual do perfil. Destino e proteção ficam na aba Links."
+        >
+          <AparenciaDosBotoes uniformes={visual.botoesUniformes} onMudou={() => setRecarga((r) => r + 1)} />
+        </Secao>
+
         {pagina.iab.enabled && (
           <Secao
             titulo="Página de chegada"
-            info="É a primeira tela que a fã vê ao abrir o seu link de dentro do Instagram ou de outro aplicativo: a sua foto, um título e o botão que leva para a sua página no navegador do celular."
+            info="É a primeira tela que a fã vê ao abrir o seu link de dentro do Instagram ou de outro aplicativo: a sua foto, um título e o botão que leva para o seu perfil no navegador do celular."
           >
             <CampoDeTexto
               rotulo="Título"
@@ -944,7 +953,7 @@ export default function EditorDePagina() {
               info="Aparece em destaque na tela de chegada, acima do título e do botão de continuar. Sem foto escolhida, entra a padrão da plataforma."
               imagem={pagina.iab.imageUrl}
               padrao="/chegada-padrao.svg"
-              nota="É a primeira imagem que a fã vê ao abrir o seu link. Ela ainda não está na sua página; está na tela de entrada."
+              nota="É a primeira imagem que a fã vê ao abrir o seu link. Ela ainda não está no seu perfil; está na tela de entrada."
               onTrocar={(arquivo) => trocarImagem("iab", arquivo)}
             />
           </Secao>
@@ -1066,7 +1075,7 @@ function SeletorDeDominio({
           value={pagina.domainId ?? ""}
           onChange={(e) => void onEscolher(e.target.value || null)}
           className="appearance-none bg-transparent focus:outline-none cursor-pointer"
-          aria-label="Domínio da página"
+          aria-label="Domínio do perfil"
         >
           {/* O padrão pausado só aparece, desligado, para a página que ainda
               está nele: ela precisa ver onde está para sair de lá. */}

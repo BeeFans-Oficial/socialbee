@@ -209,7 +209,7 @@ export default function LinksPage() {
       <ConfirmarExclusao
         aberto={apagando !== null}
         titulo={`Apagar "${apagando?.title ?? ""}"?`}
-        descricao="O botão some da sua página e o contador de cliques dele é apagado. Não dá para desfazer."
+        descricao="O botão some do seu perfil e o contador de cliques dele é apagado. Não dá para desfazer."
         rotulo="Apagar link"
         onFechar={() => setApagando(null)}
         onConfirmar={async () => {

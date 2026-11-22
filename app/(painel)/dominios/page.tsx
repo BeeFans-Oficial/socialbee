@@ -72,7 +72,7 @@ export default function DominiosPage() {
       <CabecalhoDeTela
         titulo="Domínio próprio"
         selo={!ehPro ? <SeloPro /> : undefined}
-        descricao="Cada vaga serve um domínio seu nas suas páginas."
+        descricao="Cada vaga serve um domínio seu nos seus perfis."
       />
 
       {/* Vagas */}
@@ -234,13 +234,13 @@ function Detalhe({
 
       {dominio.status === "active" ? (
         <p className="mt-5 text-sm text-white/70 leading-relaxed">
-          Pronto. Para usar, abra uma página em{" "}
+          Pronto. Para usar, abra um perfil em{" "}
           <Link href="/paginas" className="text-white underline underline-offset-2">
-            Páginas
+            Perfis
           </Link>{" "}
           e escolha este domínio em <span className="text-white">Domínio</span>.{" "}
           {dominio.paginas > 0 &&
-            `Hoje ${dominio.paginas === 1 ? "1 página usa" : `${dominio.paginas} páginas usam`} este domínio.`}
+            `Hoje ${dominio.paginas === 1 ? "1 perfil usa" : `${dominio.paginas} perfis usam`} este domínio.`}
         </p>
       ) : (
         <ol className="mt-5 space-y-5 text-sm">
@@ -311,7 +311,7 @@ function Detalhe({
           <Passo n={3} titulo="A equipe ativa">
             <p className="text-white/65">
               Com o DNS certo, a equipe instala o certificado e ativa o domínio. Depois disso ele
-              aparece em Domínio, no editor de cada página.
+              aparece em Domínio, na aba Aparência de cada perfil.
             </p>
           </Passo>
         </ol>
@@ -438,7 +438,7 @@ function Remover({
         <DialogTitle className="text-white">Remover {exibido?.host}?</DialogTitle>
         <p className="text-sm text-bee-muted">
           {exibido && exibido.paginas > 0
-            ? `${exibido.paginas === 1 ? "A página que usa" : `As ${exibido.paginas} páginas que usam`} este domínio voltam ao domínio padrão, e os links com ${exibido.host} param de abrir.`
+            ? `${exibido.paginas === 1 ? "O perfil que usa" : `Os ${exibido.paginas} perfis que usam`} este domínio voltam ao domínio padrão, e os links com ${exibido.host} param de abrir.`
             : "A vaga fica livre para outro domínio."}
         </p>
         <button

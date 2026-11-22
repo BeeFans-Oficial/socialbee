@@ -5,12 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
-  BarChart2,
   CircleHelp,
-  ExternalLink,
   Globe,
   LayoutGrid,
-  Link2,
   LogOut,
   MoreHorizontal,
   Settings,
@@ -19,12 +16,12 @@ import {
 } from "lucide-react";
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ehAreaDaPagina } from "@/components/painel/AbasDaPagina";
 import { Logo } from "@/components/shared/Logo";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { useTour } from "@/components/painel/tour/Tour";
 import { sairDoPainel, useSession } from "@/lib/api/use-session";
 import { MOLA } from "@/lib/movimento";
-import { urlDaPagina } from "@/lib/site";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,10 +42,8 @@ export interface ItemDoPainel {
 }
 
 export const ITENS: ItemDoPainel[] = [
-  { href: "/paginas", label: "Páginas", curto: "Páginas", icone: LayoutGrid },
-  { href: "/links", label: "Links", curto: "Links", icone: Link2 },
+  { href: "/paginas", label: "Perfis", curto: "Perfis", icone: LayoutGrid },
   { href: "/saude", label: "Saúde", curto: "Saúde", icone: ShieldCheck },
-  { href: "/analytics", label: "Analytics", curto: "Analytics", icone: BarChart2, pro: true },
   { href: "/dominios", label: "Domínio próprio", curto: "Domínio", icone: Globe, pro: true },
 ];
 
@@ -56,26 +51,36 @@ export const ITENS_DA_CONTA: ItemDoPainel[] = [
   { href: "/configuracoes", label: "Configurações", curto: "Conta", icone: Settings },
 ];
 
-/** Os quatro que cabem na barra inferior; o resto vai para "Mais". */
-const NA_BARRA_INFERIOR = ITENS.slice(0, 4);
-const NO_MAIS = [...ITENS.slice(4), ...ITENS_DA_CONTA];
+/** Na barra inferior cabem todos; "Mais" guarda a conta, o guia e sair. */
+const NA_BARRA_INFERIOR = ITENS;
+const NO_MAIS = ITENS_DA_CONTA;
 
-/** `/paginas/<id>` e `/links/<id>` são editores: prévia + painel, precisam de
- *  largura. É onde a barra lateral vira trilho. */
+/** `/paginas/<id>` é o editor de aparência: prévia + painel, precisa de
+ *  largura. É onde a barra lateral vira trilho. O editor de link é só um
+ *  formulário, sem prévia, e fica com a barra aberta. */
 export function ehRotaDeEditor(pathname: string): boolean {
-  return /^\/(paginas|links)\/[^/]+$/.test(pathname);
+  return /^\/paginas\/[^/]+$/.test(pathname);
 }
 
+/**
+ * Links, aparência, saúde e analytics de UMA página são telas de dentro dela
+ * (ver `AbasDaPagina`): na navegação principal, quem fica marcado é
+ * "Páginas", inclusive em `/saude/<id>` — "Saúde" na barra é a visão de
+ * todas as páginas.
+ */
 export function itemAtivo(pathname: string, href: string): boolean {
+  if (ehAreaDaPagina(pathname)) return href === "/paginas";
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
 /** O que a barra do topo mostra como título da tela atual. */
 export function tituloDaRota(pathname: string): string {
-  if (/^\/paginas\/[^/]+$/.test(pathname)) return "Editar página";
+  if (/^\/paginas\/[^/]+$/.test(pathname)) return "Aparência do perfil";
   if (pathname === "/links/novo") return "Novo link";
   if (/^\/links\/[^/]+$/.test(pathname)) return "Editar link";
-  if (/^\/saude\/[^/]+$/.test(pathname)) return "Saúde da página";
+  if (/^\/saude\/[^/]+$/.test(pathname)) return "Saúde do perfil";
+  if (pathname === "/links") return "Links";
+  if (pathname === "/analytics") return "Analytics";
   return [...ITENS, ...ITENS_DA_CONTA].find((i) => itemAtivo(pathname, i.href))?.label ?? "";
 }
 
@@ -101,7 +106,7 @@ export function Sidebar({ compacta }: { compacta: boolean }) {
       )}
     >
       <div className={cn("h-16 flex items-center border-b border-bee-line", compacta ? "justify-center" : "px-5")}>
-        <Link href="/paginas" aria-label="Páginas">
+        <Link href="/paginas" aria-label="Perfis">
           <Logo variant={compacta ? "icon" : "full"} size="sm" />
         </Link>
       </div>
@@ -125,23 +130,6 @@ export function Sidebar({ compacta }: { compacta: boolean }) {
         </Secao>
       </nav>
 
-      {slug && host && (
-        <div className={cn("py-3 border-t border-bee-line", compacta ? "px-2" : "px-3")}>
-          <a
-            href={urlDaPagina(host, slug)}
-            target="_blank"
-            rel="noreferrer"
-            title="Ver minha página"
-            className={cn(
-              "flex items-center gap-2.5 rounded-lg text-sm text-white/60 hover:text-white hover:bg-white/[0.04] transition-colors",
-              compacta ? "flex-col justify-center h-12 text-[10px]" : "px-2 py-2",
-            )}
-          >
-            <ExternalLink className="w-4 h-4" />
-            <span className={cn(compacta && "leading-none")}>{compacta ? "Ver" : "Ver minha página"}</span>
-          </a>
-        </div>
-      )}
     </aside>
   );
 }
@@ -205,8 +193,8 @@ function Entrada({
 // ── Celular ───────────────────────────────────────────────────────────────────
 
 /**
- * Barra inferior: as quatro entradas mais usadas e "Mais", que abre uma folha
- * com o resto (domínio, configurações, ver a página, sair). Fica em toda
+ * Barra inferior: as entradas da conta e "Mais", que abre uma folha com
+ * configurações, o guia e sair. Fica em toda
  * tela do painel, inclusive nos editores — sair de um subfluxo nunca depende
  * de achar uma seta.
  */
@@ -222,7 +210,7 @@ export function BarraInferior() {
         data-tour="barra-inferior"
         className="lg:hidden fixed inset-x-0 bottom-0 z-40 bg-bee-rail/95 backdrop-blur border-t border-bee-line pb-[env(safe-area-inset-bottom)]"
       >
-        <div className="grid grid-cols-5 h-16">
+        <div className="grid grid-cols-4 h-16">
           {NA_BARRA_INFERIOR.map((item) => {
             const Icone = item.icone;
             const ativo = itemAtivo(pathname, item.href);
@@ -238,7 +226,7 @@ export function BarraInferior() {
               >
                 {ativo && <TracoAtivo />}
                 <Icone className={cn("w-5 h-5 transition-colors duration-200", ativo && "text-bee-pink")} />
-                {item.label}
+                {item.curto}
               </Link>
             );
           })}
@@ -279,8 +267,6 @@ function MenuMais({ aberto, onFechar }: { aberto: boolean; onFechar: () => void 
   const pathname = usePathname();
   const { session } = useSession();
   const plano = session?.user.plan ?? null;
-  const slug = session?.profile?.slug ?? "";
-  const host = session?.profile?.host ?? "";
   const { iniciar, roteiroDaTela } = useTour();
 
   return (
@@ -315,18 +301,6 @@ function MenuMais({ aberto, onFechar }: { aberto: boolean; onFechar: () => void 
             </Link>
           );
         })}
-        {slug && host && (
-          <a
-            href={urlDaPagina(host, slug)}
-            target="_blank"
-            rel="noreferrer"
-            onClick={onFechar}
-            className="flex items-center gap-3 h-12 px-3 rounded-xl text-[15px] text-white/80 active:bg-white/[0.05] transition-colors"
-          >
-            <ExternalLink className="w-5 h-5" />
-            Ver minha página
-          </a>
-        )}
         {roteiroDaTela && (
           <button
             onClick={() => {

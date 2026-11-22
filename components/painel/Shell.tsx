@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { MotionConfig, motion } from "framer-motion";
 
+import { ALTURA_DAS_ABAS, AbasDaPagina, ehAreaDaPagina } from "@/components/painel/AbasDaPagina";
 import { BarraDoTopo } from "@/components/painel/BarraDoTopo";
 import { BarraInferior, Sidebar, ehRotaDeEditor } from "@/components/painel/Navegacao";
 import { TourProvider } from "@/components/painel/tour/Tour";
@@ -20,11 +21,12 @@ export const LARGURA_DO_TRILHO = 72;
  * A casca do painel.
  *
  * Computador (≥1024px): barra lateral fixa à esquerda, barra do topo
- * grudada, conteúdo ao lado. Nas rotas de editor a barra lateral vira um
+ * grudada, conteúdo ao lado. Dentro de uma página (links, aparência, saúde,
+ * analytics) entra a faixa de abas dela, logo abaixo da barra do topo. Nas rotas de editor a barra lateral vira um
  * trilho de ícones, e o conteúdo ganha a largura para a prévia e o painel.
  *
  * Celular: barra do topo compacta, conteúdo, e a barra inferior fixa com as
- * quatro entradas principais. O conteúdo reserva a altura dela embaixo
+ * entradas principais. O conteúdo reserva a altura dela embaixo
  * (`pb-*`), senão o fim de cada lista ficaria escondido atrás.
  *
  * Movimento: o `MotionConfig` fixa a curva padrão de `lib/movimento.ts` para
@@ -56,8 +58,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
             "flex min-h-dvh flex-col transition-[padding] duration-200 ease-[cubic-bezier(0.2,0,0,1)]",
             editor ? "lg:pl-[72px]" : "lg:pl-[240px]",
           )}
+          // Altura da faixa de abas, para quem gruda abaixo dela (editores).
+          style={{ "--abas": ehAreaDaPagina(pathname) ? ALTURA_DAS_ABAS : "0px" } as React.CSSProperties}
         >
           <BarraDoTopo />
+          <AbasDaPagina />
           <main className="flex-1 pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
             {/* `key` pela rota: cada tela nova entra animada. */}
             <motion.div

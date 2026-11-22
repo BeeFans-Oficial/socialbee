@@ -58,7 +58,7 @@ export default function ConfiguracoesPage() {
 
       {plano?.id === "free" && (
         <p className="mt-3 text-xs text-bee-muted">
-          O Pro libera páginas e links sem limite, todos os modelos, a escolha do domínio e o
+          O Pro libera perfis e links sem limite, todos os modelos, a escolha do domínio e o
           relatório de cliques. A liberação é feita pela equipe.
         </p>
       )}

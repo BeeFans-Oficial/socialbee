@@ -1,24 +1,21 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, ExternalLink, Loader2, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Palette, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
   Aviso,
   CampoDeTexto,
-  CLASSE_DO_PAINEL,
+  FUNDO_DO_PAINEL,
   Grupo,
   Linha,
-  MolduraDeCelular,
-  PreviaDoEditor,
   Secao,
 } from "@/components/editor/Painel";
 import { EsqueletoDeEditor } from "@/components/painel/Esqueleto";
 import { VerificarDestino } from "@/components/painel/VerificarDestino";
-import { LinkButton } from "@/components/profile/LinkButton";
 import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro, avisarPro } from "@/components/shared/SeloPro";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -26,12 +23,7 @@ import { Switch } from "@/components/ui/switch";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano } from "@/lib/api/use-session";
 import type { ApiLink, ApiProfile, LinkInput } from "@/lib/api/types";
-import {
-  DEFAULT_LINK_APPEARANCE,
-  PLATFORMS,
-  type LinkAppearance,
-} from "@/lib/catalog";
-import { ESTILOS_DE_BOTAO, resolverVisual } from "@/lib/templates";
+import { PLATFORMS } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
 
@@ -111,36 +103,15 @@ export default function EditorDeLink() {
     [link],
   );
 
-  if (!pagina || (!ehNovo && !link)) return <EsqueletoDeEditor />;
+  if (!pagina || (!ehNovo && !link)) return <EsqueletoDeEditor semPrevia />;
 
   return (
-    <div className="flex flex-col lg:flex-row">
-      {/* ── Prévia ─────────────────────────────────────────────────────── */}
-      <PreviaDoEditor>
-        <PreviaDoLink
-          pagina={pagina}
-          link={
-            ehNovo
-              ? {
-                  id: "novo",
-                  title: rascunho.title.trim() || "Novo link",
-                  subtitle: null,
-                  thumbnailUrl: null,
-                  platform: rascunho.platform,
-                  shortCode: "",
-                  cloakEnabled: false,
-                  isActive: true,
-                  appearance: undefined,
-                  safePage: null,
-                }
-              : link!
-          }
-        />
-      </PreviaDoEditor>
-
+    // Só configuração, sem prévia: uma coluna no meio da tela. Quem quer ver
+    // como o botão fica vai à aba Aparência, onde a prévia é a página inteira.
+    <div className="mx-auto w-full max-w-2xl lg:px-8 lg:py-8">
       {/* ── Painel ─────────────────────────────────────────────────────── */}
-      <aside className={CLASSE_DO_PAINEL}>
-        <div className="sticky top-14 lg:static z-20 h-14 lg:h-16 px-4 flex items-center gap-3 border-b border-bee-line bg-bee-panel">
+      <aside className={cn("w-full pb-10 lg:rounded-2xl lg:border lg:border-bee-line", FUNDO_DO_PAINEL)}>
+        <div className="sticky top-14 lg:static z-20 h-14 lg:h-16 px-4 flex items-center gap-3 border-b border-bee-line bg-bee-panel lg:rounded-t-2xl">
           <Link
             href="/links"
             aria-label="Voltar aos links"
@@ -200,11 +171,15 @@ export default function EditorDeLink() {
               <Protecao link={link!} ehPro={ehPro} salvar={salvar} />
             </Secao>
 
-            <Secao titulo="Aparência do botão" dataTour="aparencia-do-botao">
-              <Aparencia
-                valor={link!.appearance ?? DEFAULT_LINK_APPEARANCE}
-                onMudar={(appearance) => salvar({ appearance })}
-              />
+            <Secao titulo="Aparência do botão">
+              <Link
+                href={`/paginas/${pagina.id}`}
+                data-tour="aparencia-do-botao"
+                className="mx-2 mb-2 inline-flex items-center gap-1.5 text-sm text-white/70 hover:text-white transition-colors"
+              >
+                <Palette className="w-4 h-4" />
+                Estilo e cor ficam na aba Aparência, com a prévia do perfil
+              </Link>
             </Secao>
 
             <Secao titulo="Desempenho">
@@ -340,7 +315,7 @@ function NovoLink({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           maxLength={100}
-          placeholder="Como o botão aparece na página"
+          placeholder="Como o botão aparece no perfil"
           className="w-full h-11 px-3 rounded-lg bg-bee-surface border border-white/10 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-bee-pink/50"
         />
       </label>
@@ -528,71 +503,6 @@ function Protecao({
   );
 }
 
-function Aparencia({
-  valor,
-  onMudar,
-}: {
-  valor: LinkAppearance;
-  onMudar: (a: LinkAppearance) => void;
-}) {
-  // A API mescla com o padrão, não com o valor atual: manda sempre o objeto
-  // inteiro (ver `links.service.ts`, `update`).
-  const mudar = (parcial: Partial<LinkAppearance>) => onMudar({ ...valor, ...parcial });
-
-  // O seletor de cor dispara a cada pixel arrastado: a tela acompanha na hora
-  // e salva só quando a criadora para de mexer.
-  const [cor, setCor] = useState(valor.color);
-  const espera = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => setCor(valor.color), [valor.color]);
-  useEffect(() => () => { if (espera.current) clearTimeout(espera.current); }, []);
-  const escolherCor = (nova: string) => {
-    setCor(nova);
-    if (espera.current) clearTimeout(espera.current);
-    espera.current = setTimeout(() => mudar({ color: nova }), 600);
-  };
-
-  return (
-    <div className="px-2 pt-1 pb-2 space-y-4">
-      <div className="flex flex-wrap gap-2">
-        {ESTILOS_DE_BOTAO.map((e) => (
-          <button
-            key={e.id}
-            onClick={() => valor.style !== e.id && mudar({ style: e.id })}
-            className={cn(
-              "px-3 py-1.5 rounded-lg border text-xs transition-colors",
-              valor.style === e.id
-                ? "border-bee-pink/60 bg-bee-pink/[0.08] text-white"
-                : "border-white/10 text-white/60 hover:text-white hover:border-white/25",
-            )}
-          >
-            {e.label}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-white/85">Cor</span>
-        <span className="flex items-center gap-2">
-          <code className="text-xs text-white/50 uppercase">{cor}</code>
-          <input
-            type="color"
-            value={cor}
-            onChange={(e) => escolherCor(e.target.value)}
-            className="w-8 h-8 rounded-md bg-transparent border border-white/10 cursor-pointer"
-          />
-        </span>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-white/85">Mostrar ícone</span>
-        <Switch checked={valor.showIcon} onCheckedChange={(showIcon) => mudar({ showIcon })} />
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-white/85">Mostrar seta</span>
-        <Switch checked={valor.showArrow} onCheckedChange={(showArrow) => mudar({ showArrow })} />
-      </div>
-    </div>
-  );
-}
-
 function ApagarLink({
   aberto,
   titulo,
@@ -610,7 +520,7 @@ function ApagarLink({
       <DialogContent className="bg-bee-surface border-white/10 max-w-md">
         <DialogTitle className="text-white">Apagar &quot;{titulo}&quot;?</DialogTitle>
         <p className="text-sm text-bee-muted">
-          O botão some da sua página e o contador de cliques dele é apagado. Não dá para desfazer.
+          O botão some do seu perfil e o contador de cliques dele é apagado. Não dá para desfazer.
         </p>
         <button
           onClick={async () => {
@@ -626,139 +536,5 @@ function ApagarLink({
         </button>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// ── Prévia do link ────────────────────────────────────────────────────────────
-
-type LinkDaPrevia = Pick<
-  ApiLink,
-  "id" | "title" | "subtitle" | "thumbnailUrl" | "platform" | "shortCode" | "cloakEnabled" | "isActive" | "safePage"
-> & { appearance?: LinkAppearance };
-
-/**
- * A prévia de UM link: o botão dele como a fã vê, sobre o fundo e com as cores
- * da página — o mesmo `LinkButton` e o mesmo `resolverVisual` da página
- * pública, então o que aparece aqui é o que vai ao ar. Atualiza na hora, sem
- * recarregar nada.
- *
- * Com cloaking (ou redes já cadastradas), a segunda aba mostra a página segura:
- * o que recebe quem não deve ver o destino.
- */
-function PreviaDoLink({ pagina, link }: { pagina: ApiProfile; link: LinkDaPrevia }) {
-  const temPaginaSegura = link.cloakEnabled || (link.safePage?.socialLinks.length ?? 0) > 0;
-  const [lado, setLado] = useState<"botao" | "segura">("botao");
-  const ladoEfetivo = temPaginaSegura ? lado : "botao";
-
-  const visual = resolverVisual({
-    templateId: pagina.template?.templateId,
-    themeId: pagina.themeId,
-    buttonStyle: pagina.buttonStyle,
-    bgColor: pagina.template?.bgColor,
-    accentColor: pagina.template?.accentColor,
-    fontId: pagina.template?.fontId,
-  });
-
-  const cabecalho = (
-    <div className="flex flex-col items-center text-center">
-      <div
-        className="w-16 h-16 rounded-full overflow-hidden flex items-center justify-center text-lg font-semibold text-white"
-        style={{ background: visual.accent }}
-      >
-        {pagina.avatarUrl ? (
-          <img src={pagina.avatarUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          pagina.displayName.slice(0, 1).toUpperCase()
-        )}
-      </div>
-      <div className={cn("mt-3 text-lg text-white", visual.fonteClasse)}>{pagina.displayName}</div>
-    </div>
-  );
-
-  return (
-    <>
-      <div className="relative z-10 flex p-1 rounded-full bg-white/[0.06] border border-white/10 backdrop-blur">
-        {(
-          [
-            ["botao", "Botão"],
-            ["segura", "Página segura"],
-          ] as const
-        ).map(([valor, rotulo]) => {
-          const desligado = valor === "segura" && !temPaginaSegura;
-          return (
-            <button
-              key={valor}
-              onClick={() => !desligado && setLado(valor)}
-              disabled={desligado}
-              title={desligado ? "Ligue o cloaking para ter página segura" : undefined}
-              className={cn(
-                "px-4 py-1.5 rounded-full text-sm font-medium transition-colors",
-                ladoEfetivo === valor ? "bg-bee-pink text-white" : "text-white/60 hover:text-white",
-                desligado && "opacity-40 cursor-not-allowed hover:text-white/60",
-              )}
-            >
-              {rotulo}
-            </button>
-          );
-        })}
-      </div>
-
-      <MolduraDeCelular>
-        <div
-          className={cn("w-full h-full overflow-y-auto px-6 pt-16 pb-10", visual.fonteClasse)}
-          style={{ background: visual.bg }}
-        >
-          {cabecalho}
-
-          {ladoEfetivo === "botao" ? (
-            <div className="mt-10">
-              {/* No modelo em grade o botão ocupa meia largura na página; aqui
-                  também, para a prévia não mostrar um cartão maior que o real. */}
-              <div
-                className={cn(
-                  visual.lista === "grade" && "w-1/2 mx-auto",
-                  !link.isActive && "opacity-40",
-                )}
-              >
-                <LinkButton
-                  link={link}
-                  accentColor={visual.accent}
-                  buttonStyle={visual.botao}
-                  detalhes={visual.detalhes}
-                  uniforme={visual.botoesUniformes}
-                  index={0}
-                  onClick={() => undefined}
-                />
-              </div>
-              <p className="mt-6 text-center text-xs text-white/40">
-                {link.isActive
-                  ? "É assim que este botão aparece na sua página."
-                  : "Desativado: este botão não aparece na sua página."}
-              </p>
-            </div>
-          ) : (
-            <div className="mt-10 space-y-3">
-              {(link.safePage?.socialLinks ?? []).length === 0 ? (
-                <p className="text-center text-sm text-white/40">
-                  Nenhuma rede ainda. Adicione na seção Página segura, ao lado.
-                </p>
-              ) : (
-                link.safePage!.socialLinks.map((rede, i) => (
-                  <div
-                    key={i}
-                    className="w-full h-12 rounded-xl flex items-center justify-center text-sm font-medium text-white border border-white/15 bg-white/[0.06]"
-                  >
-                    {rede.title || rede.platform}
-                  </div>
-                ))
-              )}
-              <p className="pt-3 text-center text-xs text-white/40">
-                O que recebe quem não deve ver o destino deste link.
-              </p>
-            </div>
-          )}
-        </div>
-      </MolduraDeCelular>
-    </>
   );
 }

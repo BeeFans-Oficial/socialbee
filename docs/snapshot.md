@@ -6,9 +6,9 @@ fim, marca-se o que entrou.
 
 | | |
 | --- | --- |
-| **Commit da `main`** | `ba9313ba` (merge da PR #45, 2026-11-03) |
-| **Snapshot tirado em** | 2026-11-06 |
-| **PRs mergeadas** | #1 a #45 |
+| **Commit da `main`** | `e61aaa54` (merge da PR #56, 2026-11-16) |
+| **Snapshot tirado em** | 2026-11-16 |
+| **PRs mergeadas** | #1 a #56 (#57 aberta) |
 | **Produção** | https://beesocial.bio, deploy automático a cada merge na `main` |
 
 ## 1. Implementado
@@ -39,12 +39,45 @@ fim, marca-se o que entrou.
       botão revelado após interação, saída do Instagram no iPhone via extbrowser,
       sem entrada no histórico do navegador. (PR #11, #17, #18, #23, #24, #25,
       #39, #43)
+- [x] **Chegada não repete fora do app** (sessão de 12/11, PR #54): a rolagem
+      dentro do app pede um passe assinado (`POST /<slug>/p`), o botão abre
+      `/<slug>/p/<passe>` no navegador de fora, a rota grava um cookie
+      `HttpOnly` de 30 min e responde 307 para o endereço limpo; com o cookie,
+      o servidor não inclui a chegada. Sem estado, sem parâmetro na URL, sem
+      ramo por user-agent ou IP (`lib/passe-chegada.ts`). Falta confirmar em
+      iPhone real e repetir a checagem da Meta em domínio de reserva.
 - [x] Cada página responde só pelo domínio dela; pool de 7 domínios com sorteio
       no cadastro e escolha pela criadora (Pro). (PR #15, #16)
 - [x] Domínio próprio: a criadora conecta, a API checa o DNS, a equipe ativa por
       script (`dominio:ativar`) e configura nginx + certificado à mão. (PR #21)
 
+- [x] **Chegada que ensina o gesto** (sessão de 16/11, PR #56): a dica vem
+      primeiro, na metade de cima (setas em sequência, dedo deslizando,
+      "Deslize para cima"; no mouse, trilho e "Role para baixo"), alça de
+      folha no pé da tela, e no fim da rolagem a folha sobe até o meio e o
+      botão entra como protagonista. Só a rolagem revela o botão, como antes.
+      Falta conferir em aparelho real e com as fotos das criadoras.
+
 ### Painel da criadora
+
+- [x] **Perfis por dono e novo vocabulário** (sessão de 16/11, PR #57): a
+      "página" da criadora passa a se chamar "perfil" em todo o painel, nas
+      mensagens da API e nos e-mails (as rotas `/paginas` não mudam; "página
+      de chegada" e "página segura" ficam). Nível novo conta → dono → perfil:
+      tabela `page_owners`, `profiles.owner_id` opcional, rotas `me/owners` e
+      `PATCH me/profiles/:id/owner`; filtro por dono na lista, campo "Dono"
+      no cartão, seletor da faixa de abas agrupado. Guia das telas reescrito
+      para o desenho de abas e donos. A Saúde ainda não filtra por dono. Os
+      itens deste snapshot escritos antes desta data dizem "página".
+
+- [x] **Painel por página** (sessão de 16/11, PR #55): a lista de páginas é a
+      entrada; dentro de cada uma, abas Links · Aparência · Saúde · Analytics
+      (`AbasDaPagina`), com o seletor de página na faixa. Barra lateral com
+      Páginas, Saúde e Domínio próprio. Editor de link sem prévia; aparência
+      dos botões na aba Aparência (seção "Botões"). Nome da página editável
+      no cartão da lista, só leitura na Aparência. Os itens abaixo que citam
+      o seletor na barra do topo e a tela Links na barra lateral descrevem a
+      navegação anterior.
 
 - [x] Telas: Páginas (lista e editor), Links (lista e editor), Analytics,
       Domínios, Configurações. Seletor de página em Links e Analytics.
@@ -221,3 +254,7 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-07 | `feat/saude-no-painel`, PR #51 | "Saúde" na barra lateral e no celular, tela `/saude` com todas as páginas e "Checar todas", tela da página em `/saude/:id`, pastilha legível no card, vocabulário "revisão" → "saúde/checagem"; 1 e2e novo (61). |
 | 2026-11-07 | `feat/historia-em-camadas`, PR #52 | Tela inicial que se constrói na rolagem (`Revelar`) e "Como funciona" como a pilha de camadas se montando placa a placa; sem testes novos. |
 | 2026-11-07 | `fix/chegada-sem-flash-e-dominio-padrao`, PR #53 | Chegada sem piscar o perfil (script inline esconde `data-perfil` até a tela montar), botão só no fim da rolagem e some ao subir, fechamento no documento sem `?fora=1`; "padrão da plataforma" some do seletor com o host padrão pausado no pool (`padrao` em `GET /me/domains`, 409 ao voltar); mensagens da Saúde sem citar o incidente; 1 e2e novo (62). |
+| 2026-11-12 | `fix/chegada-nao-repete-fora-do-app`, PR #54 | Passe assinado da chegada: quem rola e sai do Instagram abre o perfil direto no navegador de fora, sem repetir a tela de rolagem; rotas `/<slug>/p` e `/<slug>/p/<passe>`, cookie `HttpOnly` de 30 min; verificado com Playwright local, sem teste automatizado novo. |
+| 2026-11-16 | `feat/painel-por-pagina`, PR #55 | Painel reorganizado por página: abas dentro da página, navegação menor, editor de link sem prévia, aparência dos botões na aba Aparência, renomear no cartão; verificado com Playwright, sem teste automatizado novo. |
+| 2026-11-16 | `feat/chegada-ensina-o-gesto`, PR #56 | Chegada com a dica do gesto primeiro (dedo e setas), alça de folha e botão como protagonista no fim da rolagem; verificado com Playwright em cinco situações, sem teste automatizado novo. |
+| 2026-11-16 | `feat/dono-da-pagina`, PR #57 | Dono de perfil (migration `DonoDaPagina`, rotas `me/owners`, filtro e grupos na lista), "página" renomeada para "perfil", guia das telas novo e a chegada sem área vazia; 3 testes e2e novos (65 no total). |

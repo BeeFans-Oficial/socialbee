@@ -1535,3 +1535,106 @@ describe("simulador da revisão da Meta", () => {
     expect(visao.revisoes.vermelhas).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("donos de página", () => {
+  const bella = () => ({ authorization: `Bearer ${tokenBella}` });
+  const luna = () => ({ authorization: `Bearer ${tokenLuna}` });
+
+  // Mais de uma página é do Pro, e os testes de plano acima mexem no da Bella.
+  beforeAll(() => tornarPro("bella@teste.app"));
+
+  it("cria, lista com contagem, renomeia e recusa nome repetido", async () => {
+    const { body: julia } = await servidor.post("/v1/me/owners").set(bella()).send({ name: "  Julia  " }).expect(201);
+    expect(julia).toMatchObject({ name: "Julia", paginas: 0 });
+
+    // Repetido sem diferenciar maiúsculas.
+    const repetido = await servidor.post("/v1/me/owners").set(bella()).send({ name: "julia" }).expect(409);
+    expect(repetido.body.error.code).toBe("dono_repetido");
+    await servidor.post("/v1/me/owners").set(bella()).send({ name: "" }).expect(400);
+
+    const { body: fortin } = await servidor.post("/v1/me/owners").set(bella()).send({ name: "Fortin" }).expect(201);
+
+    // Página nova já com dono, e a página que já existia movida para ele.
+    const { body: nova } = await servidor
+      .post("/v1/me/profiles")
+      .set(bella())
+      .send({ slug: "julia-vip", displayName: "Julia VIP", ownerId: julia.id })
+      .expect(201);
+    expect(nova.ownerId).toBe(julia.id);
+    const { body: eu } = await servidor.get("/v1/auth/me").set(bella()).expect(200);
+    const movida = await servidor
+      .patch(`/v1/me/profiles/${eu.profile.id}/owner`)
+      .set(bella())
+      .send({ ownerId: julia.id })
+      .expect(200);
+    expect(movida.body.ownerId).toBe(julia.id);
+
+    // Em ordem alfabética, com a contagem de cada um.
+    const { body: lista } = await servidor.get("/v1/me/owners").set(bella()).expect(200);
+    expect(lista.owners.map((o: { name: string; paginas: number }) => [o.name, o.paginas])).toEqual([
+      ["Fortin", 0],
+      ["Julia", 2],
+    ]);
+
+    const { body: renomeada } = await servidor
+      .patch(`/v1/me/owners/${julia.id}`)
+      .set(bella())
+      .send({ name: "Julia Mistral" })
+      .expect(200);
+    expect(renomeada).toMatchObject({ name: "Julia Mistral", paginas: 2 });
+    // Renomear para o nome de outro dono é recusado.
+    await servidor.patch(`/v1/me/owners/${fortin.id}`).set(bella()).send({ name: "JULIA MISTRAL" }).expect(409);
+
+    // A lista de páginas carrega o dono de cada uma.
+    const { body: paginas } = await servidor.get("/v1/me/profiles").set(bella()).expect(200);
+    const daJulia = paginas.profiles.filter((p: { ownerId: string | null }) => p.ownerId === julia.id);
+    expect(daJulia).toHaveLength(2);
+  });
+
+  it("dono de outra conta não existe: 404 ao ler, renomear, apagar ou atribuir", async () => {
+    const { body: donos } = await servidor.get("/v1/me/owners").set(bella()).expect(200);
+    const daBella: string = donos.owners[0].id;
+
+    expect((await servidor.get("/v1/me/owners").set(luna()).expect(200)).body.owners).toHaveLength(0);
+    await servidor.patch(`/v1/me/owners/${daBella}`).set(luna()).send({ name: "Meu" }).expect(404);
+    await servidor.delete(`/v1/me/owners/${daBella}`).set(luna()).expect(404);
+
+    // Luna não pendura a página dela no dono da Bella…
+    const { body: euLuna } = await servidor.get("/v1/auth/me").set(luna()).expect(200);
+    await servidor
+      .patch(`/v1/me/profiles/${euLuna.profile.id}/owner`)
+      .set(luna())
+      .send({ ownerId: daBella })
+      .expect(404);
+    await servidor
+      .post("/v1/me/profiles")
+      .set(luna())
+      .send({ slug: "luna-invasora", displayName: "Invasora", ownerId: daBella })
+      .expect(404);
+    // …nem muda o dono de uma página da Bella.
+    const { body: euBella } = await servidor.get("/v1/auth/me").set(bella()).expect(200);
+    await servidor
+      .patch(`/v1/me/profiles/${euBella.profile.id}/owner`)
+      .set(luna())
+      .send({ ownerId: null })
+      .expect(404);
+  });
+
+  it("tira o dono com null, recusa corpo sem o campo, e apagar o dono mantém as páginas", async () => {
+    const { body: euBella } = await servidor.get("/v1/auth/me").set(bella()).expect(200);
+    const rota = `/v1/me/profiles/${euBella.profile.id}/owner`;
+    await servidor.patch(rota).set(bella()).send({}).expect(400);
+    await servidor.patch(rota).set(bella()).send({ ownerId: "nao-e-uuid" }).expect(400);
+    expect((await servidor.patch(rota).set(bella()).send({ ownerId: null }).expect(200)).body.ownerId).toBeNull();
+
+    const { body: donos } = await servidor.get("/v1/me/owners").set(bella()).expect(200);
+    const julia = donos.owners.find((o: { name: string }) => o.name === "Julia Mistral");
+    expect(julia.paginas).toBe(1);
+
+    const antes = (await servidor.get("/v1/me/profiles").set(bella()).expect(200)).body.profiles.length;
+    await servidor.delete(`/v1/me/owners/${julia.id}`).set(bella()).expect(204);
+    const { body: depois } = await servidor.get("/v1/me/profiles").set(bella()).expect(200);
+    expect(depois.profiles).toHaveLength(antes);
+    expect(depois.profiles.every((p: { ownerId: string | null }) => p.ownerId === null)).toBe(true);
+  });
+});
