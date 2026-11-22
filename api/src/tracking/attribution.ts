@@ -1,3 +1,5 @@
+import { createHmac } from "node:crypto";
+
 import { header, type Attribution, type ClientContext, type HeaderBag } from "./types";
 
 /**
@@ -52,7 +54,14 @@ function clean(value: string | null | undefined): string | undefined {
   return trimmed.slice(0, MAX_VALUE_LENGTH);
 }
 
-export function parseAttribution(url: URL, referrer?: string | null): Attribution {
+/**
+ * `ownHost` é o endereço da própria página (o domínio de chegada). Referrer
+ * igual a ele não é origem: é a página chamando a si mesma. A visita é
+ * registrada por um `fetch` da página e o clique sai de um botão dela, então o
+ * `Referer` dessas requisições é sempre o próprio perfil — gravá-lo fazia toda
+ * origem do relatório ser o domínio da criadora.
+ */
+export function parseAttribution(url: URL, referrer?: string | null, ownHost?: string | null): Attribution {
   const attribution: Attribution = { clickIds: {} };
 
   for (const [param, field] of Object.entries(UTM_KEYS) as Array<
@@ -79,9 +88,16 @@ export function parseAttribution(url: URL, referrer?: string | null): Attributio
   // Só o host do referrer. O caminho pode carregar dado pessoal e nenhuma
   // agregação da tela usa mais do que o domínio de origem.
   const host = hostOf(referrer);
-  if (host) attribution.referrerHost = host;
+  if (host && !mesmoHost(host, ownHost)) attribution.referrerHost = host;
 
   return attribution;
+}
+
+/** Compara dois hosts ignorando `www.`, porta e caixa. */
+export function mesmoHost(a?: string | null, b?: string | null): boolean {
+  if (!a || !b) return false;
+  const limpo = (h: string) => h.trim().toLowerCase().replace(/^www\./, "").replace(/:\d+$/, "");
+  return limpo(a) === limpo(b);
 }
 
 export function hostOf(rawUrl?: string | null): string | undefined {
@@ -125,6 +141,19 @@ function detectDevice(userAgent: string): ClientContext["device"] {
   if (/Mobi|Android|iPhone|iPod|Windows Phone/i.test(userAgent)) return "mobile";
   if (/Macintosh|Windows|Linux|CrOS/i.test(userAgent)) return "desktop";
   return "unknown";
+}
+
+/** Navegador, a partir do user-agent. A ordem importa: Edge, Opera e Samsung
+ *  também dizem "Chrome", e o Chrome também diz "Safari". */
+export function detectBrowser(userAgent: string): string | undefined {
+  if (!userAgent) return undefined;
+  if (/EdgA?\/|EdgiOS\//.test(userAgent)) return "Edge";
+  if (/OPR\/|OPT\/|Opera/.test(userAgent)) return "Opera";
+  if (/SamsungBrowser\//.test(userAgent)) return "Samsung Internet";
+  if (/Firefox\/|FxiOS\//.test(userAgent)) return "Firefox";
+  if (/Chrome\/|CriOS\/|Chromium\//.test(userAgent)) return "Chrome";
+  if (/Safari\//.test(userAgent) && /Version\//.test(userAgent)) return "Safari";
+  return undefined;
 }
 
 function detectOS(userAgent: string): string | undefined {
@@ -176,6 +205,8 @@ export interface ClientContextInput {
   userAgent?: string | null;
   ip?: string | null;
   country?: string | null;
+  /** Chaves diárias do visitante, já calculadas (ver `chavesDoVisitante`). */
+  chaves?: ChavesDoVisitante;
 }
 
 export function buildClientContext(input: ClientContextInput): ClientContext {
@@ -196,7 +227,56 @@ export function buildClientContext(input: ClientContextInput): ClientContext {
 
   if (userAgent) context.userAgent = userAgent;
 
+  const browser = detectBrowser(userAgent);
+  if (browser) context.browser = browser;
+
+  if (input.chaves?.visitor) context.visitor = input.chaves.visitor;
+  if (input.chaves?.net) context.net = input.chaves.net;
+
   return context;
+}
+
+export interface ChavesDoVisitante {
+  /** Mesma rede + mesmo navegador, no mesmo dia, na mesma página. */
+  visitor?: string;
+  /** Mesma rede, no mesmo dia, na mesma página — sem o navegador. */
+  net?: string;
+}
+
+/**
+ * Chaves anônimas do visitante, para contar pessoas em vez de eventos.
+ *
+ * Sem cookie e sem guardar o IP: cada chave é um HMAC do IP (e do user-agent,
+ * na `visitor`) com o DIA e a PÁGINA dentro. O dia faz a chave trocar à
+ * meia-noite UTC — a mesma pessoa amanhã é outra chave, e não existe como
+ * seguir alguém entre dias. A página impede cruzar visitantes entre criadoras.
+ * O segredo é do servidor: sem ele não dá para testar IPs contra a chave.
+ *
+ * O preço é precisão: duas pessoas na mesma rede com o mesmo modelo de celular
+ * viram uma, e uma pessoa que troca de Wi-Fi para 4G vira duas. Para "quantas
+ * pessoas diferentes passaram aqui hoje" é o bastante; identificar alguém nunca
+ * foi o objetivo.
+ *
+ * `net` existe para costurar a saída do aplicativo: quem abre o link dentro do
+ * Instagram e é levado ao navegador do celular troca de user-agent no caminho,
+ * mas não de rede.
+ */
+export function chavesDoVisitante(input: {
+  secret: string;
+  profileId: string;
+  ip?: string | null;
+  userAgent?: string | null;
+  when: Date;
+}): ChavesDoVisitante {
+  const ip = input.ip?.trim().toLowerCase();
+  if (!ip || !input.secret) return {};
+  const dia = input.when.toISOString().slice(0, 10);
+  const assinar = (...partes: string[]) =>
+    createHmac("sha256", input.secret).update(partes.join("\n")).digest("hex").slice(0, 16);
+  return {
+    visitor: assinar("visitor", dia, input.profileId, ip, (input.userAgent ?? "").slice(0, 400)),
+    net: assinar("net", dia, input.profileId, ip),
+  };
 }
 
 /**

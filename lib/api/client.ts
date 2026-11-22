@@ -266,16 +266,27 @@ export const api = {
   publicProfile: (slug: string) =>
     request<ApiPublicProfile>(`/public/profiles/${encodeURIComponent(slug)}`),
 
-  /** Registra a visualização do perfil. Recebe SLUG, nunca id: o cliente não
+  /** Registra a visualização do perfil (`view`) ou a chegada (`arrival`: todo
+   *  carregamento, antes da barreira de idade — não é contada, só diz de onde a
+   *  pessoa veio). Recebe SLUG, nunca id: o cliente não
    *  escolhe em qual perfil grava. `keepalive` porque a visitante pode tocar num
    *  link imediatamente — sem ele o navegador cancela a requisição ao sair da
    *  página e a view some, inflando a taxa de clique justamente nos perfis que
    *  convertem mais rápido. */
-  recordView: (slug: string) =>
+  recordView: (slug: string, tipo: "view" | "arrival" = "view") =>
     fetch(`${BASE}/public/tracking/view`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug }),
+      // A URL e o referrer da PÁGINA vão no corpo: o `Referer` desta chamada é
+      // a própria página, e a URL dela é a da API — nenhum dos dois diz de
+      // onde a visitante veio nem carrega os UTM do link divulgado. Cortados
+      // para caber no limite da rota: estourar o limite perderia a visita.
+      body: JSON.stringify({
+        slug,
+        tipo,
+        url: window.location.href.slice(0, 2000),
+        referrer: document.referrer.slice(0, 2000),
+      }),
       keepalive: true,
     }).catch(() => undefined),
 

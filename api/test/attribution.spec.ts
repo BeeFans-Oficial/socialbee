@@ -1,6 +1,8 @@
 import {
   buildClientContext,
+  chavesDoVisitante,
   clientIP,
+  detectBrowser,
   detectInAppBrowser,
   hostOf,
   ipPrefix,
@@ -117,5 +119,60 @@ describe("hostOf", () => {
   it("devolve undefined para entrada inválida", () => {
     expect(hostOf("não é url")).toBeUndefined();
     expect(hostOf(null)).toBeUndefined();
+  });
+});
+
+describe("origem: a própria página não é referrer", () => {
+  it("descarta o referrer quando ele é o domínio de chegada", () => {
+    // A visita é registrada por um fetch da página e o clique sai de um botão
+    // dela: o Referer é sempre o próprio perfil. Gravado, virava a "origem" de
+    // todo evento.
+    const url = new URL("https://camila.site/camila");
+    expect(parseAttribution(url, "https://camila.site/camila", "camila.site").referrerHost).toBeUndefined();
+    expect(parseAttribution(url, "https://www.camila.site/camila", "camila.site:443").referrerHost).toBeUndefined();
+  });
+
+  it("mantém o referrer de outro site", () => {
+    const url = new URL("https://camila.site/camila");
+    expect(parseAttribution(url, "https://l.instagram.com/?u=x", "camila.site").referrerHost).toBe("l.instagram.com");
+  });
+});
+
+describe("detectBrowser", () => {
+  it("distingue navegadores que se apresentam como Chrome ou Safari", () => {
+    expect(detectBrowser("Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 Chrome/157.0.0.0 Mobile Safari/537.36")).toBe("Chrome");
+    expect(detectBrowser("Mozilla/5.0 (iPhone; CPU iPhone OS 27_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/158.0 Mobile/15E148 Safari/604.1")).toBe("Chrome");
+    expect(detectBrowser("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1")).toBe("Safari");
+    expect(detectBrowser("Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/130.0 Safari/537.36 Edg/130.0")).toBe("Edge");
+    expect(detectBrowser("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 SamsungBrowser/25.0 Chrome/121.0 Mobile Safari/537.36")).toBe("Samsung Internet");
+    expect(detectBrowser("Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0")).toBe("Firefox");
+    expect(detectBrowser("")).toBeUndefined();
+  });
+});
+
+describe("chavesDoVisitante", () => {
+  const base = { secret: "s".repeat(32), profileId: "p1", ip: "177.10.88.5", userAgent: "UA-1", when: new Date("2026-11-22T10:00:00Z") };
+
+  it("repete para a mesma pessoa no mesmo dia e muda no dia seguinte", () => {
+    const hoje = chavesDoVisitante(base);
+    expect(chavesDoVisitante({ ...base, when: new Date("2026-11-22T23:59:00Z") })).toEqual(hoje);
+    const amanha = chavesDoVisitante({ ...base, when: new Date("2026-11-23T00:01:00Z") });
+    expect(amanha.visitor).not.toBe(hoje.visitor);
+    expect(amanha.net).not.toBe(hoje.net);
+  });
+
+  it("não cruza páginas, e a chave de rede ignora o navegador", () => {
+    const a = chavesDoVisitante(base);
+    expect(chavesDoVisitante({ ...base, profileId: "p2" }).visitor).not.toBe(a.visitor);
+    const outroNavegador = chavesDoVisitante({ ...base, userAgent: "UA-2" });
+    expect(outroNavegador.visitor).not.toBe(a.visitor);
+    expect(outroNavegador.net).toBe(a.net);
+  });
+
+  it("não carrega o IP e fica vazia sem ele", () => {
+    const a = chavesDoVisitante(base);
+    expect(a.visitor).toMatch(/^[0-9a-f]{16}$/);
+    expect(JSON.stringify(a)).not.toContain("177.10");
+    expect(chavesDoVisitante({ ...base, ip: undefined })).toEqual({});
   });
 });

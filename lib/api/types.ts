@@ -279,12 +279,41 @@ export interface LinkCounters {
   lastClickAt?: string;
 }
 
+/** Uma linha da lista de eventos: uma visita ou um clique. Sem nome, sem IP
+ *  inteiro — a API não tem nenhum dos dois. */
+export interface ReportEvent {
+  type: "view" | "click";
+  at: string;
+  linkId?: string;
+  channel?: string;
+  destinationHost?: string;
+  arrivalHost?: string;
+  /** A mesma chave do filtro de origem. */
+  source: string;
+  medium?: string;
+  campaign?: string;
+  /** Nomes dos identificadores de anúncio presentes (`fbclid`…). */
+  clickIds: string[];
+  device: string;
+  os?: string;
+  browser?: string;
+  inApp?: string;
+  country?: string;
+  /** Rede aproximada (prefixo do IP). */
+  network?: string;
+  /** Rótulo curto: repete nas linhas da mesma pessoa no mesmo dia. */
+  visitor: string;
+}
+
 /** Relatório do dashboard, já escopado no perfil da sessão. */
 export interface TrackingReport {
   profileId: string;
   from: string;
   to: string;
   views: number;
+  /** Visitantes diferentes entre as visitas, contados por dia: quem volta em
+   *  outro dia soma de novo. */
+  visitors: number;
   clicks: number;
   /** clicks / views. 0 quando não houve view — nunca divisão por zero. */
   clickRate: number;
@@ -301,7 +330,10 @@ export interface TrackingReport {
   byArrivalHost: Breakdown[];
   daily: Array<{ date: string; views: number; clicks: number }>;
   /** A janela anterior de mesmo tamanho, com os mesmos filtros. */
-  previous: { from: string; to: string; views: number; clicks: number; inAppClicks: number; clickRate: number };
+  previous: { from: string; to: string; views: number; visitors: number; clicks: number; inAppClicks: number; clickRate: number };
+  /** As visitas e cliques mais recentes do recorte, da mais nova para a mais
+   *  antiga (até 100). */
+  events: ReportEvent[];
   filters: ReportFilters;
   /** O que existe para filtrar na janela, antes dos filtros. */
   options: { links: string[]; sources: string[]; arrivalHosts: string[]; devices: string[]; countries: string[] };

@@ -44,6 +44,7 @@
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.4.2",
     "helmet": "^8.1.0",
+    "ip3country": "^5.0.0",
     "pg": "^8.14.1",
     "reflect-metadata": "^0.2.2",
     "resend": "^6.37.0",

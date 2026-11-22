@@ -1,6 +1,6 @@
 import { Body, Controller, HttpCode, Post, Req, UseGuards } from "@nestjs/common";
 import { Throttle } from "@nestjs/throttler";
-import { IsOptional, IsString, Matches, MaxLength } from "class-validator";
+import { IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator";
 import type { Request } from "express";
 
 import { Public } from "../common/decorators/public.decorator";
@@ -17,6 +17,26 @@ class RecordViewDto {
   @IsString()
   @Matches(/^[a-z0-9-]{3,30}$/)
   slug: string;
+
+  /** `arrival` é a chegada: todo carregamento da página, antes da barreira de
+   *  idade. Ausente, é a visita (`view`), como sempre foi. */
+  @IsOptional()
+  @IsIn(["view", "arrival"])
+  tipo?: "view" | "arrival";
+
+  /** `location.href` da página: os UTM e click ids estão nela, e não na URL
+   *  desta rota. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  url?: string;
+
+  /** `document.referrer`: de onde a pessoa veio. O `Referer` desta requisição
+   *  é a própria página e não serve. Vazio é resposta válida ("veio direto"). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(4096)
+  referrer?: string;
 }
 
 class RecordClickDto {
@@ -75,7 +95,9 @@ export class PublicTrackingController {
     try {
       await this.tracking.recordView({
         profileId,
-        requestUrl: originalUrl(request),
+        type: dto.tipo,
+        requestUrl: dto.url ? parseUrlOr(dto.url, request) : originalUrl(request),
+        referrer: dto.referrer,
         headers: request.headers,
         arrivalHost: arrivalHost(request),
       });

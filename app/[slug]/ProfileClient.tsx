@@ -134,6 +134,16 @@ export function ProfileClient({
     };
   }, [initialLinks, slug]);
 
+  // Registra a CHEGADA: todo carregamento, de todo visitante, antes da barreira
+  // de idade. Não conta como visita; é o que deixa o relatório saber de onde a
+  // pessoa veio. Numa página adulta aberta dentro do Instagram, a visita só
+  // acontece depois, no navegador do celular, onde já não há referrer nem
+  // user-agent do aplicativo — a origem só existe neste momento.
+  useEffect(() => {
+    if (!slug || previa) return;
+    api.recordView(slug, "arrival");
+  }, [slug, previa]);
+
   // Registra a visualização — é o denominador da taxa de clique.
   //
   // Só conta DEPOIS da barreira: quem desiste no modal nunca viu os links, e

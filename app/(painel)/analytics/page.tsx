@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp } from "lucide-react";
+import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -21,7 +21,7 @@ import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
-import type { ReportParams, ReportResponse } from "@/lib/api/types";
+import type { ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
 import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
@@ -66,6 +66,25 @@ interface Filtros {
 const SEM_FILTROS: Filtros = { periodo: "30d", de: "", ate: "", link: "", origem: "", chegada: "", aparelho: "", pais: "", app: "" };
 
 const NOME_DO_APARELHO: Record<string, string> = { mobile: "Celular", tablet: "Tablet", desktop: "Computador", unknown: "Não identificado" };
+
+const NOME_DO_APP: Record<string, string> = {
+  instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", twitter: "X", snapchat: "Snapchat",
+  linkedin: "LinkedIn", pinterest: "Pinterest", telegram: "Telegram", line: "Line", kakao: "Kakao", wechat: "WeChat",
+};
+
+/** `BR` → `Brasil`. O navegador conhece os nomes; sem suporte, fica o código. */
+function nomeDoPais(codigo: string): string {
+  try {
+    return new Intl.DisplayNames(["pt-BR"], { type: "region" }).of(codigo) ?? codigo;
+  } catch {
+    return codigo;
+  }
+}
+
+/** `22/11 17:10:02`, no fuso de quem está olhando. */
+function dataEHora(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
 
 /** Paleta de reserva para chaves de origem que não são plataforma conhecida
  *  (um domínio de referrer qualquer, uma utm_source nova). Índice por hash do
@@ -166,8 +185,8 @@ function Carregando() {
     <Tela>
       <CabecalhoDeTela titulo="Analytics" descricao="Carregando…" />
       <div className="space-y-8">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-[180px] rounded-xl border border-bee-line bg-bee-surface p-5 space-y-4">
               <Esqueleto className="w-10 h-10" />
               <Esqueleto className="h-8 w-16" />
@@ -318,6 +337,7 @@ function Analytics() {
   const descricaoDaJanela =
     filtros.periodo === "custom" ? `de ${shortDate(data.de)} a ${shortDate(data.ate)}` : `dos últimos ${data.days} dias`;
   const vViews = variacao(report.views, report.previous.views);
+  const vVisitantes = variacao(report.visitors, report.previous.visitors);
   const vClicks = variacao(report.clicks, report.previous.clicks);
   const vInApp = variacao(report.inAppClicks, report.previous.inAppClicks);
   const vTaxa = variacao(Math.round(report.clickRate * 100), Math.round(report.previous.clickRate * 100));
@@ -350,7 +370,8 @@ function Analytics() {
             { chave: "origem", rotulo: "Origem", valor: filtros.origem, opcoes: report.options.sources.map((v) => ({ valor: v, nome: v })) },
             { chave: "chegada", rotulo: "Endereço", valor: filtros.chegada, opcoes: report.options.arrivalHosts.map((v) => ({ valor: v, nome: v })) },
             { chave: "aparelho", rotulo: "Aparelho", valor: filtros.aparelho, opcoes: report.options.devices.map((v) => ({ valor: v, nome: NOME_DO_APARELHO[v] ?? v })) },
-            { chave: "pais", rotulo: "País", valor: filtros.pais, opcoes: report.options.countries.map((v) => ({ valor: v, nome: v })) },
+            { chave: "pais", rotulo: "País", valor: filtros.pais, nomeDoValor: filtros.pais ? nomeDoPais(filtros.pais) : undefined,
+              opcoes: report.options.countries.map((v) => ({ valor: v, nome: nomeDoPais(v) })) },
             { chave: "app", rotulo: "Navegador", valor: filtros.app, opcoes: [{ valor: "sim", nome: "Dentro de app" }, { valor: "nao", nome: "Navegador comum" }] },
           ]}
         />
@@ -361,7 +382,7 @@ function Analytics() {
           contando; o gráfico desenha em seguida; as tabelas por último. */}
       <motion.div variants={LISTA} initial="initial" animate="animate" className={cn("space-y-8 transition-opacity", loading && "opacity-60")}>
         {/* Métricas, comparadas com a janela anterior de mesmo tamanho. */}
-        <motion.div variants={LISTA} data-tour="metricas" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div variants={LISTA} data-tour="metricas" className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <motion.div variants={ITEM_DA_LISTA}>
             <StatsCard
               icon={Eye}
@@ -371,6 +392,20 @@ function Analytics() {
               formatar={(n) => formatNumber(Math.round(n))}
               change={vViews.texto}
               changeType={vViews.tipo}
+            />
+          </motion.div>
+          {/* Pessoas, e não eventos: a mesma pessoa abrindo a página três vezes
+              no dia são três visualizações e um visitante. Contado por dia —
+              quem volta amanhã soma de novo. */}
+          <motion.div variants={ITEM_DA_LISTA}>
+            <StatsCard
+              icon={Users}
+              iconBg="rgba(91, 141, 239, 0.15)"
+              label="Visitantes únicos"
+              value={report.visitors}
+              formatar={(n) => formatNumber(Math.round(n))}
+              change={vVisitantes.texto}
+              changeType={vVisitantes.tipo}
             />
           </motion.div>
           <motion.div variants={ITEM_DA_LISTA}>
@@ -665,8 +700,91 @@ function Analytics() {
             </div>
           </motion.section>
         )}
+
+        {/* Evento por evento. Não diz QUEM é — a página não sabe, e ninguém
+            que toca num link está identificado —, mas mostra tudo o que foi
+            medido de cada visita e clique. */}
+        {report.events.length > 0 && (
+          <motion.section variants={ITEM_DA_LISTA} className="bg-bee-surface rounded-xl p-6 border border-white/5">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+              <h2 className="text-xl text-white font-semibold">Visitas e cliques, um a um</h2>
+              <span className="text-xs text-bee-muted">
+                {report.events.length < report.views + report.clicks
+                  ? `os ${report.events.length} mais recentes de ${formatNumber(report.views + report.clicks)}`
+                  : `${report.events.length} no recorte`}
+              </span>
+            </div>
+            <p className="text-xs text-bee-muted mb-5 max-w-2xl">
+              O código em Visitante repete nas linhas da mesma pessoa no mesmo dia. Ele não identifica
+              ninguém: nome, perfil e telefone de quem visita nunca chegam à página.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px]">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    {["Quando", "Evento", "Origem", "Aparelho", "País", "Rede", "Visitante"].map((coluna) => (
+                      <th key={coluna} className="text-left text-xs font-medium text-bee-muted pb-3 pr-4">{coluna}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {report.events.map((evento, index) => (
+                    <LinhaDeEvento
+                      key={`${evento.at}-${evento.type}-${index}`}
+                      evento={evento}
+                      titulo={evento.linkId ? linkTitles.get(evento.linkId) : undefined}
+                      zebrada={index % 2 === 1}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </motion.section>
+        )}
       </motion.div>
     </Tela>
+  );
+}
+
+function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titulo?: string; zebrada: boolean }) {
+  const clique = evento.type === "click";
+  const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
+  const campanha = [evento.medium, evento.campaign].filter(Boolean).join(" · ");
+  return (
+    <tr className={cn("border-b border-white/5 align-top", zebrada && "bg-white/[0.02]")}>
+      <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap tabular-nums">{dataEHora(evento.at)}</td>
+      <td className="py-3 pr-4">
+        <div className="flex items-center gap-2 text-sm text-white">
+          {clique ? (
+            <MousePointer2 className="w-3.5 h-3.5 text-bee-pink flex-shrink-0" />
+          ) : (
+            <Eye className="w-3.5 h-3.5 text-white/40 flex-shrink-0" />
+          )}
+          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : "Visita"}</span>
+        </div>
+        {clique && evento.destinationHost && (
+          <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{evento.destinationHost}</div>
+        )}
+      </td>
+      <td className="py-3 pr-4">
+        <div className="text-sm text-white truncate max-w-[160px]" title={evento.source}>{evento.source}</div>
+        {campanha && <div className="mt-0.5 text-xs text-bee-dim truncate max-w-[160px]" title={campanha}>{campanha}</div>}
+        {evento.clickIds.length > 0 && (
+          <div className="mt-0.5 text-xs text-bee-dim truncate max-w-[160px]" title="Identificador de anúncio presente no link">
+            {evento.clickIds.join(", ")}
+          </div>
+        )}
+      </td>
+      <td className="py-3 pr-4">
+        <div className="text-sm text-white/80 whitespace-nowrap">{aparelho}</div>
+        {evento.inApp && (
+          <div className="mt-0.5 text-xs text-bee-pink/90">dentro do {NOME_DO_APP[evento.inApp] ?? evento.inApp}</div>
+        )}
+      </td>
+      <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap">{evento.country ? nomeDoPais(evento.country) : "—"}</td>
+      <td className="py-3 pr-4 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.network ?? "—"}</td>
+      <td className="py-3 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.visitor}</td>
+    </tr>
   );
 }
 
