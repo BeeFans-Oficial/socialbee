@@ -159,6 +159,14 @@ fim, marca-se o que entrou.
       cartões; opções vindas do próprio relatório; recorte na URL; clique nas
       listas aplica o filtro.
 - [x] `arrival_host` gravado no evento (base para a saúde do pool de domínios).
+- [x] **Origem real, país, visitantes únicos e lista de eventos** (sessão de
+      22/11, PR #58): a página informa URL e referrer no registro de visita e o
+      próprio domínio nunca vale como origem; evento `arrival` (chegada, antes
+      da barreira de idade, fora dos totais); origem resolvida na leitura, com
+      herança por visitante e costura da saída do app pela rede; país pelo IP
+      com base embutida (`ip3country`); chaves anônimas diárias de visitante,
+      sem cookie; cartão "Visitantes únicos" e seção "Visitas e cliques, um a
+      um" (100 mais recentes).
 
 ### Planos
 
@@ -258,3 +266,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-16 | `feat/painel-por-pagina`, PR #55 | Painel reorganizado por página: abas dentro da página, navegação menor, editor de link sem prévia, aparência dos botões na aba Aparência, renomear no cartão; verificado com Playwright, sem teste automatizado novo. |
 | 2026-11-16 | `feat/chegada-ensina-o-gesto`, PR #56 | Chegada com a dica do gesto primeiro (dedo e setas), alça de folha e botão como protagonista no fim da rolagem; verificado com Playwright em cinco situações, sem teste automatizado novo. |
 | 2026-11-16 | `feat/dono-da-pagina`, PR #57 | Dono de perfil (migration `DonoDaPagina`, rotas `me/owners`, filtro e grupos na lista), "página" renomeada para "perfil", guia das telas novo e a chegada sem área vazia; 3 testes e2e novos (65 no total). |
+| 2026-11-22 | `feat/analytics-origem-pais-visitantes-eventos`, PR #58 | Analytics: origem real (URL e referrer da página, chegada `arrival`, costura da saída do app), país por IP, visitantes únicos por dia e lista das 100 visitas e cliques mais recentes; domínio próprio `camilinhavale.site` (vhost); 1 e2e + 13 unitários novos (66 e 76). |
