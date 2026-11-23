@@ -3,7 +3,7 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowUpRight, DoorOpen, Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
+import { ArrowUpRight, DoorOpen, Eye, LogOut, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -791,7 +791,8 @@ function Analytics() {
 function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEvent; titulo?: string; ateOnde: string; zebrada: boolean }) {
   const destino = [nomeDaPlataforma(evento.channel), evento.destinationHost].filter(Boolean).join(" · ");
   const clique = evento.type === "click";
-  const Icone = clique ? MousePointer2 : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
+  const saida = evento.type === "leave";
+  const Icone = clique ? MousePointer2 : saida ? LogOut : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
   const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
   const campanha = [evento.medium, evento.campaign].filter(Boolean).join(" · ");
   return (
@@ -800,7 +801,7 @@ function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEve
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2 text-sm text-white">
           <Icone className={cn("w-3.5 h-3.5 flex-shrink-0", clique ? "text-bee-pink" : "text-white/40")} />
-          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : ETAPA[evento.type].fez}</span>
+          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : saida ? "Saiu da página" : ETAPA[evento.type as Etapa].fez}</span>
         </div>
         {clique && destino && (
           <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{destino}</div>
@@ -837,11 +838,18 @@ function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEve
 }
 
 /**
- * O funil: quantas pessoas chegaram a cada etapa e quantas ficaram em cada uma.
+ * O funil, em forma de funil: cada etapa é uma faixa que estreita até a
+ * largura da seguinte, e ao lado dela os três números que respondem "onde a
+ * página perde gente" —
  *
- * A barra de cada etapa é proporcional à primeira; embaixo, quem parou ali —
- * a diferença para a etapa seguinte, que é o número que diz onde a página
- * perde gente.
+ *   Acessaram   quantas pessoas chegaram à etapa;
+ *   Pararam     quantas chegaram e não foram adiante;
+ *   Fecharam    das que pararam, quantas saíram da página ali.
+ *
+ * "Fecharam" vem do evento de saída (a página deixou de estar na tela). O
+ * navegador não separa fechar a aba de voltar ao aplicativo ou trocar de aba,
+ * então o número junta os três. A diferença para "Pararam" é quem parou sem
+ * saída registrada: página ainda aberta, ou visita anterior a esse registro.
  */
 function Funil({
   etapas,
@@ -858,6 +866,10 @@ function Funil({
   /** Quem viu os links: a base certa para "de cada 10 que viram, quantos
    *  foram a este link". */
   const viram = etapas.find((e) => e.stage === "view")?.visitors ?? 0;
+  /** Largura da faixa, em % da primeira. O piso mantém a ponta do funil
+   *  visível quando sobra pouca gente. */
+  const largura = (visitantes: number) => (total ? Math.max((visitantes / total) * 100, 10) : 10);
+
   return (
     <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
@@ -865,39 +877,69 @@ function Funil({
         <span className="text-xs text-bee-muted">visitantes únicos, por dia</span>
       </div>
       <p className="text-xs text-bee-muted mb-6 max-w-2xl">
-        Cada barra é quantas pessoas chegaram àquela etapa. Embaixo dela, quantas pararam ali.
+        Em cada etapa: quantas pessoas chegaram, quantas pararam nela e, dessas, quantas fecharam ou
+        saíram da página ali.
       </p>
-      <ol className="space-y-4">
+
+      {/* Cabeçalho das colunas, só onde elas ficam lado a lado. */}
+      <div className="hidden md:grid grid-cols-[minmax(0,1fr)_repeat(3,104px)] gap-x-3 mb-2 text-[11px] uppercase tracking-[0.08em] text-bee-muted">
+        <span />
+        <span className="text-right">Acessaram</span>
+        <span className="text-right">Pararam aqui</span>
+        <span className="text-right">Fecharam a página</span>
+      </div>
+
+      <ol>
         {etapas.map((etapa, i) => {
-          const proxima = etapas[i + 1];
-          const pararam = proxima ? etapa.visitors - proxima.visitors : 0;
-          const fatia = total ? (etapa.visitors / total) * 100 : 0;
           const ultima = i === etapas.length - 1;
+          const topo = largura(etapa.visitors);
+          const base = ultima ? topo : largura(etapas[i + 1].visitors);
+          // Do cinza ao rosa: a cor acompanha o caminho até o clique.
+          const forca = etapas.length > 1 ? i / (etapas.length - 1) : 1;
+          const semSaida = etapa.stopped - etapa.left;
           return (
-            <li key={etapa.stage}>
-              <div className="flex items-baseline justify-between gap-3 mb-1.5">
-                <span className="text-sm text-white">{ETAPA[etapa.stage].fez}</span>
-                <span className="text-sm text-white tabular-nums">
-                  {formatNumber(etapa.visitors)}
-                  <span className="ml-2 text-xs text-bee-muted">{Math.round(fatia)}%</span>
-                </span>
-              </div>
-              <div className="w-full h-2.5 bg-bee-bg rounded-full overflow-hidden">
+            <li key={etapa.stage} className="md:grid md:grid-cols-[minmax(0,1fr)_repeat(3,104px)] md:gap-x-3 md:items-center">
+              <div className="relative h-[68px]">
                 <motion.div
-                  className="h-full rounded-full origin-left"
-                  initial={{ scaleX: 0 }}
-                  animate={{ scaleX: 1 }}
-                  transition={{ duration: 0.6, delay: 0.1 + i * 0.08 }}
+                  className="absolute inset-0"
+                  initial={{ opacity: 0, scaleX: 0.6 }}
+                  animate={{ opacity: 1, scaleX: 1 }}
+                  transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
                   style={{
-                    width: `${fatia}%`,
-                    background: ultima ? "linear-gradient(90deg, #FF3C6E, #FF1F57)" : "rgba(255, 255, 255, 0.35)",
+                    clipPath: `polygon(${50 - topo / 2}% 0, ${50 + topo / 2}% 0, ${50 + base / 2}% 100%, ${50 - base / 2}% 100%)`,
+                    background: `linear-gradient(180deg, rgba(255, 60, 110, ${0.22 + forca * 0.6}), rgba(255, 60, 110, ${0.16 + forca * 0.6}))`,
                   }}
                 />
+                {/* O texto fica fora do recorte: numa faixa estreita ele passa
+                    das bordas e continua legível sobre o fundo. */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                  <span className="text-sm text-white font-medium [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">{ETAPA[etapa.stage].fez}</span>
+                  <span className="text-xs text-white/80 tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
+                    {formatNumber(etapa.visitors)} · {total ? Math.round((etapa.visitors / total) * 100) : 0}%
+                  </span>
+                </div>
               </div>
+
+              {/* Os três números. No celular, em linha, embaixo da faixa. */}
+              <div className="grid grid-cols-3 gap-2 py-2 md:contents">
+                <Numero rotulo="Acessaram" valor={formatNumber(etapa.visitors)} />
+                <Numero
+                  rotulo="Pararam"
+                  valor={ultima ? "—" : formatNumber(etapa.stopped)}
+                  nota={!ultima && etapa.visitors > 0 && etapa.stopped > 0 ? `${Math.round((etapa.stopped / etapa.visitors) * 100)}% da etapa` : undefined}
+                  alerta={!ultima && etapa.stopped > 0}
+                />
+                <Numero
+                  rotulo="Fecharam"
+                  valor={ultima ? "—" : formatNumber(etapa.left)}
+                  nota={!ultima && semSaida > 0 ? `${formatNumber(semSaida)} sem saída registrada` : undefined}
+                />
+              </div>
+
               {/* A última etapa, link a link: em QUAL link clicaram. Tocar numa
                   linha recorta o relatório por ele. */}
               {etapa.links && etapa.links.length > 0 && (
-                <ul className="mt-3 ml-1 pl-4 border-l border-white/10 space-y-1">
+                <ul className="md:col-span-4 mt-3 pl-4 border-l border-white/10 space-y-1">
                   {etapa.links.map((link) => {
                     const dosQueViram = viram ? Math.round((link.visitors / viram) * 100) : 0;
                     return (
@@ -920,9 +962,9 @@ function Funil({
                                 .join(" · ")}
                             </span>
                           </span>
-                          <span className="text-sm text-white tabular-nums whitespace-nowrap">
+                          <span className="text-sm text-white tabular-nums whitespace-nowrap text-right flex-shrink-0">
                             {formatNumber(link.visitors)} {link.visitors === 1 ? "pessoa" : "pessoas"}
-                            <span className="ml-2 text-xs text-bee-muted">{dosQueViram}% de quem viu</span>
+                            <span className="block sm:inline sm:ml-2 text-xs text-bee-muted">{dosQueViram}% de quem viu</span>
                           </span>
                         </button>
                       </li>
@@ -930,18 +972,27 @@ function Funil({
                   })}
                 </ul>
               )}
-              {!ultima && (
-                <p className={cn("mt-1.5 text-xs", pararam > 0 ? "text-amber-200/80" : "text-bee-dim")}>
-                  {pararam > 0
-                    ? `${formatNumber(pararam)} ${pararam === 1 ? "parou" : "pararam"} aqui (${Math.round((pararam / etapa.visitors) * 100)}%)`
-                    : "ninguém parou aqui"}
-                </p>
-              )}
             </li>
           );
         })}
       </ol>
+
+      <p className="mt-5 text-xs text-bee-dim max-w-2xl">
+        "Fecharam a página" junta fechar a aba, voltar ao aplicativo e trocar de aba: o navegador não diz qual
+        foi. Só existe nas visitas a partir de 22/11/2026.
+      </p>
     </section>
+  );
+}
+
+/** Um número do funil. No computador o rótulo está no cabeçalho da coluna. */
+function Numero({ rotulo, valor, nota, alerta }: { rotulo: string; valor: string; nota?: string; alerta?: boolean }) {
+  return (
+    <div className="md:text-right">
+      <div className="md:hidden text-[10px] uppercase tracking-[0.06em] text-bee-muted">{rotulo}</div>
+      <div className={cn("text-lg font-semibold tabular-nums", alerta ? "text-amber-200" : "text-white")}>{valor}</div>
+      {nota && <div className="text-[11px] leading-tight text-bee-dim">{nota}</div>}
+    </div>
   );
 }
 

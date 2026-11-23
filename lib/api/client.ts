@@ -294,28 +294,38 @@ export const api = {
   /** Registra um passo da visitante: a visualização do perfil (`view`, a única
    *  contada), a chegada (`arrival`: todo carregamento, antes da barreira de
    *  idade), o toque no botão da tela de chegada (`continue`) ou a passagem
-   *  pela barreira de 18+ (`age`). As três últimas alimentam o funil e a
-   *  origem. Recebe SLUG, nunca id: o cliente não
+   *  pela barreira de 18+ (`age`) ou a saída (`leave`: a página deixou de
+   *  estar na tela). Fora a primeira, alimentam o funil e a origem. Recebe SLUG, nunca id: o cliente não
    *  escolhe em qual perfil grava. `keepalive` porque a visitante pode tocar num
    *  link imediatamente — sem ele o navegador cancela a requisição ao sair da
    *  página e a view some, inflando a taxa de clique justamente nos perfis que
    *  convertem mais rápido. */
-  recordView: (slug: string, tipo: "view" | "arrival" | "continue" | "age" = "view") =>
-    fetch(`${BASE}/public/tracking/view`, {
+  recordView: (slug: string, tipo: "view" | "arrival" | "continue" | "age" | "leave" = "view") => {
+    // A URL e o referrer da PÁGINA vão no corpo: o `Referer` desta chamada é
+    // a própria página, e a URL dela é a da API — nenhum dos dois diz de
+    // onde a visitante veio nem carrega os UTM do link divulgado. Cortados
+    // para caber no limite da rota: estourar o limite perderia a visita.
+    const corpo = JSON.stringify({
+      slug,
+      tipo,
+      url: window.location.href.slice(0, 2000),
+      referrer: document.referrer.slice(0, 2000),
+    });
+    const rota = `${BASE}/public/tracking/view`;
+    // A saída é disparada com a página indo embora, e é para isso que
+    // `sendBeacon` existe: o navegador assume a entrega mesmo depois de o
+    // documento morrer. `fetch` com `keepalive` deveria equivaler, mas é
+    // cancelado em mais situações de descarregamento.
+    if (tipo === "leave" && typeof navigator.sendBeacon === "function") {
+      if (navigator.sendBeacon(rota, new Blob([corpo], { type: "application/json" }))) return Promise.resolve(undefined);
+    }
+    return fetch(rota, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // A URL e o referrer da PÁGINA vão no corpo: o `Referer` desta chamada é
-      // a própria página, e a URL dela é a da API — nenhum dos dois diz de
-      // onde a visitante veio nem carrega os UTM do link divulgado. Cortados
-      // para caber no limite da rota: estourar o limite perderia a visita.
-      body: JSON.stringify({
-        slug,
-        tipo,
-        url: window.location.href.slice(0, 2000),
-        referrer: document.referrer.slice(0, 2000),
-      }),
+      body: corpo,
       keepalive: true,
-    }).catch(() => undefined),
+    }).catch(() => undefined);
+  },
 
   // ---------------------------------------------------------------- analytics
   report: (params: ReportParams = { days: 30 }) => {

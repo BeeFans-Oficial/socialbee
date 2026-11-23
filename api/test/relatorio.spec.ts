@@ -173,7 +173,7 @@ describe("funil", () => {
       evento("view", 9, { visitor: "c" }),
       evento("click", 10, { visitor: "c", linkId: "telegram" }),
     ]);
-    expect(r.funnel).toEqual([
+    expect(r.funnel).toMatchObject([
       { stage: "arrival", visitors: 3 },
       { stage: "continue", visitors: 2 },
       { stage: "age", visitors: 2 },
@@ -195,7 +195,7 @@ describe("funil", () => {
       evento("click", 2, { visitor: "b" }),
     ]);
     // Clique em link já apagado (sem id) conta na etapa, mas não abre linha.
-    expect(r.funnel).toEqual([
+    expect(r.funnel).toMatchObject([
       { stage: "arrival", visitors: 2 },
       { stage: "view", visitors: 2 },
       { stage: "click", visitors: 1, links: [] },
@@ -208,7 +208,7 @@ describe("funil", () => {
       [evento("arrival", 0, { visitor: "a", source: "tiktok" }), evento("arrival", 1, { visitor: "b" })],
       { sources: ["tiktok"] },
     );
-    expect(r.funnel[0]).toEqual({ stage: "arrival", visitors: 1 });
+    expect(r.funnel[0]).toMatchObject({ stage: "arrival", visitors: 1 });
   });
 
   it("abre a última etapa por link e diz em quais links cada pessoa clicou", async () => {
@@ -241,7 +241,7 @@ describe("funil", () => {
     // Recorte por link: a etapa final e a lista ficam só com quem clicou nele;
     // as etapas anteriores seguem com todo mundo.
     const soOnlyfans = await relatorio(eventos, { links: ["onlyfans"] });
-    expect(soOnlyfans.funnel).toEqual([
+    expect(soOnlyfans.funnel).toMatchObject([
       { stage: "arrival", visitors: 3 },
       { stage: "view", visitors: 3 },
       { stage: "click", visitors: 1, links: [{ linkId: "onlyfans", channel: "onlyfans", visitors: 1, clicks: 1 }] },
@@ -251,5 +251,52 @@ describe("funil", () => {
     expect(new Set(soOnlyfans.events.map((e) => e.visitor)).size).toBe(1);
     expect(soOnlyfans.events.map((e) => e.type)).toEqual(["click", "view"]);
     expect(soOnlyfans.events[0].reachedLinks).toEqual(["onlyfans"]);
+  });
+
+  it("separa, em cada etapa, quem acessou, quem parou e quem fechou a página ali", async () => {
+    const r = await relatorio([
+      // A: abriu e fechou a página.
+      evento("arrival", 0, { visitor: "a" }),
+      evento("leave", 1, { visitor: "a" }),
+      // B: abriu e ficou com a página aberta (nenhuma saída).
+      evento("arrival", 2, { visitor: "b" }),
+      // C: saiu na chegada, voltou, viu os links e saiu de novo.
+      evento("arrival", 3, { visitor: "c" }),
+      evento("leave", 4, { visitor: "c" }),
+      evento("view", 5, { visitor: "c" }),
+      evento("leave", 6, { visitor: "c" }),
+      // D: saiu na chegada, voltou e viu os links; a saída antiga não conta.
+      evento("arrival", 7, { visitor: "d" }),
+      evento("leave", 8, { visitor: "d" }),
+      evento("view", 9, { visitor: "d" }),
+      // E: clicou; sair da página depois do clique é ir ao destino.
+      evento("view", 10, { visitor: "e" }),
+      evento("click", 11, { visitor: "e", linkId: "telegram" }),
+      evento("leave", 12, { visitor: "e" }),
+    ]);
+    expect(r.funnel.map(({ stage, visitors, stopped, left }) => ({ stage, visitors, stopped, left }))).toEqual([
+      { stage: "arrival", visitors: 5, stopped: 2, left: 1 },
+      { stage: "view", visitors: 3, stopped: 2, left: 1 },
+      { stage: "click", visitors: 1, stopped: 0, left: 0 },
+    ]);
+    // A saída aparece no passo a passo e não mexe nos totais.
+    expect(r.events.filter((e) => e.type === "leave")).toHaveLength(5);
+    expect(r.views).toBe(3);
+    expect(r.clicks).toBe(1);
+  });
+
+  it("a saída do aplicativo não vira abandono: a página some no app e a pessoa segue no navegador", async () => {
+    const r = await relatorio([
+      evento("arrival", 0, { visitor: "app", net: "n1", inApp: "instagram" }),
+      evento("continue", 1, { visitor: "app", net: "n1", inApp: "instagram" }),
+      evento("leave", 1.1, { visitor: "app", net: "n1", inApp: "instagram" }),
+      evento("view", 2, { visitor: "safari", net: "n1" }),
+    ]);
+    expect(r.funnel.map(({ stage, visitors, stopped, left }) => ({ stage, visitors, stopped, left }))).toEqual([
+      { stage: "arrival", visitors: 1, stopped: 0, left: 0 },
+      { stage: "continue", visitors: 1, stopped: 0, left: 0 },
+      { stage: "view", visitors: 1, stopped: 1, left: 0 },
+      { stage: "click", visitors: 0, stopped: 0, left: 0 },
+    ]);
   });
 });
