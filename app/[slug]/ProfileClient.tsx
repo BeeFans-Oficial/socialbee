@@ -153,6 +153,39 @@ export function ProfileClient({
     api.recordView(slug, "arrival");
   }, [slug, previa]);
 
+  // Registra a SAÍDA: a página deixou de estar na tela (aba fechada, volta ao
+  // aplicativo, troca de aba, celular bloqueado). É o que o funil usa para
+  // separar, entre quem parou numa etapa, quem foi embora de quem ficou com a
+  // página aberta.
+  //
+  // `visibilitychange` e não só `pagehide`: no celular, fechar o navegador
+  // embutido ou matar o app quase nunca dispara `pagehide`, e "oculta" é o
+  // último evento confiável. `pagehide` cobre o computador, onde fechar a aba
+  // nem sempre passa por "oculta" antes. Uma saída por vez em que a página
+  // some, e no máximo três por carregamento — quem alterna de aba vinte vezes
+  // não vira vinte eventos.
+  useEffect(() => {
+    if (!slug || previa) return;
+    let enviadas = 0;
+    let oculta = false;
+    const registrar = () => {
+      if (oculta || enviadas >= 3) return;
+      oculta = true;
+      enviadas += 1;
+      api.recordView(slug, "leave");
+    };
+    const aoMudar = () => {
+      if (document.visibilityState === "hidden") registrar();
+      else oculta = false;
+    };
+    document.addEventListener("visibilitychange", aoMudar);
+    window.addEventListener("pagehide", registrar);
+    return () => {
+      document.removeEventListener("visibilitychange", aoMudar);
+      window.removeEventListener("pagehide", registrar);
+    };
+  }, [slug, previa]);
+
   // Registra a visualização — é o denominador da taxa de clique.
   //
   // Só conta DEPOIS da barreira: quem desiste no modal nunca viu os links, e

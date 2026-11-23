@@ -22,8 +22,8 @@ class RecordViewDto {
    *  (`view`), como sempre foi. `click` não entra aqui: ele tem rota própria,
    *  atrás do segredo interno. */
   @IsOptional()
-  @IsIn(["view", "arrival", "continue", "age"])
-  tipo?: "view" | "arrival" | "continue" | "age";
+  @IsIn(["view", "arrival", "continue", "age", "leave"])
+  tipo?: "view" | "arrival" | "continue" | "age" | "leave";
 
   /** `location.href` da página: os UTM e click ids estão nela, e não na URL
    *  desta rota. */

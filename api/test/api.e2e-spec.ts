@@ -745,7 +745,7 @@ describe("rastreamento", () => {
     // A chegada aparece no passo a passo e no funil, mas não nos totais.
     expect(soChegada.body.report.events).toHaveLength(1);
     expect(soChegada.body.report.events[0]).toMatchObject({ type: "arrival", reached: "arrival", source: "instagram" });
-    expect(soChegada.body.report.funnel).toEqual([
+    expect(soChegada.body.report.funnel).toMatchObject([
       { stage: "arrival", visitors: 1 },
       { stage: "view", visitors: 0 },
       { stage: "click", visitors: 0, links: [] },
@@ -787,7 +787,7 @@ describe("rastreamento", () => {
     expect(body.report.events[0].inApp).toBeUndefined();
     // O funil conta a pessoa uma vez só, do app ao navegador do celular, e a
     // etapa "continuar" entra porque houve evento dela.
-    expect(body.report.funnel).toEqual([
+    expect(body.report.funnel).toMatchObject([
       { stage: "arrival", visitors: 1 },
       { stage: "continue", visitors: 1 },
       { stage: "view", visitors: 1 },

@@ -22,7 +22,16 @@
  * só acontece depois, já no navegador do celular, onde não sobra referrer nem
  * user-agent do aplicativo; sem a chegada, essa origem nunca seria vista.
  */
-export type TrackingEventType = "view" | "click" | "arrival" | "continue" | "age" | (string & {});
+export type TrackingEventType = "view" | "click" | "arrival" | "continue" | "age" | "leave" | (string & {});
+
+/**
+ * `leave` é a SAÍDA: a página deixou de estar na tela — a aba foi fechada, a
+ * pessoa voltou ao aplicativo, trocou de aba ou bloqueou o celular. Não é uma
+ * etapa: é o que separa, entre quem parou numa etapa, quem foi embora de quem
+ * ficou com a página aberta. O navegador não distingue "fechou" de "saiu da
+ * frente", e este evento também não.
+ */
+export const SAIDA = "leave";
 
 /**
  * As etapas do caminho de uma visitante, na ordem em que acontecem.
@@ -44,7 +53,14 @@ export type Etapa = (typeof ETAPAS)[number];
 /** Uma etapa do funil: quantos visitantes chegaram até ela. */
 export interface FunnelStage {
   stage: Etapa;
+  /** Quantos visitantes chegaram a esta etapa. */
   visitors: number;
+  /** Quantos chegaram aqui e não foram adiante. Zero na última. */
+  stopped: number;
+  /** Dos que pararam aqui, quantos saíram da página (evento `leave` depois de
+   *  chegar à etapa). O resto parou sem saída registrada: página ainda aberta,
+   *  ou evento anterior a ele existir, ou que o navegador não conseguiu enviar. */
+  left: number;
   /** Só na etapa `click`: quantos visitantes clicaram em CADA link. Quem
    *  clicou em dois links conta nos dois, então a soma pode passar do total
    *  da etapa. */
@@ -170,7 +186,7 @@ export interface LinkReport {
  */
 /** Uma linha da lista de eventos da tela: um passo de uma visitante. */
 export interface ReportEvent {
-  type: Etapa;
+  type: Etapa | "leave";
   /** A etapa mais adiantada a que ESTE visitante chegou no recorte. */
   reached: Etapa;
   /** Os links em que este visitante clicou no recorte, na ordem do primeiro

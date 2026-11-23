@@ -288,7 +288,13 @@ export type Etapa = "arrival" | "continue" | "age" | "view" | "click";
 /** Uma etapa do funil: quantos visitantes chegaram até ela. */
 export interface FunnelStage {
   stage: Etapa;
+  /** Quantos visitantes chegaram a esta etapa. */
   visitors: number;
+  /** Quantos chegaram aqui e não foram adiante. Zero na última. */
+  stopped: number;
+  /** Dos que pararam aqui, quantos saíram da página (fecharam, voltaram ao
+   *  app, trocaram de aba). O resto parou sem saída registrada. */
+  left: number;
   /** Só na etapa `click`: visitantes e toques por link. Quem clicou em dois
    *  links conta nos dois. */
   links?: Array<{ linkId: string; channel?: string; visitors: number; clicks: number }>;
@@ -297,7 +303,8 @@ export interface FunnelStage {
 /** Uma linha da lista de eventos: um passo de uma visitante. Sem nome, sem IP
  *  inteiro — a API não tem nenhum dos dois. */
 export interface ReportEvent {
-  type: Etapa;
+  /** Uma etapa, ou `leave`: a página deixou de estar na tela. */
+  type: Etapa | "leave";
   /** A etapa mais adiantada a que este visitante chegou no recorte. */
   reached: Etapa;
   /** Os links em que este visitante clicou, na ordem do primeiro clique. */

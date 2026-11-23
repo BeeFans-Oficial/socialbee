@@ -16,7 +16,7 @@ import {
 import { detectBot } from "./bots";
 import { countryOfIp } from "./geo";
 import { PostgresTrackingStore } from "./tracking.store";
-import { ETAPAS } from "./types";
+import { ETAPAS, SAIDA } from "./types";
 import type {
   Breakdown,
   DateRange,
@@ -67,7 +67,7 @@ export interface ClickOutcome {
 export interface ViewInput {
   profileId: string;
   /** A etapa (ver `ETAPAS`). Só `view` é a visita contada. */
-  type?: Exclude<Etapa, "click">;
+  type?: Exclude<Etapa, "click"> | "leave";
   /** URL da PÁGINA, informada pelo navegador: é dela que saem UTM e click ids.
    *  A URL da requisição é a da API e nunca carrega nada disso. */
   requestUrl: URL;
@@ -206,12 +206,15 @@ export class TrackingService {
       ...clicks,
     ];
     const alcance = alcancePorVisitante(passos);
+    const saidas = aplicarFiltros(resolvidos, filters).filter((r) => r.event.type === SAIDA);
+    const sairam = quemSaiuOndeParou(passos, saidas, alcance);
     const clicados = linksPorVisitante(clicks);
     // Com filtro de link, a lista vira o caminho de quem clicou NELE: os
     // passos de todo mundo continuam no funil (é o que mostra de quantos
     // visitantes esses cliques saíram), mas "um a um" interessa só quem chegou
     // ao link escolhido.
-    const passosDaLista = filters.links?.length ? passos.filter((r) => clicados.has(r.visitante)) : passos;
+    const comSaidas = [...passos, ...saidas];
+    const passosDaLista = filters.links?.length ? comSaidas.filter((r) => clicados.has(r.visitante)) : comSaidas;
     const janelaAnterior = separar(aplicarFiltros(resolver(eventosAnteriores), filters), filters);
 
     const botHits = Object.values(counters).reduce((sum, counter) => sum + counter.botHits, 0);
@@ -250,7 +253,7 @@ export class TrackingService {
         inAppClicks: emApp(janelaAnterior.clicks),
         clickRate: janelaAnterior.views.length ? janelaAnterior.clicks.length / janelaAnterior.views.length : 0,
       },
-      funnel: funil(passos, alcance, clicks),
+      funnel: funil(passos, alcance, clicks, sairam),
       events: [...passosDaLista]
         .sort((x, y) => y.event.occurredAt.getTime() - x.event.occurredAt.getTime())
         .slice(0, MAX_EVENTOS_NA_LISTA)
@@ -472,17 +475,55 @@ function alcancePorVisitante(passos: Resolvido[]): Map<string, number> {
  * tela de chegada ou sem barreira de idade não tem essas etapas, e mostrá-las
  * com o número da etapa seguinte inventaria um passo que não existiu.
  */
-function funil(passos: Resolvido[], alcance: Map<string, number>, clicks: Resolvido[]): FunnelStage[] {
+function funil(
+  passos: Resolvido[],
+  alcance: Map<string, number>,
+  clicks: Resolvido[],
+  sairam: Set<string>,
+): FunnelStage[] {
   if (alcance.size === 0) return [];
   const presentes = new Set(passos.map((r) => r.event.type));
-  const ate = [...alcance.values()];
-  return ETAPAS.map((stage, i) => ({ stage, i }))
-    .filter(({ stage }) => (stage !== "continue" && stage !== "age") || presentes.has(stage))
-    .map(({ stage, i }) => ({
+  const etapas = ETAPAS.map((stage, i) => ({ stage, i })).filter(
+    ({ stage }) => (stage !== "continue" && stage !== "age") || presentes.has(stage),
+  );
+  return etapas.map(({ stage, i }, posicao) => {
+    // Quem parou AQUI: chegou a esta etapa e não à próxima MOSTRADA. Uma etapa
+    // omitida (página sem barreira de idade) não pode esconder gente entre
+    // duas barras.
+    const proxima = etapas[posicao + 1]?.i;
+    const pararam = proxima === undefined ? [] : [...alcance].filter(([, n]) => n >= i && n < proxima);
+    return {
       stage,
-      visitors: ate.filter((n) => n >= i).length,
+      visitors: [...alcance.values()].filter((n) => n >= i).length,
+      stopped: pararam.length,
+      left: pararam.filter(([visitante]) => sairam.has(visitante)).length,
       ...(stage === "click" ? { links: visitantesPorLink(clicks) } : {}),
-    }));
+    };
+  });
+}
+
+/**
+ * Quem saiu da página na etapa em que parou.
+ *
+ * Vale a saída registrada DEPOIS de a pessoa chegar à etapa mais adiantada
+ * dela. Saída anterior não conta: quem trocou de aba na tela de chegada,
+ * voltou e seguiu até os links não "saiu na chegada" — e é também o que faz a
+ * saída do aplicativo (a página some no Instagram e a pessoa reaparece no
+ * navegador do celular) não virar abandono.
+ */
+function quemSaiuOndeParou(passos: Resolvido[], saidas: Resolvido[], alcance: Map<string, number>): Set<string> {
+  const chegouEm = new Map<string, number>();
+  for (const r of passos) {
+    if (etapaDe(r) !== alcance.get(r.visitante)) continue;
+    const em = r.event.occurredAt.getTime();
+    if (em < (chegouEm.get(r.visitante) ?? Infinity)) chegouEm.set(r.visitante, em);
+  }
+  const sairam = new Set<string>();
+  for (const r of saidas) {
+    const desde = chegouEm.get(r.visitante);
+    if (desde !== undefined && r.event.occurredAt.getTime() >= desde) sairam.add(r.visitante);
+  }
+  return sairam;
 }
 
 /**
@@ -525,7 +566,7 @@ function linksPorVisitante(clicks: Resolvido[]): Map<string, string[]> {
 function linhaDaLista(r: Resolvido, alcance: Map<string, number>, clicados: Map<string, string[]>): ReportEvent {
   const { event } = r;
   return {
-    type: ETAPAS[etapaDe(r) ?? 0],
+    type: event.type === SAIDA ? SAIDA : ETAPAS[etapaDe(r) ?? 0],
     reached: ETAPAS[alcance.get(r.visitante) ?? etapaDe(r) ?? 0],
     reachedLinks: clicados.get(r.visitante) ?? [],
     at: event.occurredAt.toISOString(),
