@@ -637,6 +637,14 @@ describe("rastreamento", () => {
     expect(body.report.events[0]).toMatchObject({ type: "view", source: "instagram", device: "mobile", inApp: "instagram" });
     expect(body.report.events[1]).toMatchObject({ type: "click", source: "instagram", campaign: "stories", destinationHost: expect.any(String) });
     expect(body.report.events[0].visitor).toBe(body.report.events[1].visitor);
+    // Em QUAL link: na linha de cada passo do visitante e na última etapa do funil.
+    expect(body.report.events[0].reachedLinks).toHaveLength(1);
+    expect(body.report.events[1].linkId).toBe(body.report.events[0].reachedLinks[0]);
+    expect(body.report.funnel.at(-1)).toMatchObject({
+      stage: "click",
+      visitors: 1,
+      links: [{ linkId: body.report.events[1].linkId, visitors: 1, clicks: 1 }],
+    });
     expect(body.report.events[0].visitor).toMatch(/^[0-9A-F]{6}$/);
     expect(JSON.stringify(body.report.events)).not.toContain("Mozilla");
     expect(body.report.options.devices).toEqual(["mobile"]);
@@ -740,7 +748,7 @@ describe("rastreamento", () => {
     expect(soChegada.body.report.funnel).toEqual([
       { stage: "arrival", visitors: 1 },
       { stage: "view", visitors: 0 },
-      { stage: "click", visitors: 0 },
+      { stage: "click", visitors: 0, links: [] },
     ]);
 
     // Tocou em continuar, ainda dentro do app.
@@ -783,7 +791,7 @@ describe("rastreamento", () => {
       { stage: "arrival", visitors: 1 },
       { stage: "continue", visitors: 1 },
       { stage: "view", visitors: 1 },
-      { stage: "click", visitors: 0 },
+      { stage: "click", visitors: 0, links: [] },
     ]);
     expect(body.report.events.map((e: { type: string }) => e.type)).toEqual(["view", "continue", "arrival"]);
     expect(body.report.events.every((e: { reached: string }) => e.reached === "view")).toBe(true);

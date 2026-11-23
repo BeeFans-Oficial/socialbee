@@ -206,6 +206,12 @@ export class TrackingService {
       ...clicks,
     ];
     const alcance = alcancePorVisitante(passos);
+    const clicados = linksPorVisitante(clicks);
+    // Com filtro de link, a lista vira o caminho de quem clicou NELE: os
+    // passos de todo mundo continuam no funil (é o que mostra de quantos
+    // visitantes esses cliques saíram), mas "um a um" interessa só quem chegou
+    // ao link escolhido.
+    const passosDaLista = filters.links?.length ? passos.filter((r) => clicados.has(r.visitante)) : passos;
     const janelaAnterior = separar(aplicarFiltros(resolver(eventosAnteriores), filters), filters);
 
     const botHits = Object.values(counters).reduce((sum, counter) => sum + counter.botHits, 0);
@@ -244,11 +250,11 @@ export class TrackingService {
         inAppClicks: emApp(janelaAnterior.clicks),
         clickRate: janelaAnterior.views.length ? janelaAnterior.clicks.length / janelaAnterior.views.length : 0,
       },
-      funnel: funil(passos, alcance),
-      events: [...passos]
+      funnel: funil(passos, alcance, clicks),
+      events: [...passosDaLista]
         .sort((x, y) => y.event.occurredAt.getTime() - x.event.occurredAt.getTime())
         .slice(0, MAX_EVENTOS_NA_LISTA)
-        .map((r) => linhaDaLista(r, alcance)),
+        .map((r) => linhaDaLista(r, alcance, clicados)),
       filters,
       options,
     };
@@ -466,20 +472,62 @@ function alcancePorVisitante(passos: Resolvido[]): Map<string, number> {
  * tela de chegada ou sem barreira de idade não tem essas etapas, e mostrá-las
  * com o número da etapa seguinte inventaria um passo que não existiu.
  */
-function funil(passos: Resolvido[], alcance: Map<string, number>): FunnelStage[] {
+function funil(passos: Resolvido[], alcance: Map<string, number>, clicks: Resolvido[]): FunnelStage[] {
   if (alcance.size === 0) return [];
   const presentes = new Set(passos.map((r) => r.event.type));
   const ate = [...alcance.values()];
   return ETAPAS.map((stage, i) => ({ stage, i }))
     .filter(({ stage }) => (stage !== "continue" && stage !== "age") || presentes.has(stage))
-    .map(({ stage, i }) => ({ stage, visitors: ate.filter((n) => n >= i).length }));
+    .map(({ stage, i }) => ({
+      stage,
+      visitors: ate.filter((n) => n >= i).length,
+      ...(stage === "click" ? { links: visitantesPorLink(clicks) } : {}),
+    }));
 }
 
-function linhaDaLista(r: Resolvido, alcance: Map<string, number>): ReportEvent {
+/**
+ * A última etapa, aberta por link: "clicou em um link" não diz em QUAL, e uma
+ * página com Telegram, Instagram e OnlyFans tem três respostas diferentes.
+ *
+ * Conta visitantes, como o resto do funil — quem tocou três vezes no mesmo
+ * link é uma pessoa; os toques ficam em `clicks`. Quem clicou em dois links
+ * conta nos dois. Clique em link já apagado não tem `linkId` e fica de fora.
+ */
+function visitantesPorLink(clicks: Resolvido[]): NonNullable<FunnelStage["links"]> {
+  const porLink = new Map<string, { channel?: string; visitantes: Set<string>; clicks: number }>();
+  for (const r of clicks) {
+    const id = r.event.linkId;
+    if (!id) continue;
+    const linha = porLink.get(id) ?? { channel: r.event.channel, visitantes: new Set<string>(), clicks: 0 };
+    linha.visitantes.add(r.visitante);
+    linha.clicks += 1;
+    porLink.set(id, linha);
+  }
+  return [...porLink.entries()]
+    .map(([linkId, l]) => ({ linkId, channel: l.channel, visitors: l.visitantes.size, clicks: l.clicks }))
+    .sort((a, b) => b.visitors - a.visitors || b.clicks - a.clicks);
+}
+
+/** Os links em que cada visitante clicou, na ordem do primeiro clique. */
+function linksPorVisitante(clicks: Resolvido[]): Map<string, string[]> {
+  const mapa = new Map<string, string[]>();
+  const emOrdem = [...clicks].sort((a, b) => a.event.occurredAt.getTime() - b.event.occurredAt.getTime());
+  for (const r of emOrdem) {
+    const id = r.event.linkId;
+    if (!id) continue;
+    const lista = mapa.get(r.visitante) ?? [];
+    if (!lista.includes(id)) lista.push(id);
+    mapa.set(r.visitante, lista);
+  }
+  return mapa;
+}
+
+function linhaDaLista(r: Resolvido, alcance: Map<string, number>, clicados: Map<string, string[]>): ReportEvent {
   const { event } = r;
   return {
     type: ETAPAS[etapaDe(r) ?? 0],
     reached: ETAPAS[alcance.get(r.visitante) ?? etapaDe(r) ?? 0],
+    reachedLinks: clicados.get(r.visitante) ?? [],
     at: event.occurredAt.toISOString(),
     linkId: event.linkId,
     channel: event.channel,

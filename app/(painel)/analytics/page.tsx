@@ -22,6 +22,7 @@ import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
 import type { Etapa, FunnelStage, ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
+import { PLATFORMS } from "@/lib/catalog";
 import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
@@ -80,6 +81,22 @@ const ETAPA: Record<Etapa, { fez: string; parou: string }> = {
   view: { fez: "Viu os links", parou: "Viu os links e não clicou" },
   click: { fez: "Clicou em um link", parou: "Clicou em um link" },
 };
+
+/** `telegram` → `Telegram`. Canal fora do catálogo (ou "custom") fica sem nome. */
+function nomeDaPlataforma(canal?: string): string | undefined {
+  if (!canal || canal === "custom") return undefined;
+  return PLATFORMS.find((p) => p.id === canal)?.label;
+}
+
+/** "Clicou em Telegram VIP", "…em A e B", "…em A e mais 2": em QUAL link, que
+ *  é o que distingue quem foi ao Telegram de quem foi ao OnlyFans. */
+function ondeClicou(ids: string[], titulo: (id: string) => string): string {
+  if (ids.length === 0) return ETAPA.click.parou;
+  const [primeiro, segundo] = ids.map(titulo);
+  if (ids.length === 1) return `Clicou em ${primeiro}`;
+  if (ids.length === 2) return `Clicou em ${primeiro} e ${segundo}`;
+  return `Clicou em ${primeiro} e mais ${ids.length - 1}`;
+}
 
 /** `BR` → `Brasil`. O navegador conhece os nomes; sem suporte, fica o código. */
 function nomeDoPais(codigo: string): string {
@@ -365,7 +382,7 @@ function Analytics() {
           minimo={diasAtrasIso(89)}
           maximo={hojeIso()}
           carregando={loading}
-          aviso={filtros.link ? "Visitas não têm link: só os cliques são recortados por ele." : null}
+          aviso={filtros.link ? "Com um link escolhido: os cliques, a última etapa do funil e o passo a passo ficam só com quem clicou nele. As visitas seguem inteiras." : null}
           onPeriodo={escolherPeriodo}
           onDatas={(de, ate) => {
             setDatas({ de, ate });
@@ -457,7 +474,12 @@ function Analytics() {
         {/* Funil: até onde as pessoas foram. */}
         {report.funnel.length > 0 && (
           <motion.div variants={ITEM_DA_LISTA}>
-            <Funil etapas={report.funnel} />
+            <Funil
+              etapas={report.funnel}
+              titulo={(id) => linkTitles.get(id) ?? "Link removido"}
+              linkAtivo={filtros.link}
+              onLink={(id) => aplicar({ link: filtros.link === id ? "" : id })}
+            />
           </motion.div>
         )}
 
@@ -748,6 +770,11 @@ function Analytics() {
                       key={`${evento.at}-${evento.type}-${index}`}
                       evento={evento}
                       titulo={evento.linkId ? linkTitles.get(evento.linkId) : undefined}
+                      ateOnde={
+                        evento.reached === "click"
+                          ? ondeClicou(evento.reachedLinks, (id) => linkTitles.get(id) ?? "link removido")
+                          : ETAPA[evento.reached].parou
+                      }
                       zebrada={index % 2 === 1}
                     />
                   ))}
@@ -761,7 +788,8 @@ function Analytics() {
   );
 }
 
-function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titulo?: string; zebrada: boolean }) {
+function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEvent; titulo?: string; ateOnde: string; zebrada: boolean }) {
+  const destino = [nomeDaPlataforma(evento.channel), evento.destinationHost].filter(Boolean).join(" · ");
   const clique = evento.type === "click";
   const Icone = clique ? MousePointer2 : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
   const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
@@ -774,8 +802,8 @@ function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titul
           <Icone className={cn("w-3.5 h-3.5 flex-shrink-0", clique ? "text-bee-pink" : "text-white/40")} />
           <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : ETAPA[evento.type].fez}</span>
         </div>
-        {clique && evento.destinationHost && (
-          <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{evento.destinationHost}</div>
+        {clique && destino && (
+          <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{destino}</div>
         )}
       </td>
       <td className="py-3 pr-4">
@@ -797,8 +825,11 @@ function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titul
       <td className="py-3 pr-4 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.network ?? "—"}</td>
       <td className="py-3 whitespace-nowrap">
         <div className="text-xs text-bee-muted font-mono">{evento.visitor}</div>
-        <div className={cn("mt-0.5 text-xs", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-dim")}>
-          {ETAPA[evento.reached].parou}
+        <div
+          className={cn("mt-0.5 text-xs truncate max-w-[220px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-dim")}
+          title={ateOnde}
+        >
+          {ateOnde}
         </div>
       </td>
     </tr>
@@ -812,8 +843,21 @@ function LinhaDeEvento({ evento, titulo, zebrada }: { evento: ReportEvent; titul
  * a diferença para a etapa seguinte, que é o número que diz onde a página
  * perde gente.
  */
-function Funil({ etapas }: { etapas: FunnelStage[] }) {
+function Funil({
+  etapas,
+  titulo,
+  linkAtivo,
+  onLink,
+}: {
+  etapas: FunnelStage[];
+  titulo: (linkId: string) => string;
+  linkAtivo: string;
+  onLink: (linkId: string) => void;
+}) {
   const total = etapas[0]?.visitors ?? 0;
+  /** Quem viu os links: a base certa para "de cada 10 que viram, quantos
+   *  foram a este link". */
+  const viram = etapas.find((e) => e.stage === "view")?.visitors ?? 0;
   return (
     <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
@@ -850,6 +894,42 @@ function Funil({ etapas }: { etapas: FunnelStage[] }) {
                   }}
                 />
               </div>
+              {/* A última etapa, link a link: em QUAL link clicaram. Tocar numa
+                  linha recorta o relatório por ele. */}
+              {etapa.links && etapa.links.length > 0 && (
+                <ul className="mt-3 ml-1 pl-4 border-l border-white/10 space-y-1">
+                  {etapa.links.map((link) => {
+                    const dosQueViram = viram ? Math.round((link.visitors / viram) * 100) : 0;
+                    return (
+                      <li key={link.linkId}>
+                        <button
+                          type="button"
+                          onClick={() => onLink(link.linkId)}
+                          title={linkAtivo === link.linkId ? "Tirar o filtro deste link" : "Filtrar por este link"}
+                          className={cn(
+                            "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.04]",
+                            linkAtivo === link.linkId && "bg-bee-pink/10",
+                          )}
+                        >
+                          <IconeDePlataforma plataforma={link.channel ?? ""} className="w-4 h-4 text-white/50 flex-shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm text-white truncate">{titulo(link.linkId)}</span>
+                            <span className="block text-xs text-bee-dim">
+                              {[nomeDaPlataforma(link.channel), `${formatNumber(link.clicks)} ${link.clicks === 1 ? "toque" : "toques"}`]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </span>
+                          </span>
+                          <span className="text-sm text-white tabular-nums whitespace-nowrap">
+                            {formatNumber(link.visitors)} {link.visitors === 1 ? "pessoa" : "pessoas"}
+                            <span className="ml-2 text-xs text-bee-muted">{dosQueViram}% de quem viu</span>
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
               {!ultima && (
                 <p className={cn("mt-1.5 text-xs", pararam > 0 ? "text-amber-200/80" : "text-bee-dim")}>
                   {pararam > 0
