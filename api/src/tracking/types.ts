@@ -299,6 +299,9 @@ export interface TrackingReport {
    *  mais antigo, até `MAX_EVENTOS_NA_LISTA`. Com filtro de link, só os passos
    *  de quem clicou num dos links escolhidos. */
   events: ReportEvent[];
+  /** Quantos passos o recorte tem ao todo, mesmo os que não couberam em
+   *  `events`. */
+  eventsTotal: number;
   filters: ReportFilters;
   options: ReportOptions;
 }

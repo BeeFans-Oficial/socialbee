@@ -342,4 +342,13 @@ describe("funil", () => {
       linksPerClicker: 0,
     });
   });
+
+  it("a lista traz os passos mais recentes até o teto e diz quantos o recorte tem ao todo", async () => {
+    const muitos = Array.from({ length: 1100 }, (_, i) => evento("view", i / 10, { visitor: `v${i}` }));
+    const r = await relatorio(muitos);
+    expect(r.eventsTotal).toBe(1100);
+    expect(r.events).toHaveLength(1000);
+    // Do mais novo para o mais antigo: o primeiro é o último que aconteceu.
+    expect(r.events[0].at).toBe(muitos[1099].occurredAt.toISOString());
+  });
 });
