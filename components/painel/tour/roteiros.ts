@@ -273,14 +273,16 @@ export const ROTEIROS: Roteiro[] = [
     ],
   },
   {
-    id: "analytics",
+    // Id novo com os indicadores e o funil (novembro de 2026): quem já viu o
+    // roteiro antigo, de cinco passos, vê este uma vez.
+    id: "analytics-com-funil",
     rota: /^\/analytics$/,
     nome: "Analytics",
     passos: [
       {
         alvo: "metricas",
         titulo: "Os números do período",
-        texto: "Visitas, cliques e quantos vieram de dentro de um aplicativo. Robôs e prévias de link não contam.",
+        texto: "Visitas, visitantes, cliques e quantos vieram de dentro de um aplicativo, comparados com o período anterior. Robôs e prévias de link não contam.",
       },
       {
         alvo: "filtros",
@@ -288,9 +290,29 @@ export const ROTEIROS: Roteiro[] = [
         texto: "7, 30, 90 dias ou duas datas. Depois, só um link, uma origem, um aparelho ou quem veio de dentro de app. Os números e o gráfico acompanham, e o recorte fica no endereço da página.",
       },
       {
+        alvo: "indicadores",
+        titulo: "A leitura pronta",
+        texto: "Conversão é quantas pessoas, das que abriram, clicaram em algum link. Ao lado: onde a página mais perde gente, quanto tempo levam para clicar e quantas saem do aplicativo.",
+      },
+      {
+        alvo: "funil",
+        titulo: "Até onde cada pessoa foi",
+        texto: "Cada faixa é uma etapa, e ela estreita conforme as pessoas param. Ao lado: quantas acessaram, quantas pararam ali e quantas fecharam a página. O selo marca a maior perda.",
+      },
+      {
+        alvo: "funil-links",
+        titulo: "Em qual link clicaram",
+        texto: "A última etapa aberta por link: quantas pessoas foram a cada um. Toque numa linha para ver o relatório inteiro só de quem clicou nele.",
+      },
+      {
         alvo: "grafico",
         titulo: "Dia a dia",
         texto: "Visualizações em cinza, cliques em rosa. Passe o dedo ou o mouse para ver cada dia.",
+      },
+      {
+        alvo: "horarios",
+        titulo: "A melhor hora para postar",
+        texto: "Visitas e cliques por hora do dia, no seu fuso. A barra mais forte é o pico: é quando vale publicar o story com o link.",
       },
       {
         alvo: "sem-trafego",
@@ -302,6 +324,11 @@ export const ROTEIROS: Roteiro[] = [
         alvo: "origem",
         titulo: "De onde vem o público",
         texto: "Cada origem com a sua fatia dos cliques. É o que diz onde vale a pena divulgar.",
+      },
+      {
+        alvo: "passo-a-passo",
+        titulo: "O caminho de cada visitante",
+        texto: "Uma linha por passo, do mais recente ao mais antigo. Toque no código de um visitante para acender todas as linhas dele e ler o caminho inteiro.",
       },
     ],
   },

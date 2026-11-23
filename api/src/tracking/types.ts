@@ -214,6 +214,35 @@ export interface ReportEvent {
   visitor: string;
 }
 
+/**
+ * Indicadores do recorte: o que a criadora lê antes do funil.
+ *
+ * Tudo sai dos mesmos passos do funil, então conta PESSOAS (a chave diária do
+ * visitante). Um indicador sem base fica `null` — a tela diz "sem dados" em
+ * vez de mostrar zero como se fosse medida.
+ */
+export interface ReportKpis {
+  /** De quem abriu a página, quantos clicaram em algum link. `previousRate` é
+   *  a mesma conta na janela anterior; `null` quando ela não teve ninguém. */
+  conversion: { visitors: number; clickers: number; rate: number; previousRate: number | null };
+  /** A etapa em que mais gente parou, e que fatia dos visitantes ela levou. */
+  biggestDrop: { stage: Etapa; stopped: number; share: number } | null;
+  /** Mediana, em ms, entre o primeiro passo da pessoa e o primeiro clique
+   *  dela. `sample` é quantas pessoas entraram na conta. */
+  timeToClick: { medianMs: number; sample: number } | null;
+  /** Mediana, em ms, do tempo na página de quem saiu SEM clicar: do primeiro
+   *  passo até a última saída registrada. */
+  timeBeforeLeaving: { medianMs: number; sample: number } | null;
+  /** Saída do aplicativo: de quem abriu dentro de um app, quantos tocaram em
+   *  "continuar". `null` quando ninguém passou pela tela de chegada. */
+  appExit: { arrived: number; continued: number; rate: number } | null;
+  /** Em média, em quantos links diferentes clicou quem clicou. */
+  linksPerClicker: number;
+  /** Visitas e cliques por hora do dia, em UTC (24 posições). A tela gira para
+   *  o fuso de quem está olhando. */
+  byHour: { views: number[]; clicks: number[] };
+}
+
 export interface ReportFilters {
   links?: string[];
   /** `utm_source`, ou o host do referrer, ou "(direto)". */
@@ -265,6 +294,7 @@ export interface TrackingReport {
    *  em todas as anteriores; `continue` e `age` só entram quando há evento
    *  delas no recorte. Vazio quando não houve ninguém. */
   funnel: FunnelStage[];
+  kpis: ReportKpis;
   /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
    *  mais antigo, até `MAX_EVENTOS_NA_LISTA`. Com filtro de link, só os passos
    *  de quem clicou num dos links escolhidos. */

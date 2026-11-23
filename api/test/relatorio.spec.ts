@@ -299,4 +299,47 @@ describe("funil", () => {
       { stage: "click", visitors: 0, stopped: 0, left: 0 },
     ]);
   });
+
+  it("tira os indicadores do mesmo caminho: conversão, maior perda, tempos, saída do app e horários", async () => {
+    const r = await relatorio([
+      // A e D: abriram e saíram sem clicar, depois de 2 e de 4 minutos.
+      evento("arrival", 0, { visitor: "a" }),
+      evento("leave", 2, { visitor: "a" }),
+      evento("arrival", 20, { visitor: "d" }),
+      evento("leave", 24, { visitor: "d" }),
+      // B: chegou pelo Instagram, continuou e clicou em dois links, o primeiro aos 5 minutos.
+      evento("arrival", 0, { visitor: "b", inApp: "instagram" }),
+      evento("continue", 1, { visitor: "b", inApp: "instagram" }),
+      evento("view", 2, { visitor: "b" }),
+      evento("click", 5, { visitor: "b", linkId: "telegram" }),
+      evento("click", 6, { visitor: "b", linkId: "onlyfans" }),
+      // C: viu os links e clicou um minuto depois.
+      evento("view", 10, { visitor: "c" }),
+      evento("click", 11, { visitor: "c", linkId: "telegram" }),
+    ]);
+    const minuto = 60_000;
+    const horas = (posicao: number, valor: number) => Array.from({ length: 24 }, (_, h) => (h === posicao ? valor : 0));
+    expect(r.kpis).toEqual({
+      // Sem ninguém na janela anterior, não há com o que comparar.
+      conversion: { visitors: 4, clickers: 2, rate: 0.5, previousRate: null },
+      biggestDrop: { stage: "arrival", stopped: 2, share: 0.5 },
+      timeToClick: { medianMs: 3 * minuto, sample: 2 },
+      timeBeforeLeaving: { medianMs: 3 * minuto, sample: 2 },
+      appExit: { arrived: 1, continued: 1, rate: 1 },
+      linksPerClicker: 1.5,
+      byHour: { views: horas(12, 2), clicks: horas(12, 3) },
+    });
+  });
+
+  it("indicador sem base fica nulo, e não zero", async () => {
+    const r = await relatorio([evento("view", 0, { visitor: "a" })]);
+    expect(r.kpis).toMatchObject({
+      conversion: { visitors: 1, clickers: 0, rate: 0 },
+      biggestDrop: { stage: "view", stopped: 1, share: 1 },
+      timeToClick: null,
+      timeBeforeLeaving: null,
+      appExit: null,
+      linksPerClicker: 0,
+    });
+  });
 });
