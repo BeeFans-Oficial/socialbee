@@ -24,11 +24,14 @@ function evento(
     referrerHost?: string;
     ipPrefix?: string;
     userAgent?: string;
+    linkId?: string;
   } = {},
 ): TrackingEventRecord {
   return {
     type,
     profileId: "p1",
+    linkId: extra.linkId,
+    channel: extra.linkId,
     arrivalHost: HOST,
     occurredAt: new Date(T0 + minuto * 60_000),
     attribution: { clickIds: {}, source: extra.source, campaign: extra.campaign, referrerHost: extra.referrerHost },
@@ -168,14 +171,14 @@ describe("funil", () => {
       evento("continue", 7, { visitor: "c" }),
       evento("age", 8, { visitor: "c" }),
       evento("view", 9, { visitor: "c" }),
-      evento("click", 10, { visitor: "c" }),
+      evento("click", 10, { visitor: "c", linkId: "telegram" }),
     ]);
     expect(r.funnel).toEqual([
       { stage: "arrival", visitors: 3 },
       { stage: "continue", visitors: 2 },
       { stage: "age", visitors: 2 },
       { stage: "view", visitors: 2 },
-      { stage: "click", visitors: 1 },
+      { stage: "click", visitors: 1, links: [{ linkId: "telegram", channel: "telegram", visitors: 1, clicks: 1 }] },
     ]);
     // Os totais não mudam: só visita e clique contam.
     expect(r.views).toBe(2);
@@ -191,10 +194,11 @@ describe("funil", () => {
       evento("view", 1, { visitor: "b" }),
       evento("click", 2, { visitor: "b" }),
     ]);
+    // Clique em link já apagado (sem id) conta na etapa, mas não abre linha.
     expect(r.funnel).toEqual([
       { stage: "arrival", visitors: 2 },
       { stage: "view", visitors: 2 },
-      { stage: "click", visitors: 1 },
+      { stage: "click", visitors: 1, links: [] },
     ]);
   });
 
@@ -205,5 +209,47 @@ describe("funil", () => {
       { sources: ["tiktok"] },
     );
     expect(r.funnel[0]).toEqual({ stage: "arrival", visitors: 1 });
+  });
+
+  it("abre a última etapa por link e diz em quais links cada pessoa clicou", async () => {
+    const eventos = [
+      // A: Telegram, três toques.
+      evento("view", 0, { visitor: "a" }),
+      evento("click", 1, { visitor: "a", linkId: "telegram" }),
+      evento("click", 2, { visitor: "a", linkId: "telegram" }),
+      evento("click", 3, { visitor: "a", linkId: "telegram" }),
+      // B: OnlyFans e depois Telegram.
+      evento("view", 4, { visitor: "b" }),
+      evento("click", 5, { visitor: "b", linkId: "onlyfans" }),
+      evento("click", 6, { visitor: "b", linkId: "telegram" }),
+      // C: viu e não clicou.
+      evento("view", 7, { visitor: "c" }),
+    ];
+    const r = await relatorio(eventos);
+    const clique = r.funnel.find((e) => e.stage === "click")!;
+    // Pessoas, não toques: A tocou três vezes e é uma pessoa. B conta nos dois.
+    expect(clique.visitors).toBe(2);
+    expect(clique.links).toEqual([
+      { linkId: "telegram", channel: "telegram", visitors: 2, clicks: 4 },
+      { linkId: "onlyfans", channel: "onlyfans", visitors: 1, clicks: 1 },
+    ]);
+    const de = (visitor: string) => r.events.find((e) => e.visitor === r.events.filter((x) => x.at === eventos.find((ev) => ev.client.visitor === visitor)!.occurredAt.toISOString())[0].visitor)!;
+    expect(de("a").reachedLinks).toEqual(["telegram"]);
+    expect(de("b").reachedLinks).toEqual(["onlyfans", "telegram"]);
+    expect(de("c").reachedLinks).toEqual([]);
+
+    // Recorte por link: a etapa final e a lista ficam só com quem clicou nele;
+    // as etapas anteriores seguem com todo mundo.
+    const soOnlyfans = await relatorio(eventos, { links: ["onlyfans"] });
+    expect(soOnlyfans.funnel).toEqual([
+      { stage: "arrival", visitors: 3 },
+      { stage: "view", visitors: 3 },
+      { stage: "click", visitors: 1, links: [{ linkId: "onlyfans", channel: "onlyfans", visitors: 1, clicks: 1 }] },
+    ]);
+    expect(soOnlyfans.views).toBe(3);
+    expect(soOnlyfans.clicks).toBe(1);
+    expect(new Set(soOnlyfans.events.map((e) => e.visitor)).size).toBe(1);
+    expect(soOnlyfans.events.map((e) => e.type)).toEqual(["click", "view"]);
+    expect(soOnlyfans.events[0].reachedLinks).toEqual(["onlyfans"]);
   });
 });

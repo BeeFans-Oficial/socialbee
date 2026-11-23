@@ -172,6 +172,9 @@ fim, marca-se o que entrou.
       página; `funnel` no relatório, em visitantes por etapa; seção "Até onde
       as pessoas foram" e lista "Passo a passo de cada visitante" (200 passos,
       com a etapa final de cada um).
+- [x] **Funil por link** (sessão de 22/11, PR #60): a etapa de clique abre
+      link a link (visitantes e toques), o visitante mostra em qual link
+      clicou (`reachedLinks`) e o filtro de link recorta o passo a passo.
 
 ### Planos
 
@@ -273,3 +276,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-16 | `feat/dono-da-pagina`, PR #57 | Dono de perfil (migration `DonoDaPagina`, rotas `me/owners`, filtro e grupos na lista), "página" renomeada para "perfil", guia das telas novo e a chegada sem área vazia; 3 testes e2e novos (65 no total). |
 | 2026-11-22 | `feat/analytics-origem-pais-visitantes-eventos`, PR #58 | Analytics: origem real (URL e referrer da página, chegada `arrival`, costura da saída do app), país por IP, visitantes únicos por dia e lista das 100 visitas e cliques mais recentes; domínio próprio `camilinhavale.site` (vhost); 1 e2e + 13 unitários novos (66 e 76). |
 | 2026-11-22 | `feat/funil-no-analytics`, PR #59 | Funil no Analytics: etapas `continue` e `age`, `funnel` e `reached` no relatório, seção "Até onde as pessoas foram" e passo a passo por visitante; correção da campanha perdida num passo sem UTM; 4 unitários novos (80; e2e segue em 66). |
+| 2026-11-22 | `feat/funil-por-link`, PR #60 | Funil e passo a passo por link: `links` na etapa de clique, `reachedLinks` por visitante, filtro de link recorta a lista, plataforma junto do destino; 1 unitário novo (81; e2e segue em 66). |

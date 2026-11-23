@@ -289,6 +289,9 @@ export type Etapa = "arrival" | "continue" | "age" | "view" | "click";
 export interface FunnelStage {
   stage: Etapa;
   visitors: number;
+  /** Só na etapa `click`: visitantes e toques por link. Quem clicou em dois
+   *  links conta nos dois. */
+  links?: Array<{ linkId: string; channel?: string; visitors: number; clicks: number }>;
 }
 
 /** Uma linha da lista de eventos: um passo de uma visitante. Sem nome, sem IP
@@ -297,6 +300,8 @@ export interface ReportEvent {
   type: Etapa;
   /** A etapa mais adiantada a que este visitante chegou no recorte. */
   reached: Etapa;
+  /** Os links em que este visitante clicou, na ordem do primeiro clique. */
+  reachedLinks: string[];
   at: string;
   linkId?: string;
   channel?: string;

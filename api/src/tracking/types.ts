@@ -45,6 +45,10 @@ export type Etapa = (typeof ETAPAS)[number];
 export interface FunnelStage {
   stage: Etapa;
   visitors: number;
+  /** Só na etapa `click`: quantos visitantes clicaram em CADA link. Quem
+   *  clicou em dois links conta nos dois, então a soma pode passar do total
+   *  da etapa. */
+  links?: Array<{ linkId: string; channel?: string; visitors: number; clicks: number }>;
 }
 
 /** Cabeçalhos como o Node os entrega: chaves em minúsculas, valor podendo ser
@@ -169,6 +173,9 @@ export interface ReportEvent {
   type: Etapa;
   /** A etapa mais adiantada a que ESTE visitante chegou no recorte. */
   reached: Etapa;
+  /** Os links em que este visitante clicou no recorte, na ordem do primeiro
+   *  clique em cada um. Vazio para quem não clicou. */
+  reachedLinks: string[];
   at: string;
   linkId?: string;
   channel?: string;
@@ -243,7 +250,8 @@ export interface TrackingReport {
    *  delas no recorte. Vazio quando não houve ninguém. */
   funnel: FunnelStage[];
   /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
-   *  mais antigo, até `MAX_EVENTOS_NA_LISTA`. */
+   *  mais antigo, até `MAX_EVENTOS_NA_LISTA`. Com filtro de link, só os passos
+   *  de quem clicou num dos links escolhidos. */
   events: ReportEvent[];
   filters: ReportFilters;
   options: ReportOptions;
