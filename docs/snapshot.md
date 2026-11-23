@@ -179,6 +179,11 @@ fim, marca-se o que entrou.
       #61): evento `leave` (a página saiu da tela, por `sendBeacon`); por
       etapa, quantos acessaram, quantos pararam e quantos fecharam a página
       ali (`stopped`, `left`); seção redesenhada em faixas que estreitam.
+- [x] **Indicadores, horários e movimento no relatório** (sessão de 22/11,
+      PR #62): `report.kpis` (conversão em pessoas, etapa que mais perde,
+      tempo até o clique, tempo de quem saiu sem clicar, saída do app, links
+      por pessoa, por hora); funil e passo a passo animados; destaque do
+      caminho de um visitante; tour do Analytics com id `analytics-com-funil`.
 
 ### Planos
 
@@ -282,3 +287,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-22 | `feat/funil-no-analytics`, PR #59 | Funil no Analytics: etapas `continue` e `age`, `funnel` e `reached` no relatório, seção "Até onde as pessoas foram" e passo a passo por visitante; correção da campanha perdida num passo sem UTM; 4 unitários novos (80; e2e segue em 66). |
 | 2026-11-22 | `feat/funil-por-link`, PR #60 | Funil e passo a passo por link: `links` na etapa de clique, `reachedLinks` por visitante, filtro de link recorta a lista, plataforma junto do destino; 1 unitário novo (81; e2e segue em 66). |
 | 2026-11-22 | `feat/funil-em-forma-de-funil`, PR #61 | Funil desenhado como funil, com acessaram / pararam / fecharam por etapa; evento `leave` enviado por `sendBeacon` ao a página sair da tela; "Saiu da página" no passo a passo; 2 unitários novos (83; e2e segue em 66). |
+| 2026-11-22 | `feat/indicadores-e-movimento-no-analytics`, PR #62 | Indicadores (`kpis`) e gráfico de horários no Analytics; funil, cartões e passo a passo animados; destaque por visitante; tour do Analytics refeito com os trechos novos; 2 unitários novos (85; e2e segue em 66). |
