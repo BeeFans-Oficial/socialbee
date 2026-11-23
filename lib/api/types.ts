@@ -300,6 +300,25 @@ export interface FunnelStage {
   links?: Array<{ linkId: string; channel?: string; visitors: number; clicks: number }>;
 }
 
+/** Indicadores do recorte. Contam pessoas, como o funil; o que não tem base
+ *  vem `null`, e a tela diz "sem dados" em vez de mostrar zero. */
+export interface ReportKpis {
+  /** De quem abriu a página, quantos clicaram em algum link. */
+  conversion: { visitors: number; clickers: number; rate: number; previousRate: number | null };
+  /** A etapa em que mais gente parou. */
+  biggestDrop: { stage: Etapa; stopped: number; share: number } | null;
+  /** Mediana entre o primeiro passo e o primeiro clique. */
+  timeToClick: { medianMs: number; sample: number } | null;
+  /** Mediana do tempo na página de quem saiu sem clicar. */
+  timeBeforeLeaving: { medianMs: number; sample: number } | null;
+  /** De quem abriu dentro de um app, quantos tocaram em "continuar". */
+  appExit: { arrived: number; continued: number; rate: number } | null;
+  /** Em média, em quantos links diferentes clicou quem clicou. */
+  linksPerClicker: number;
+  /** Por hora do dia, em UTC (24 posições). */
+  byHour: { views: number[]; clicks: number[] };
+}
+
 /** Uma linha da lista de eventos: um passo de uma visitante. Sem nome, sem IP
  *  inteiro — a API não tem nenhum dos dois. */
 export interface ReportEvent {
@@ -360,6 +379,7 @@ export interface TrackingReport {
   /** Quantos visitantes chegaram a cada etapa; quem está numa conta nas
    *  anteriores. Vazio quando não houve ninguém. */
   funnel: FunnelStage[];
+  kpis: ReportKpis;
   /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
    *  mais antigo (até 200). */
   events: ReportEvent[];

@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUpRight, DoorOpen, Eye, LogOut, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
@@ -14,6 +14,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { BarraDeFiltros, type Periodo } from "@/components/painel/analytics/BarraDeFiltros";
+import { Funil } from "@/components/painel/analytics/Funil";
+import { Horarios, Indicadores } from "@/components/painel/analytics/Indicadores";
+import { ETAPA, nomeDaPlataforma } from "@/components/painel/analytics/rotulos";
 import { Esqueleto } from "@/components/painel/Esqueleto";
 import { StatsCard } from "@/components/painel/StatsCard";
 import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
@@ -21,9 +24,8 @@ import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro } from "@/components/shared/SeloPro";
 import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
-import type { Etapa, FunnelStage, ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
-import { PLATFORMS } from "@/lib/catalog";
-import { ITEM_DA_LISTA, LISTA } from "@/lib/movimento";
+import type { Etapa, ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
+import { CROSSFADE, ITEM_DA_LISTA, LISTA, MOLA, SUAVE } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
 /**
@@ -72,21 +74,6 @@ const NOME_DO_APP: Record<string, string> = {
   instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", twitter: "X", snapchat: "Snapchat",
   linkedin: "LinkedIn", pinterest: "Pinterest", telegram: "Telegram", line: "Line", kakao: "Kakao", wechat: "WeChat",
 };
-
-/** O que a visitante fez em cada etapa, e como dizer que ela parou ali. */
-const ETAPA: Record<Etapa, { fez: string; parou: string }> = {
-  arrival: { fez: "Abriu a página", parou: "Só abriu a página" },
-  continue: { fez: "Tocou em continuar", parou: "Parou depois de continuar" },
-  age: { fez: "Passou pela barreira 18+", parou: "Parou depois da barreira 18+" },
-  view: { fez: "Viu os links", parou: "Viu os links e não clicou" },
-  click: { fez: "Clicou em um link", parou: "Clicou em um link" },
-};
-
-/** `telegram` → `Telegram`. Canal fora do catálogo (ou "custom") fica sem nome. */
-function nomeDaPlataforma(canal?: string): string | undefined {
-  if (!canal || canal === "custom") return undefined;
-  return PLATFORMS.find((p) => p.id === canal)?.label;
-}
 
 /** "Clicou em Telegram VIP", "…em A e B", "…em A e mais 2": em QUAL link, que
  *  é o que distingue quem foi ao Telegram de quem foi ao OnlyFans. */
@@ -406,10 +393,27 @@ function Analytics() {
       {/* Coreografia do relatório, como a skill recomenda para painéis: os
           cartões de métrica chegam primeiro, em escada, com os números
           contando; o gráfico desenha em seguida; as tabelas por último. */}
-      <motion.div variants={LISTA} initial="initial" animate="animate" className={cn("space-y-8 transition-opacity", loading && "opacity-60")}>
+      {/* Trocar um filtro busca de novo: uma linha corre no topo do relatório
+          enquanto os números antigos esperam, apagados, pelos novos. */}
+      <div className="relative h-0.5 -mt-4 mb-4 overflow-hidden rounded-full" aria-hidden>
+        <AnimatePresence>
+          {loading && (
+            <motion.div key="buscando" variants={CROSSFADE} initial="initial" animate="animate" exit="exit" className="absolute inset-0 bg-white/[0.04]">
+              <motion.div
+                className="absolute inset-y-0 w-1/3 rounded-full bg-gradient-to-r from-transparent via-bee-pink to-transparent"
+                initial={{ x: "-100%" }}
+                animate={{ x: "300%" }}
+                transition={{ duration: 1.1, ease: "easeInOut", repeat: Infinity }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <motion.div variants={LISTA} initial="initial" animate="animate" className={cn("space-y-8 transition-opacity duration-200", loading && "opacity-60")}>
         {/* Métricas, comparadas com a janela anterior de mesmo tamanho. */}
         <motion.div variants={LISTA} data-tour="metricas" className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <motion.div variants={ITEM_DA_LISTA}>
+          <motion.div variants={ITEM_DA_LISTA} whileHover={{ y: -3 }} transition={MOLA}>
             <StatsCard
               icon={Eye}
               iconBg="rgba(255, 60, 110, 0.15)"
@@ -423,7 +427,7 @@ function Analytics() {
           {/* Pessoas, e não eventos: a mesma pessoa abrindo a página três vezes
               no dia são três visualizações e um visitante. Contado por dia —
               quem volta amanhã soma de novo. */}
-          <motion.div variants={ITEM_DA_LISTA}>
+          <motion.div variants={ITEM_DA_LISTA} whileHover={{ y: -3 }} transition={MOLA}>
             <StatsCard
               icon={Users}
               iconBg="rgba(91, 141, 239, 0.15)"
@@ -434,7 +438,7 @@ function Analytics() {
               changeType={vVisitantes.tipo}
             />
           </motion.div>
-          <motion.div variants={ITEM_DA_LISTA}>
+          <motion.div variants={ITEM_DA_LISTA} whileHover={{ y: -3 }} transition={MOLA}>
             <StatsCard
               icon={MousePointer2}
               iconBg="rgba(255, 160, 60, 0.15)"
@@ -447,7 +451,7 @@ function Analytics() {
           </motion.div>
           {/* Agnóstico de propósito: mede tráfego preso em QUALQUER navegador
               embutido, não só Instagram. É o número que justifica o escape. */}
-          <motion.div variants={ITEM_DA_LISTA}>
+          <motion.div variants={ITEM_DA_LISTA} whileHover={{ y: -3 }} transition={MOLA}>
             <StatsCard
               icon={Smartphone}
               iconBg="rgba(225, 48, 108, 0.15)"
@@ -458,7 +462,7 @@ function Analytics() {
               changeType={vInApp.tipo}
             />
           </motion.div>
-          <motion.div variants={ITEM_DA_LISTA}>
+          <motion.div variants={ITEM_DA_LISTA} whileHover={{ y: -3 }} transition={MOLA}>
             <StatsCard
               icon={TrendingUp}
               iconBg="rgba(100, 220, 100, 0.15)"
@@ -470,6 +474,13 @@ function Analytics() {
             />
           </motion.div>
         </motion.div>
+
+        {/* Indicadores: a leitura pronta, antes do detalhe. */}
+        {hasTraffic && (
+          <motion.div variants={ITEM_DA_LISTA}>
+            <Indicadores kpis={report.kpis} />
+          </motion.div>
+        )}
 
         {/* Funil: até onde as pessoas foram. */}
         {report.funnel.length > 0 && (
@@ -555,6 +566,12 @@ function Analytics() {
             </div>
           </div>
         </motion.section>
+
+        {hasTraffic && (
+          <motion.div variants={ITEM_DA_LISTA}>
+            <Horarios porHora={report.kpis.byHour} />
+          </motion.div>
+        )}
 
         {!hasTraffic && (
           <motion.div variants={ITEM_DA_LISTA} data-tour="sem-trafego" className="rounded-xl border border-bee-border bg-bee-surface px-6 py-10 text-center">
@@ -743,75 +760,139 @@ function Analytics() {
             que toca num link está identificado —, mas mostra tudo o que foi
             medido de cada visita e clique. */}
         {report.events.length > 0 && (
-          <motion.section variants={ITEM_DA_LISTA} className="bg-bee-surface rounded-xl p-6 border border-white/5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-              <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
-              <span className="text-xs text-bee-muted">
-                {report.events.length >= 200 ? "os 200 passos mais recentes" : `${report.events.length} passos no recorte`}
-              </span>
-            </div>
-            <p className="text-xs text-bee-muted mb-5 max-w-2xl">
-              Cada linha é um passo. O código em Visitante repete nas linhas da mesma pessoa no mesmo dia,
-              e embaixo dele está até onde ela foi. Ele não identifica ninguém: nome, perfil e telefone de
-              quem visita nunca chegam à página.
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[760px]">
-                <thead>
-                  <tr className="border-b border-white/5">
-                    {["Quando", "Evento", "Origem", "Aparelho", "País", "Rede", "Visitante"].map((coluna) => (
-                      <th key={coluna} className="text-left text-xs font-medium text-bee-muted pb-3 pr-4">{coluna}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.events.map((evento, index) => (
-                    <LinhaDeEvento
-                      key={`${evento.at}-${evento.type}-${index}`}
-                      evento={evento}
-                      titulo={evento.linkId ? linkTitles.get(evento.linkId) : undefined}
-                      ateOnde={
-                        evento.reached === "click"
-                          ? ondeClicou(evento.reachedLinks, (id) => linkTitles.get(id) ?? "link removido")
-                          : ETAPA[evento.reached].parou
-                      }
-                      zebrada={index % 2 === 1}
-                    />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </motion.section>
+          <motion.div variants={ITEM_DA_LISTA}>
+            <PassoAPasso eventos={report.events} titulo={(id) => linkTitles.get(id)} />
+          </motion.div>
         )}
       </motion.div>
     </Tela>
   );
 }
 
-function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEvent; titulo?: string; ateOnde: string; zebrada: boolean }) {
+/**
+ * O passo a passo, linha por linha.
+ *
+ * Passar o mouse numa linha acende todas as linhas da mesma pessoa: é o jeito
+ * de ler o caminho dela no meio dos outros. Tocar no código do visitante fixa
+ * o destaque (no celular não existe hover) e tocar de novo solta.
+ *
+ * As primeiras linhas chegam em cascata de 20 ms quando a tabela entra na
+ * tela; o resto já nasce no lugar — animar 200 linhas seria ruído, e a escada
+ * passaria de meio segundo.
+ */
+function PassoAPasso({ eventos, titulo }: { eventos: ReportEvent[]; titulo: (linkId: string) => string | undefined }) {
+  const [sobre, setSobre] = useState<string | null>(null);
+  const [fixado, setFixado] = useState<string | null>(null);
+  const emFoco = sobre ?? fixado;
+
+  return (
+    <section data-tour="passo-a-passo" className="bg-bee-surface rounded-xl p-6 border border-bee-line">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+        <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
+        <span className="text-xs text-bee-muted">
+          {eventos.length >= 200 ? "os 200 passos mais recentes" : `${eventos.length} passos no recorte`}
+        </span>
+      </div>
+      <p className="text-xs text-bee-muted mb-5 max-w-2xl">
+        Cada linha é um passo. O código em Visitante repete nas linhas da mesma pessoa no mesmo dia,
+        e embaixo dele está até onde ela foi. Toque no código para destacar o caminho dela. Ele não
+        identifica ninguém: nome, perfil e telefone de quem visita nunca chegam à página.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px]">
+          <thead>
+            <tr className="border-b border-white/5">
+              {["Quando", "Evento", "Origem", "Aparelho", "País", "Rede", "Visitante"].map((coluna) => (
+                <th key={coluna} className="text-left text-xs font-medium text-bee-muted pb-3 pr-4 first:pl-2">{coluna}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody onMouseLeave={() => setSobre(null)}>
+            {eventos.map((evento, index) => (
+              <LinhaDeEvento
+                key={`${evento.at}-${evento.type}-${index}`}
+                evento={evento}
+                titulo={evento.linkId ? titulo(evento.linkId) : undefined}
+                ateOnde={
+                  evento.reached === "click"
+                    ? ondeClicou(evento.reachedLinks, (id) => titulo(id) ?? "link removido")
+                    : ETAPA[evento.reached].parou
+                }
+                indice={index}
+                destaque={emFoco === null ? "nenhum" : emFoco === evento.visitor ? "esta" : "outra"}
+                fixada={fixado === evento.visitor}
+                onSobre={() => setSobre(evento.visitor)}
+                onFixar={() => setFixado((atual) => (atual === evento.visitor ? null : evento.visitor))}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+/** Quantas linhas entram em cascata; as demais já nascem no lugar. */
+const LINHAS_EM_CASCATA = 14;
+
+function LinhaDeEvento({
+  evento,
+  titulo,
+  ateOnde,
+  indice,
+  destaque,
+  fixada,
+  onSobre,
+  onFixar,
+}: {
+  evento: ReportEvent;
+  titulo?: string;
+  ateOnde: string;
+  indice: number;
+  destaque: "nenhum" | "esta" | "outra";
+  fixada: boolean;
+  onSobre: () => void;
+  onFixar: () => void;
+}) {
   const destino = [nomeDaPlataforma(evento.channel), evento.destinationHost].filter(Boolean).join(" · ");
   const clique = evento.type === "click";
   const saida = evento.type === "leave";
   const Icone = clique ? MousePointer2 : saida ? LogOut : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
   const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
   const campanha = [evento.medium, evento.campaign].filter(Boolean).join(" · ");
+  const emCascata = indice < LINHAS_EM_CASCATA;
   return (
-    <tr className={cn("border-b border-white/5 align-top", zebrada && "bg-white/[0.02]")}>
-      <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap tabular-nums">{dataEHora(evento.at)}</td>
+    <motion.tr
+      // A entrada (só nas primeiras linhas) é do `motion`; apagar e acender
+      // no destaque é CSS, para as duas coisas não disputarem a opacidade.
+      initial={emCascata ? { y: 8 } : false}
+      whileInView={{ y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.24, ease: SUAVE, delay: emCascata ? indice * 0.02 : 0 }}
+      onMouseEnter={onSobre}
+      className={cn(
+        "border-b border-white/5 align-top transition-[opacity,background-color] duration-150",
+        destaque === "outra" && "opacity-45",
+        destaque === "esta" ? "bg-bee-pink/[0.07]" : indice % 2 === 1 && "bg-white/[0.02]",
+      )}
+    >
+      <td className={cn("py-3 pr-4 pl-2 text-sm text-white/80 whitespace-nowrap tabular-nums border-l-2 transition-colors duration-150", destaque === "esta" ? "border-bee-pink" : "border-transparent")}>
+        {dataEHora(evento.at)}
+      </td>
       <td className="py-3 pr-4">
         <div className="flex items-center gap-2 text-sm text-white">
           <Icone className={cn("w-3.5 h-3.5 flex-shrink-0", clique ? "text-bee-pink" : "text-white/40")} />
           <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : saida ? "Saiu da página" : ETAPA[evento.type as Etapa].fez}</span>
         </div>
         {clique && destino && (
-          <div className="mt-0.5 pl-[22px] text-xs text-bee-dim truncate max-w-[220px]">{destino}</div>
+          <div className="mt-0.5 pl-[22px] text-xs text-bee-muted truncate max-w-[220px]">{destino}</div>
         )}
       </td>
       <td className="py-3 pr-4">
         <div className="text-sm text-white truncate max-w-[160px]" title={evento.source}>{evento.source}</div>
-        {campanha && <div className="mt-0.5 text-xs text-bee-dim truncate max-w-[160px]" title={campanha}>{campanha}</div>}
+        {campanha && <div className="mt-0.5 text-xs text-bee-muted truncate max-w-[160px]" title={campanha}>{campanha}</div>}
         {evento.clickIds.length > 0 && (
-          <div className="mt-0.5 text-xs text-bee-dim truncate max-w-[160px]" title="Identificador de anúncio presente no link">
+          <div className="mt-0.5 text-xs text-bee-muted truncate max-w-[160px]" title="Identificador de anúncio presente no link">
             {evento.clickIds.join(", ")}
           </div>
         )}
@@ -825,174 +906,26 @@ function LinhaDeEvento({ evento, titulo, ateOnde, zebrada }: { evento: ReportEve
       <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap">{evento.country ? nomeDoPais(evento.country) : "—"}</td>
       <td className="py-3 pr-4 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.network ?? "—"}</td>
       <td className="py-3 whitespace-nowrap">
-        <div className="text-xs text-bee-muted font-mono">{evento.visitor}</div>
+        <button
+          type="button"
+          onClick={onFixar}
+          aria-pressed={fixada}
+          title={fixada ? "Soltar o destaque" : "Destacar o caminho desta pessoa"}
+          className={cn(
+            "-mx-1.5 px-1.5 py-1 rounded text-xs font-mono transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink",
+            fixada ? "bg-bee-pink/20 text-white" : "text-bee-muted hover:text-white hover:bg-white/[0.06]",
+          )}
+        >
+          {evento.visitor}
+        </button>
         <div
-          className={cn("mt-0.5 text-xs truncate max-w-[220px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-dim")}
+          className={cn("mt-0.5 text-xs truncate max-w-[220px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-muted")}
           title={ateOnde}
         >
           {ateOnde}
         </div>
       </td>
-    </tr>
-  );
-}
-
-/**
- * O funil, em forma de funil: cada etapa é uma faixa que estreita até a
- * largura da seguinte, e ao lado dela os três números que respondem "onde a
- * página perde gente" —
- *
- *   Acessaram   quantas pessoas chegaram à etapa;
- *   Pararam     quantas chegaram e não foram adiante;
- *   Fecharam    das que pararam, quantas saíram da página ali.
- *
- * "Fecharam" vem do evento de saída (a página deixou de estar na tela). O
- * navegador não separa fechar a aba de voltar ao aplicativo ou trocar de aba,
- * então o número junta os três. A diferença para "Pararam" é quem parou sem
- * saída registrada: página ainda aberta, ou visita anterior a esse registro.
- */
-function Funil({
-  etapas,
-  titulo,
-  linkAtivo,
-  onLink,
-}: {
-  etapas: FunnelStage[];
-  titulo: (linkId: string) => string;
-  linkAtivo: string;
-  onLink: (linkId: string) => void;
-}) {
-  const total = etapas[0]?.visitors ?? 0;
-  /** Quem viu os links: a base certa para "de cada 10 que viram, quantos
-   *  foram a este link". */
-  const viram = etapas.find((e) => e.stage === "view")?.visitors ?? 0;
-  /** Largura da faixa, em % da primeira. O piso mantém a ponta do funil
-   *  visível quando sobra pouca gente. */
-  const largura = (visitantes: number) => (total ? Math.max((visitantes / total) * 100, 10) : 10);
-
-  return (
-    <section className="bg-bee-surface rounded-xl p-6 border border-white/5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
-        <h2 className="text-xl text-white font-semibold">Até onde as pessoas foram</h2>
-        <span className="text-xs text-bee-muted">visitantes únicos, por dia</span>
-      </div>
-      <p className="text-xs text-bee-muted mb-6 max-w-2xl">
-        Em cada etapa: quantas pessoas chegaram, quantas pararam nela e, dessas, quantas fecharam ou
-        saíram da página ali.
-      </p>
-
-      {/* Cabeçalho das colunas, só onde elas ficam lado a lado. */}
-      <div className="hidden md:grid grid-cols-[minmax(0,1fr)_repeat(3,104px)] gap-x-3 mb-2 text-[11px] uppercase tracking-[0.08em] text-bee-muted">
-        <span />
-        <span className="text-right">Acessaram</span>
-        <span className="text-right">Pararam aqui</span>
-        <span className="text-right">Fecharam a página</span>
-      </div>
-
-      <ol>
-        {etapas.map((etapa, i) => {
-          const ultima = i === etapas.length - 1;
-          const topo = largura(etapa.visitors);
-          const base = ultima ? topo : largura(etapas[i + 1].visitors);
-          // Do cinza ao rosa: a cor acompanha o caminho até o clique.
-          const forca = etapas.length > 1 ? i / (etapas.length - 1) : 1;
-          const semSaida = etapa.stopped - etapa.left;
-          return (
-            <li key={etapa.stage} className="md:grid md:grid-cols-[minmax(0,1fr)_repeat(3,104px)] md:gap-x-3 md:items-center">
-              <div className="relative h-[68px]">
-                <motion.div
-                  className="absolute inset-0"
-                  initial={{ opacity: 0, scaleX: 0.6 }}
-                  animate={{ opacity: 1, scaleX: 1 }}
-                  transition={{ duration: 0.5, delay: 0.1 + i * 0.08 }}
-                  style={{
-                    clipPath: `polygon(${50 - topo / 2}% 0, ${50 + topo / 2}% 0, ${50 + base / 2}% 100%, ${50 - base / 2}% 100%)`,
-                    background: `linear-gradient(180deg, rgba(255, 60, 110, ${0.22 + forca * 0.6}), rgba(255, 60, 110, ${0.16 + forca * 0.6}))`,
-                  }}
-                />
-                {/* O texto fica fora do recorte: numa faixa estreita ele passa
-                    das bordas e continua legível sobre o fundo. */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
-                  <span className="text-sm text-white font-medium [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">{ETAPA[etapa.stage].fez}</span>
-                  <span className="text-xs text-white/80 tabular-nums [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
-                    {formatNumber(etapa.visitors)} · {total ? Math.round((etapa.visitors / total) * 100) : 0}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Os três números. No celular, em linha, embaixo da faixa. */}
-              <div className="grid grid-cols-3 gap-2 py-2 md:contents">
-                <Numero rotulo="Acessaram" valor={formatNumber(etapa.visitors)} />
-                <Numero
-                  rotulo="Pararam"
-                  valor={ultima ? "—" : formatNumber(etapa.stopped)}
-                  nota={!ultima && etapa.visitors > 0 && etapa.stopped > 0 ? `${Math.round((etapa.stopped / etapa.visitors) * 100)}% da etapa` : undefined}
-                  alerta={!ultima && etapa.stopped > 0}
-                />
-                <Numero
-                  rotulo="Fecharam"
-                  valor={ultima ? "—" : formatNumber(etapa.left)}
-                  nota={!ultima && semSaida > 0 ? `${formatNumber(semSaida)} sem saída registrada` : undefined}
-                />
-              </div>
-
-              {/* A última etapa, link a link: em QUAL link clicaram. Tocar numa
-                  linha recorta o relatório por ele. */}
-              {etapa.links && etapa.links.length > 0 && (
-                <ul className="md:col-span-4 mt-3 pl-4 border-l border-white/10 space-y-1">
-                  {etapa.links.map((link) => {
-                    const dosQueViram = viram ? Math.round((link.visitors / viram) * 100) : 0;
-                    return (
-                      <li key={link.linkId}>
-                        <button
-                          type="button"
-                          onClick={() => onLink(link.linkId)}
-                          title={linkAtivo === link.linkId ? "Tirar o filtro deste link" : "Filtrar por este link"}
-                          className={cn(
-                            "w-full flex items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.04]",
-                            linkAtivo === link.linkId && "bg-bee-pink/10",
-                          )}
-                        >
-                          <IconeDePlataforma plataforma={link.channel ?? ""} className="w-4 h-4 text-white/50 flex-shrink-0" />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-sm text-white truncate">{titulo(link.linkId)}</span>
-                            <span className="block text-xs text-bee-dim">
-                              {[nomeDaPlataforma(link.channel), `${formatNumber(link.clicks)} ${link.clicks === 1 ? "toque" : "toques"}`]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </span>
-                          </span>
-                          <span className="text-sm text-white tabular-nums whitespace-nowrap text-right flex-shrink-0">
-                            {formatNumber(link.visitors)} {link.visitors === 1 ? "pessoa" : "pessoas"}
-                            <span className="block sm:inline sm:ml-2 text-xs text-bee-muted">{dosQueViram}% de quem viu</span>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </li>
-          );
-        })}
-      </ol>
-
-      <p className="mt-5 text-xs text-bee-dim max-w-2xl">
-        "Fecharam a página" junta fechar a aba, voltar ao aplicativo e trocar de aba: o navegador não diz qual
-        foi. Só existe nas visitas a partir de 22/11/2026.
-      </p>
-    </section>
-  );
-}
-
-/** Um número do funil. No computador o rótulo está no cabeçalho da coluna. */
-function Numero({ rotulo, valor, nota, alerta }: { rotulo: string; valor: string; nota?: string; alerta?: boolean }) {
-  return (
-    <div className="md:text-right">
-      <div className="md:hidden text-[10px] uppercase tracking-[0.06em] text-bee-muted">{rotulo}</div>
-      <div className={cn("text-lg font-semibold tabular-nums", alerta ? "text-amber-200" : "text-white")}>{valor}</div>
-      {nota && <div className="text-[11px] leading-tight text-bee-dim">{nota}</div>}
-    </div>
+    </motion.tr>
   );
 }
 

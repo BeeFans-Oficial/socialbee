@@ -25,6 +25,7 @@ import type {
   HeaderBag,
   LinkReport,
   ReportEvent,
+  ReportKpis,
   ResolvedLink,
   TrackingEventRecord,
   TrackingReport,
@@ -197,16 +198,10 @@ export class TrackingService {
       countries: distintos(contados, (r) => r.event.client.country),
     };
 
-    const { views, clicks } = separar(aplicarFiltros(contados, filters), filters);
-    // O caminho inteiro, com os mesmos recortes: as etapas que não entram nos
-    // totais (chegada, continuar, 18+) e as visitas e cliques já filtrados.
-    const passos = [
-      ...aplicarFiltros(resolvidos, filters).filter((r) => !["view", "click"].includes(r.event.type) && etapaDe(r) !== undefined),
-      ...views,
-      ...clicks,
-    ];
+    const filtrados = aplicarFiltros(resolvidos, filters);
+    const { views, clicks, passos } = caminho(filtrados, filters);
     const alcance = alcancePorVisitante(passos);
-    const saidas = aplicarFiltros(resolvidos, filters).filter((r) => r.event.type === SAIDA);
+    const saidas = filtrados.filter((r) => r.event.type === SAIDA);
     const sairam = quemSaiuOndeParou(passos, saidas, alcance);
     const clicados = linksPorVisitante(clicks);
     // Com filtro de link, a lista vira o caminho de quem clicou NELE: os
@@ -215,7 +210,8 @@ export class TrackingService {
     // ao link escolhido.
     const comSaidas = [...passos, ...saidas];
     const passosDaLista = filters.links?.length ? comSaidas.filter((r) => clicados.has(r.visitante)) : comSaidas;
-    const janelaAnterior = separar(aplicarFiltros(resolver(eventosAnteriores), filters), filters);
+    const janelaAnterior = caminho(aplicarFiltros(resolver(eventosAnteriores), filters), filters);
+    const etapas = funil(passos, alcance, clicks, sairam);
 
     const botHits = Object.values(counters).reduce((sum, counter) => sum + counter.botHits, 0);
     const emApp = (lista: Resolvido[]) => lista.filter((r) => r.event.client.inAppBrowser).length;
@@ -253,7 +249,8 @@ export class TrackingService {
         inAppClicks: emApp(janelaAnterior.clicks),
         clickRate: janelaAnterior.views.length ? janelaAnterior.clicks.length / janelaAnterior.views.length : 0,
       },
-      funnel: funil(passos, alcance, clicks, sairam),
+      funnel: etapas,
+      kpis: indicadores({ etapas, passos, views, clicks, saidas, alcance, clicados, anterior: alcancePorVisitante(janelaAnterior.passos) }),
       events: [...passosDaLista]
         .sort((x, y) => y.event.occurredAt.getTime() - x.event.occurredAt.getTime())
         .slice(0, MAX_EVENTOS_NA_LISTA)
@@ -503,6 +500,85 @@ function funil(
 }
 
 /**
+ * Os indicadores do recorte (ver `ReportKpis`).
+ *
+ * Saem do que o funil já montou: nenhuma leitura nova, nenhum evento novo. A
+ * conversão é "de quem abriu, quantos clicaram", em pessoas — diferente de
+ * "cliques por visita", que divide eventos e passa de 1 quando alguém toca em
+ * três links.
+ */
+function indicadores(dados: {
+  etapas: FunnelStage[];
+  passos: Resolvido[];
+  views: Resolvido[];
+  clicks: Resolvido[];
+  saidas: Resolvido[];
+  alcance: Map<string, number>;
+  clicados: Map<string, string[]>;
+  /** O alcance por visitante da janela anterior, para comparar a conversão. */
+  anterior: Map<string, number>;
+}): ReportKpis {
+  const { etapas, passos, views, clicks, saidas, alcance, clicados, anterior } = dados;
+  const CLIQUE = ETAPAS.indexOf("click");
+  const taxa = (mapa: Map<string, number>) => {
+    const clicaram = [...mapa.values()].filter((n) => n >= CLIQUE).length;
+    return { visitors: mapa.size, clickers: clicaram, rate: mapa.size ? clicaram / mapa.size : 0 };
+  };
+  const agora = taxa(alcance);
+
+  // Empate fica com a etapa mais cedo: é a primeira que vale consertar.
+  const pior = etapas.reduce<FunnelStage | null>((p, e) => (e.stopped > (p?.stopped ?? 0) ? e : p), null);
+
+  const primeiroPasso = new Map<string, number>();
+  const primeiroClique = new Map<string, number>();
+  for (const r of passos) {
+    const em = r.event.occurredAt.getTime();
+    if (em < (primeiroPasso.get(r.visitante) ?? Infinity)) primeiroPasso.set(r.visitante, em);
+    if (r.event.type === "click" && em < (primeiroClique.get(r.visitante) ?? Infinity)) primeiroClique.set(r.visitante, em);
+  }
+  const ateOClique = [...primeiroClique].map(([v, em]) => em - (primeiroPasso.get(v) ?? em));
+
+  const ultimaSaida = new Map<string, number>();
+  for (const r of saidas) {
+    const em = r.event.occurredAt.getTime();
+    if (em > (ultimaSaida.get(r.visitante) ?? -Infinity)) ultimaSaida.set(r.visitante, em);
+  }
+  const antesDeSair = [...ultimaSaida]
+    .filter(([v]) => primeiroPasso.has(v) && !primeiroClique.has(v))
+    .map(([v, em]) => em - primeiroPasso.get(v)!)
+    .filter((ms) => ms >= 0);
+
+  const chegaramNoApp = new Set(passos.filter((r) => r.event.type === "arrival" && r.event.client.inAppBrowser).map((r) => r.visitante));
+  const continuaram = new Set(passos.filter((r) => r.event.type === "continue").map((r) => r.visitante));
+  // Quem continuou esteve no app, mesmo que a chegada dela não tenha sido gravada.
+  const noApp = new Set([...chegaramNoApp, ...continuaram]);
+
+  const porHora = (lista: Resolvido[]) => {
+    const horas = new Array<number>(24).fill(0);
+    for (const r of lista) horas[r.event.occurredAt.getUTCHours()] += 1;
+    return horas;
+  };
+
+  const links = [...clicados.values()].map((l) => l.length);
+
+  return {
+    conversion: { ...agora, previousRate: anterior.size ? taxa(anterior).rate : null },
+    biggestDrop: pior && agora.visitors ? { stage: pior.stage, stopped: pior.stopped, share: pior.stopped / agora.visitors } : null,
+    timeToClick: ateOClique.length ? { medianMs: mediana(ateOClique), sample: ateOClique.length } : null,
+    timeBeforeLeaving: antesDeSair.length ? { medianMs: mediana(antesDeSair), sample: antesDeSair.length } : null,
+    appExit: continuaram.size ? { arrived: noApp.size, continued: continuaram.size, rate: continuaram.size / noApp.size } : null,
+    linksPerClicker: links.length ? links.reduce((a, b) => a + b, 0) / links.length : 0,
+    byHour: { views: porHora(views), clicks: porHora(clicks) },
+  };
+}
+
+function mediana(valores: number[]): number {
+  const v = [...valores].sort((a, b) => a - b);
+  const meio = Math.floor(v.length / 2);
+  return v.length % 2 ? v[meio] : Math.round((v[meio - 1] + v[meio]) / 2);
+}
+
+/**
  * Quem saiu da página na etapa em que parou.
  *
  * Vale a saída registrada DEPOIS de a pessoa chegar à etapa mais adiantada
@@ -657,6 +733,17 @@ function aplicarFiltros(lista: Resolvido[], f: ReportFilters): Resolvido[] {
     if (f.inApp === false && event.client.inAppBrowser) return false;
     return true;
   });
+}
+
+/**
+ * O caminho inteiro de um recorte já filtrado: as visitas e os cliques (que
+ * contam nos totais) e, em `passos`, eles mais as etapas que não contam
+ * (chegada, continuar, 18+). A saída fica de fora: não é etapa.
+ */
+function caminho(filtrados: Resolvido[], f: ReportFilters): { views: Resolvido[]; clicks: Resolvido[]; passos: Resolvido[] } {
+  const { views, clicks } = separar(filtrados, f);
+  const outras = filtrados.filter((r) => !["view", "click"].includes(r.event.type) && etapaDe(r) !== undefined);
+  return { views, clicks, passos: [...outras, ...views, ...clicks] };
 }
 
 /** Visitas e cliques; o filtro de link só corta os cliques. A chegada
