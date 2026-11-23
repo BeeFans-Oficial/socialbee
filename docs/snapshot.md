@@ -184,6 +184,10 @@ fim, marca-se o que entrou.
       tempo até o clique, tempo de quem saiu sem clicar, saída do app, links
       por pessoa, por hora); funil e passo a passo animados; destaque do
       caminho de um visitante; tour do Analytics com id `analytics-com-funil`.
+- [x] **Paginação no passo a passo** (sessão de 23/11, PR #63): a lista vem
+      em páginas de 25, trocadas no navegador, sobre os 1000 passos mais
+      recentes do recorte (antes, 200); `report.eventsTotal` diz quantos o
+      recorte tem ao todo.
 
 ### Planos
 
@@ -288,3 +292,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-22 | `feat/funil-por-link`, PR #60 | Funil e passo a passo por link: `links` na etapa de clique, `reachedLinks` por visitante, filtro de link recorta a lista, plataforma junto do destino; 1 unitário novo (81; e2e segue em 66). |
 | 2026-11-22 | `feat/funil-em-forma-de-funil`, PR #61 | Funil desenhado como funil, com acessaram / pararam / fecharam por etapa; evento `leave` enviado por `sendBeacon` ao a página sair da tela; "Saiu da página" no passo a passo; 2 unitários novos (83; e2e segue em 66). |
 | 2026-11-22 | `feat/indicadores-e-movimento-no-analytics`, PR #62 | Indicadores (`kpis`) e gráfico de horários no Analytics; funil, cartões e passo a passo animados; destaque por visitante; tour do Analytics refeito com os trechos novos; 2 unitários novos (85; e2e segue em 66). |
+| 2026-11-23 | `feat/paginacao-do-passo-a-passo`, PR #63 | Passo a passo do Analytics em páginas de 25 sobre os 1000 passos mais recentes; `eventsTotal` no relatório; rodapé com páginas numeradas; 1 unitário novo (86; e2e segue em 66). |
