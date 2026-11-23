@@ -1,9 +1,9 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, DoorOpen, Eye, LogOut, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, DoorOpen, Eye, LogOut, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -761,7 +761,7 @@ function Analytics() {
             medido de cada visita e clique. */}
         {report.events.length > 0 && (
           <motion.div variants={ITEM_DA_LISTA}>
-            <PassoAPasso eventos={report.events} titulo={(id) => linkTitles.get(id)} />
+            <PassoAPasso eventos={report.events} total={report.eventsTotal} titulo={(id) => linkTitles.get(id)} />
           </motion.div>
         )}
       </motion.div>
@@ -777,20 +777,48 @@ function Analytics() {
  * o destaque (no celular não existe hover) e tocar de novo solta.
  *
  * As primeiras linhas chegam em cascata de 20 ms quando a tabela entra na
- * tela; o resto já nasce no lugar — animar 200 linhas seria ruído, e a escada
- * passaria de meio segundo.
+ * tela; o resto já nasce no lugar — animar a página inteira seria ruído, e a
+ * escada passaria de meio segundo.
+ *
+ * ## Paginação
+ *
+ * 25 passos por página. A API manda de uma vez os passos mais recentes do
+ * recorte (até 1000), e a troca de página acontece aqui, sem nova busca: é
+ * instantânea e o destaque de um visitante continua valendo de uma página
+ * para a outra. Trocar um filtro volta à primeira página. Quando o recorte
+ * tem mais passos do que vieram, o cabeçalho diz quantos ficaram de fora.
  */
-function PassoAPasso({ eventos, titulo }: { eventos: ReportEvent[]; titulo: (linkId: string) => string | undefined }) {
+const PASSOS_POR_PAGINA = 25;
+
+function PassoAPasso({ eventos, total, titulo }: { eventos: ReportEvent[]; total: number; titulo: (linkId: string) => string | undefined }) {
   const [sobre, setSobre] = useState<string | null>(null);
   const [fixado, setFixado] = useState<string | null>(null);
   const emFoco = sobre ?? fixado;
+  const secao = useRef<HTMLElement>(null);
+
+  const paginas = Math.max(1, Math.ceil(eventos.length / PASSOS_POR_PAGINA));
+  const [pagina, setPagina] = useState(1);
+  // Recorte novo, lista nova: a página 7 de antes pode nem existir mais.
+  useEffect(() => setPagina(1), [eventos]);
+  const atual = Math.min(pagina, paginas);
+  const inicio = (atual - 1) * PASSOS_POR_PAGINA;
+  const daPagina = eventos.slice(inicio, inicio + PASSOS_POR_PAGINA);
+
+  const irPara = (n: number) => {
+    setPagina(Math.min(Math.max(n, 1), paginas));
+    // Quem trocou de página no rodapé volta ao topo da tabela.
+    const topo = secao.current?.getBoundingClientRect().top ?? 0;
+    if (topo < 0) secao.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
-    <section data-tour="passo-a-passo" className="bg-bee-surface rounded-xl p-6 border border-bee-line">
+    <section ref={secao} data-tour="passo-a-passo" className="scroll-mt-24 bg-bee-surface rounded-xl p-6 border border-bee-line">
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
         <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
         <span className="text-xs text-bee-muted">
-          {eventos.length >= 200 ? "os 200 passos mais recentes" : `${eventos.length} passos no recorte`}
+          {total > eventos.length
+            ? `os ${formatNumber(eventos.length)} mais recentes de ${formatNumber(total)} passos`
+            : `${formatNumber(eventos.length)} ${eventos.length === 1 ? "passo" : "passos"} no recorte`}
         </span>
       </div>
       <p className="text-xs text-bee-muted mb-5 max-w-2xl">
@@ -807,10 +835,11 @@ function PassoAPasso({ eventos, titulo }: { eventos: ReportEvent[]; titulo: (lin
               ))}
             </tr>
           </thead>
-          <tbody onMouseLeave={() => setSobre(null)}>
-            {eventos.map((evento, index) => (
+          {/* A chave troca com a página: as linhas novas entram em cascata. */}
+          <tbody key={atual} onMouseLeave={() => setSobre(null)}>
+            {daPagina.map((evento, index) => (
               <LinhaDeEvento
-                key={`${evento.at}-${evento.type}-${index}`}
+                key={`${evento.at}-${evento.type}-${inicio + index}`}
                 evento={evento}
                 titulo={evento.linkId ? titulo(evento.linkId) : undefined}
                 ateOnde={
@@ -828,7 +857,71 @@ function PassoAPasso({ eventos, titulo }: { eventos: ReportEvent[]; titulo: (lin
           </tbody>
         </table>
       </div>
+
+      {paginas > 1 && (
+        <nav aria-label="Páginas do passo a passo" className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-bee-muted tabular-nums" aria-live="polite">
+            {formatNumber(inicio + 1)}–{formatNumber(inicio + daPagina.length)} de {formatNumber(eventos.length)}
+          </p>
+          <div className="flex items-center gap-1">
+            <BotaoDePagina rotulo="Página anterior" desligado={atual === 1} onClick={() => irPara(atual - 1)}>
+              <ChevronLeft className="w-4 h-4" aria-hidden />
+            </BotaoDePagina>
+            {janelaDePaginas(atual, paginas).map((n, i) =>
+              n === null ? (
+                <span key={`salto-${i}`} className="w-6 text-center text-xs text-bee-muted" aria-hidden>…</span>
+              ) : (
+                <BotaoDePagina key={n} rotulo={`Página ${n}`} ativo={n === atual} onClick={() => irPara(n)}>
+                  {n}
+                </BotaoDePagina>
+              ),
+            )}
+            <BotaoDePagina rotulo="Próxima página" desligado={atual === paginas} onClick={() => irPara(atual + 1)}>
+              <ChevronRight className="w-4 h-4" aria-hidden />
+            </BotaoDePagina>
+          </div>
+        </nav>
+      )}
     </section>
+  );
+}
+
+/** As páginas que o rodapé mostra: a primeira, a última e as vizinhas da
+ *  atual; `null` é o salto ("…"). Até sete páginas, todas. */
+function janelaDePaginas(atual: number, paginas: number): Array<number | null> {
+  if (paginas <= 7) return Array.from({ length: paginas }, (_, i) => i + 1);
+  const meio = [atual - 1, atual, atual + 1].filter((n) => n > 1 && n < paginas);
+  return [1, ...(meio[0] > 2 ? [null] : []), ...meio, ...(meio[meio.length - 1] < paginas - 1 ? [null] : []), paginas];
+}
+
+function BotaoDePagina({
+  rotulo,
+  ativo,
+  desligado,
+  onClick,
+  children,
+}: {
+  rotulo: string;
+  ativo?: boolean;
+  desligado?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={desligado}
+      aria-label={rotulo}
+      aria-current={ativo ? "page" : undefined}
+      className={cn(
+        "min-w-9 h-9 px-2 rounded-lg text-sm tabular-nums flex items-center justify-center transition-colors active:scale-95",
+        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink disabled:opacity-30 disabled:pointer-events-none",
+        ativo ? "bg-bee-pink text-white font-semibold" : "text-bee-muted hover:text-white hover:bg-white/[0.06]",
+      )}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -919,7 +1012,7 @@ function LinhaDeEvento({
           {evento.visitor}
         </button>
         <div
-          className={cn("mt-0.5 text-xs truncate max-w-[220px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-muted")}
+          className={cn("mt-0.5 text-xs truncate max-w-[170px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-muted")}
           title={ateOnde}
         >
           {ateOnde}

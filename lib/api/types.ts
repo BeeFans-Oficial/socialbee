@@ -381,8 +381,10 @@ export interface TrackingReport {
   funnel: FunnelStage[];
   kpis: ReportKpis;
   /** Os passos mais recentes do recorte (todas as etapas), do mais novo para o
-   *  mais antigo (até 200). */
+   *  mais antigo (até 1000). A tela pagina. */
   events: ReportEvent[];
+  /** Quantos passos o recorte tem ao todo; `events` traz os mais recentes. */
+  eventsTotal: number;
   filters: ReportFilters;
   /** O que existe para filtrar na janela, antes dos filtros. */
   options: { links: string[]; sources: string[]; arrivalHosts: string[]; devices: string[]; countries: string[] };

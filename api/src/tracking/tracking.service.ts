@@ -81,7 +81,7 @@ export interface ViewInput {
 }
 
 /** Quantas linhas a lista de eventos do relatório devolve. */
-export const MAX_EVENTOS_NA_LISTA = 200;
+export const MAX_EVENTOS_NA_LISTA = 1000;
 
 /** Por quanto tempo um evento sem origem herda a do mesmo visitante. */
 const JANELA_DA_SESSAO_MS = 30 * 60_000;
@@ -251,6 +251,7 @@ export class TrackingService {
       },
       funnel: etapas,
       kpis: indicadores({ etapas, passos, views, clicks, saidas, alcance, clicados, anterior: alcancePorVisitante(janelaAnterior.passos) }),
+      eventsTotal: passosDaLista.length,
       events: [...passosDaLista]
         .sort((x, y) => y.event.occurredAt.getTime() - x.event.occurredAt.getTime())
         .slice(0, MAX_EVENTOS_NA_LISTA)
