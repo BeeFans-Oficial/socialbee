@@ -29,3 +29,34 @@ export function duracao(ms: number): string {
   const h = Math.floor(min / 60);
   return min % 60 ? `${h} h ${min % 60} min` : `${h} h`;
 }
+
+export const NOME_DO_APARELHO: Record<string, string> = { mobile: "Celular", tablet: "Tablet", desktop: "Computador", unknown: "Não identificado" };
+
+export const NOME_DO_APP: Record<string, string> = {
+  instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", twitter: "X", snapchat: "Snapchat",
+  linkedin: "LinkedIn", pinterest: "Pinterest", telegram: "Telegram", line: "Line", kakao: "Kakao", wechat: "WeChat",
+};
+
+/** "Clicou em Telegram VIP", "…em A e B", "…em A e mais 2": em QUAL link, que
+ *  é o que distingue quem foi ao Telegram de quem foi ao OnlyFans. */
+export function ondeClicou(ids: string[], titulo: (id: string) => string): string {
+  if (ids.length === 0) return ETAPA.click.parou;
+  const [primeiro, segundo] = ids.map(titulo);
+  if (ids.length === 1) return `Clicou em ${primeiro}`;
+  if (ids.length === 2) return `Clicou em ${primeiro} e ${segundo}`;
+  return `Clicou em ${primeiro} e mais ${ids.length - 1}`;
+}
+
+/** `BR` → `Brasil`. O navegador conhece os nomes; sem suporte, fica o código. */
+export function nomeDoPais(codigo: string): string {
+  try {
+    return new Intl.DisplayNames(["pt-BR"], { type: "region" }).of(codigo) ?? codigo;
+  } catch {
+    return codigo;
+  }
+}
+
+/** `22/11 17:10:02`, no fuso de quem está olhando. */
+export function dataEHora(iso: string): string {
+  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}

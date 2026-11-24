@@ -688,6 +688,12 @@ describe("rastreamento", () => {
     expect(livre.body.report.daily).toHaveLength(4);
     expect(livre.body.report.clicks).toBe(1);
 
+    // "Hoje": da meia-noite de quem olha até agora, com o clique recém-feito.
+    const soHoje = await servidor.get("/v1/me/tracking/report?hoje=1&fuso=-180").set(auth).expect(200);
+    expect(soHoje.body.days).toBe(1);
+    expect(soHoje.body.report.clicks).toBe(1);
+    expect(new Date(soHoje.body.report.to).getTime() - new Date(soHoje.body.report.from).getTime()).toBeLessThanOrEqual(86_400_000);
+
     // Janela inválida: datas trocadas, formato errado, mais de 90 dias.
     await servidor.get(`/v1/me/tracking/report?de=${hoje}&ate=${tresDiasAtras}`).set(auth).expect(400);
     await servidor.get(`/v1/me/tracking/report?de=ontem&ate=${hoje}`).set(auth).expect(400);

@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
  * movimento no sistema recebe só fade (`MotionConfig` da casca).
  */
 
-export type Periodo = "7d" | "30d" | "90d" | "custom";
+export type Periodo = "hoje" | "7d" | "30d" | "90d" | "custom";
 
 export interface OpcaoDeFiltro {
   valor: string;
@@ -148,6 +148,7 @@ export function BarraDeFiltros({
 }
 
 const PERIODOS: { valor: Periodo; nome: string }[] = [
+  { valor: "hoje", nome: "Hoje" },
   { valor: "7d", nome: "7 dias" },
   { valor: "30d", nome: "30 dias" },
   { valor: "90d", nome: "90 dias" },

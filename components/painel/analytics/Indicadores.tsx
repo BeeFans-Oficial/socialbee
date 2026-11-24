@@ -25,7 +25,8 @@ import { duracao, ETAPA } from "./rotulos";
  * e `opacity`; com movimento reduzido, o `MotionConfig` da casca troca por
  * fade e o anel já nasce desenhado.
  */
-export function Indicadores({ kpis }: { kpis: ReportKpis }) {
+/** `base`: com o que a conversão é comparada — a janela anterior ou, no "hoje", ontem até esta hora. */
+export function Indicadores({ kpis, base = "anterior" }: { kpis: ReportKpis; base?: "anterior" | "ontem" }) {
   const { conversion, biggestDrop, timeToClick, timeBeforeLeaving, appExit, linksPerClicker } = kpis;
   const pct = Math.round(conversion.rate * 100);
   // Diferença em pontos percentuais: "+5 p.p." não se confunde com "+5%".
@@ -61,7 +62,11 @@ export function Indicadores({ kpis }: { kpis: ReportKpis }) {
                   pontos === null || pontos === 0 ? "bg-white/[0.06] text-bee-muted" : pontos > 0 ? "bg-emerald-400/15 text-emerald-400" : "bg-red-500/15 text-red-400",
                 )}
               >
-                {pontos === null ? "sem base anterior" : pontos === 0 ? "igual ao período anterior" : `${pontos > 0 ? "+" : ""}${pontos} p.p. vs anterior`}
+                {pontos === null
+                  ? base === "ontem" ? "nada ontem até esta hora" : "sem base anterior"
+                  : pontos === 0
+                    ? base === "ontem" ? "igual a ontem" : "igual ao período anterior"
+                    : `${pontos > 0 ? "+" : ""}${pontos} p.p. vs ${base}`}
               </p>
             </div>
           </div>
