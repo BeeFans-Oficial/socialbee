@@ -177,7 +177,10 @@ export class TrackingService {
    */
   async report(profileId: string, range: DateRange, filters: ReportFilters = {}): Promise<TrackingReport> {
     const tamanho = range.to.getTime() - range.from.getTime();
-    const anterior: DateRange = { from: new Date(range.from.getTime() - tamanho - 1), to: new Date(range.from.getTime() - 1) };
+    const anterior: DateRange = range.previous ?? {
+      from: new Date(range.from.getTime() - tamanho - 1),
+      to: new Date(range.from.getTime() - 1),
+    };
 
     const [eventos, eventosAnteriores, counters] = await Promise.all([
       this.store.query(profileId, range),

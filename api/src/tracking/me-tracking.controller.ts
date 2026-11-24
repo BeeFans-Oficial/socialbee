@@ -59,6 +59,8 @@ export class MeTrackingController {
    * O relatório, com janela e recortes pela query string:
    *
    *   days=7|30|90                      atalho (default 30)
+   *   hoje=1&fuso=-180                  desde a meia-noite de quem olha
+   *                                     (`fuso` em minutos a somar ao UTC)
    *   de=AAAA-MM-DD&ate=AAAA-MM-DD      janela livre, até 90 dias, dentro
    *                                     da retenção do evento cru
    *   link=id,id  origem=a,b  chegada=host  aparelho=mobile  pais=BR  app=sim|nao
@@ -87,8 +89,32 @@ export class MeTrackingController {
 const DIA = 86_400_000;
 const JANELA_MAXIMA_EM_DIAS = 90;
 
-/** `days` ou `de`+`ate`. Dia em UTC, como a série diária do relatório. */
+/** Maior deslocamento de fuso que existe (UTC+14), em minutos. */
+const FUSO_MAXIMO = 14 * 60;
+
+/**
+ * "Hoje": da meia-noite de quem olha até agora.
+ *
+ * É a única janela que segue o relógio da criadora em vez do UTC: às 22h de
+ * Brasília o dia UTC já virou, e "hoje" em UTC mostraria uma hora de tráfego.
+ * A comparação é com ontem até a mesma hora — a janela de mesmo tamanho logo
+ * antes seria a noite de ontem contra a manhã de hoje.
+ */
+export function janelaDeHoje(fusoRaw: string | undefined, agora = new Date()): DateRange {
+  const pedido = Math.trunc(Number(fusoRaw ?? 0));
+  const fuso = Number.isFinite(pedido) ? Math.max(-FUSO_MAXIMO, Math.min(FUSO_MAXIMO, pedido)) : 0;
+  const deslocamento = fuso * 60_000;
+  const meiaNoite = Math.floor((agora.getTime() + deslocamento) / DIA) * DIA - deslocamento;
+  return {
+    from: new Date(meiaNoite),
+    to: agora,
+    previous: { from: new Date(meiaNoite - DIA), to: new Date(agora.getTime() - DIA) },
+  };
+}
+
+/** `hoje`, `days` ou `de`+`ate`. Fora o "hoje", dia em UTC, como a série diária. */
 function janelaDe(q: Record<string, string | undefined>): { days: number; range: DateRange } {
+  if (q.hoje === "1") return { days: 1, range: janelaDeHoje(q.fuso) };
   if (q.de || q.ate) {
     const formato = /^\d{4}-\d{2}-\d{2}$/;
     if (!q.de || !q.ate || !formato.test(q.de) || !formato.test(q.ate)) {

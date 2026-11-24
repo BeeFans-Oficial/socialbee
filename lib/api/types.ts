@@ -455,8 +455,11 @@ export interface ReportFilters {
   inApp?: boolean;
 }
 
-/** Como a tela pede o relatório. `days` ou `de`+`ate`; o resto é recorte. */
+/** Como a tela pede o relatório. `hoje`+`fuso`, `days` ou `de`+`ate`; o resto é recorte. */
 export interface ReportParams {
+  /** Desde a meia-noite de quem olha. `fuso`: minutos a somar ao UTC. */
+  hoje?: 1;
+  fuso?: number;
   days?: number;
   de?: string;
   ate?: string;

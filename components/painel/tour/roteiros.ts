@@ -328,7 +328,7 @@ export const ROTEIROS: Roteiro[] = [
       {
         alvo: "passo-a-passo",
         titulo: "O caminho de cada visitante",
-        texto: "Uma linha por passo, do mais recente ao mais antigo. Toque no código de um visitante para acender todas as linhas dele e ler o caminho inteiro.",
+        texto: "Uma linha por pessoa, com até onde ela foi. Toque na linha para abrir o caminho dela, passo a passo, e toque de novo para recolher.",
       },
     ],
   },

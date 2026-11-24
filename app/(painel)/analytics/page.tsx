@@ -1,9 +1,9 @@
 "use client";
 
-import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowUpRight, ChevronLeft, ChevronRight, DoorOpen, Eye, LogOut, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
+import { Eye, MousePointer2, ShieldCheck, Smartphone, TrendingUp, Users } from "lucide-react";
 import {
   LineChart,
   Line,
@@ -16,16 +16,18 @@ import {
 import { BarraDeFiltros, type Periodo } from "@/components/painel/analytics/BarraDeFiltros";
 import { Funil } from "@/components/painel/analytics/Funil";
 import { Horarios, Indicadores } from "@/components/painel/analytics/Indicadores";
-import { ETAPA, nomeDaPlataforma } from "@/components/painel/analytics/rotulos";
+import { PassoAPasso } from "@/components/painel/analytics/PassoAPasso";
+import { Recarregar } from "@/components/painel/analytics/Recarregar";
+import { NOME_DO_APARELHO, nomeDoPais } from "@/components/painel/analytics/rotulos";
+import { useRelatorio } from "@/components/painel/analytics/useRelatorio";
 import { Esqueleto } from "@/components/painel/Esqueleto";
 import { StatsCard } from "@/components/painel/StatsCard";
 import { CabecalhoDeTela, Tela } from "@/components/painel/Tela";
 import { IconeDePlataforma } from "@/components/shared/IconeDePlataforma";
 import { SeloPro } from "@/components/shared/SeloPro";
-import { api, ApiError } from "@/lib/api/client";
 import { usePlano, useSession } from "@/lib/api/use-session";
-import type { Etapa, ReportEvent, ReportParams, ReportResponse } from "@/lib/api/types";
-import { CROSSFADE, ITEM_DA_LISTA, LISTA, MOLA, SUAVE } from "@/lib/movimento";
+import type { ReportParams } from "@/lib/api/types";
+import { CROSSFADE, ITEM_DA_LISTA, LISTA, MOLA } from "@/lib/movimento";
 import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
 
 /**
@@ -37,7 +39,7 @@ import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
  *
  * ## Filtros
  *
- * Janela (7, 30, 90 dias ou duas datas) e recortes por link, origem, endereço
+ * Janela (hoje, 7, 30, 90 dias ou duas datas) e recortes por link, origem, endereço
  * de chegada, aparelho, país e dentro de app. Tudo vive na URL: a criadora
  * volta e encontra o mesmo recorte, e consegue mandar o link para alguém.
  * As opções de cada filtro vêm do relatório (`options`), montadas ANTES dos
@@ -46,12 +48,13 @@ import { cn, formatNumber, getPlatformColor } from "@/lib/utils";
  * Os cartões comparam com a janela anterior de mesmo tamanho, que a API
  * devolve junto (`previous`), com os mesmos filtros. É variação medida; antes
  * aqui havia só "últimos N dias" porque comparar exigia buscar o período
- * anterior, e não existia.
+ * anterior, e não existia. "Hoje" é a exceção: vai da meia-noite de quem olha
+ * até agora e compara com ontem até a mesma hora.
  */
 
 type Period = Periodo;
 
-const PERIOD_DAYS: Record<Exclude<Period, "custom">, number> = { "7d": 7, "30d": 30, "90d": 90 };
+const PERIOD_DAYS: Record<Exclude<Period, "custom" | "hoje">, number> = { "7d": 7, "30d": 30, "90d": 90 };
 
 /** O estado da tela, que é também a query string. */
 interface Filtros {
@@ -67,37 +70,6 @@ interface Filtros {
 }
 
 const SEM_FILTROS: Filtros = { periodo: "30d", de: "", ate: "", link: "", origem: "", chegada: "", aparelho: "", pais: "", app: "" };
-
-const NOME_DO_APARELHO: Record<string, string> = { mobile: "Celular", tablet: "Tablet", desktop: "Computador", unknown: "Não identificado" };
-
-const NOME_DO_APP: Record<string, string> = {
-  instagram: "Instagram", facebook: "Facebook", tiktok: "TikTok", twitter: "X", snapchat: "Snapchat",
-  linkedin: "LinkedIn", pinterest: "Pinterest", telegram: "Telegram", line: "Line", kakao: "Kakao", wechat: "WeChat",
-};
-
-/** "Clicou em Telegram VIP", "…em A e B", "…em A e mais 2": em QUAL link, que
- *  é o que distingue quem foi ao Telegram de quem foi ao OnlyFans. */
-function ondeClicou(ids: string[], titulo: (id: string) => string): string {
-  if (ids.length === 0) return ETAPA.click.parou;
-  const [primeiro, segundo] = ids.map(titulo);
-  if (ids.length === 1) return `Clicou em ${primeiro}`;
-  if (ids.length === 2) return `Clicou em ${primeiro} e ${segundo}`;
-  return `Clicou em ${primeiro} e mais ${ids.length - 1}`;
-}
-
-/** `BR` → `Brasil`. O navegador conhece os nomes; sem suporte, fica o código. */
-function nomeDoPais(codigo: string): string {
-  try {
-    return new Intl.DisplayNames(["pt-BR"], { type: "region" }).of(codigo) ?? codigo;
-  } catch {
-    return codigo;
-  }
-}
-
-/** `22/11 17:10:02`, no fuso de quem está olhando. */
-function dataEHora(iso: string): string {
-  return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
 
 /** Paleta de reserva para chaves de origem que não são plataforma conhecida
  *  (um domínio de referrer qualquer, uma utm_source nova). Índice por hash do
@@ -133,7 +105,7 @@ function filtrosDaUrl(params: URLSearchParams): Filtros {
   const ate = params.get("ate") ?? "";
   const app = params.get("app");
   return {
-    periodo: periodo === "7d" || periodo === "90d" ? periodo : periodo === "custom" || (de && ate) ? "custom" : "30d",
+    periodo: periodo === "hoje" || periodo === "7d" || periodo === "90d" ? periodo : periodo === "custom" || (de && ate) ? "custom" : "30d",
     de,
     ate,
     link: params.get("link") ?? "",
@@ -173,15 +145,23 @@ function paramsDaApi(f: Filtros): ReportParams | null {
     if (!f.de || !f.ate || f.de > f.ate) return null;
     return { ...base, de: f.de, ate: f.ate };
   }
+  // `getTimezoneOffset` vem com o sinal trocado: 180 em Brasília, que é UTC-3.
+  if (f.periodo === "hoje") return { ...base, hoje: 1, fuso: -new Date().getTimezoneOffset() };
   return { ...base, days: PERIOD_DAYS[f.periodo] };
 }
 
-/** A variação de um cartão contra a janela anterior. Sem base, diz isso. */
-function variacao(atual: number, anterior: number): { texto: string; tipo: "positive" | "negative" | "neutral" } {
-  if (anterior === 0) return { texto: atual > 0 ? "sem base anterior" : "igual ao anterior", tipo: "neutral" };
+/** A variação de um cartão contra a janela anterior (ou contra ontem até esta
+ *  hora, no "hoje"). Sem base, diz isso. */
+function variacao(
+  atual: number,
+  anterior: number,
+  base: "anterior" | "ontem" = "anterior",
+): { texto: string; tipo: "positive" | "negative" | "neutral" } {
+  const igual = base === "ontem" ? "igual a ontem" : "igual ao anterior";
+  if (anterior === 0) return { texto: atual > 0 ? (base === "ontem" ? "nada ontem até esta hora" : "sem base anterior") : igual, tipo: "neutral" };
   const pct = Math.round(((atual - anterior) / anterior) * 100);
-  if (pct === 0) return { texto: "igual ao anterior", tipo: "neutral" };
-  return { texto: `${pct > 0 ? "+" : ""}${pct}% vs anterior`, tipo: pct > 0 ? "positive" : "negative" };
+  if (pct === 0) return { texto: igual, tipo: "neutral" };
+  return { texto: `${pct > 0 ? "+" : ""}${pct}% vs ${base}`, tipo: pct > 0 ? "positive" : "negative" };
 }
 
 export default function AnalyticsPage() {
@@ -220,51 +200,16 @@ function Analytics() {
   const filtros = useMemo(() => filtrosDaUrl(searchParams), [searchParams]);
   const { plano } = usePlano();
   const { session } = useSession();
-  const [data, setData] = useState<ReportResponse | null>(null);
-  /** O Free não tem relatório. Vem do plano quando a sessão já carregou, ou da
-   *  recusa da API quando a página abriu antes dela. */
-  const [recusadoPeloPlano, setRecusadoPeloPlano] = useState(false);
-  const semRelatorio = recusadoPeloPlano || plano?.limits.relatorio === false;
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  /** Título por id de link, para a tabela "por link" não mostrar UUID cru. */
-  const [linkTitles, setLinkTitles] = useState<Map<string, string>>(new Map());
   /** Datas digitadas antes de valerem: só vão para a URL quando as duas existem. */
   const [datas, setDatas] = useState({ de: filtros.de, ate: filtros.ate });
 
   const params = useMemo(() => paramsDaApi(filtros), [filtros]);
-
-  const load = useCallback(
-    async (p: ReportParams) => {
-      setLoading(true);
-      setError(null);
-      try {
-        // Relatório e títulos juntos: são duas leituras independentes e a
-        // tabela precisa das duas para significar algo.
-        const [report, links] = await Promise.all([api.report(p), api.links()]);
-        setData(report);
-        setLinkTitles(new Map(links.map((link) => [link.id, link.title])));
-      } catch (caught) {
-        if (caught instanceof ApiError && caught.isUnauthorized) {
-          router.replace("/login?de=/analytics");
-          return;
-        }
-        if (caught instanceof ApiError && caught.code === "plano_pro_necessario") {
-          setRecusadoPeloPlano(true);
-          return;
-        }
-        setError(caught instanceof ApiError ? caught.message : "falha desconhecida");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [router],
+  // O Free não tem relatório: com o plano já carregado, nem pede.
+  const { data, linkTitles, loading, error, recusadoPeloPlano, atualizadoEm, recarregar } = useRelatorio(
+    params,
+    plano?.limits.relatorio !== false,
   );
-
-  useEffect(() => {
-    if (semRelatorio || !params) return;
-    void load(params);
-  }, [params, load, semRelatorio]);
+  const semRelatorio = recusadoPeloPlano || plano?.limits.relatorio === false;
 
   useEffect(() => {
     setDatas({ de: filtros.de, ate: filtros.ate });
@@ -332,7 +277,7 @@ function Analytics() {
             Não foi possível carregar o relatório{error ? `: ${error}` : "."}
           </p>
           <button
-            onClick={() => params && void load(params)}
+            onClick={recarregar}
             className="h-10 px-5 rounded-lg bg-bee-pink hover:bg-bee-pink-hot text-white text-sm font-semibold transition-colors"
           >
             Tentar de novo
@@ -347,18 +292,27 @@ function Analytics() {
   const inAppShare = report.clicks ? Math.round((report.inAppClicks / report.clicks) * 100) : 0;
   const hasTraffic = report.clicks > 0 || report.views > 0;
   const filtrosAtivos = (["link", "origem", "chegada", "aparelho", "pais", "app"] as const).filter((c) => filtros[c]).length;
-  const descricaoDaJanela =
-    filtros.periodo === "custom" ? `de ${shortDate(data.de)} a ${shortDate(data.ate)}` : `dos últimos ${data.days} dias`;
-  const vViews = variacao(report.views, report.previous.views);
-  const vVisitantes = variacao(report.visitors, report.previous.visitors);
-  const vClicks = variacao(report.clicks, report.previous.clicks);
-  const vInApp = variacao(report.inAppClicks, report.previous.inAppClicks);
-  const vTaxa = variacao(Math.round(report.clickRate * 100), Math.round(report.previous.clickRate * 100));
+  const hoje = filtros.periodo === "hoje";
+  const descricaoDaJanela = hoje
+    ? "de hoje"
+    : filtros.periodo === "custom"
+      ? `de ${shortDate(data.de)} a ${shortDate(data.ate)}`
+      : `dos últimos ${data.days} dias`;
+  const base = hoje ? "ontem" : "anterior";
+  const vViews = variacao(report.views, report.previous.views, base);
+  const vVisitantes = variacao(report.visitors, report.previous.visitors, base);
+  const vClicks = variacao(report.clicks, report.previous.clicks, base);
+  const vInApp = variacao(report.inAppClicks, report.previous.inAppClicks, base);
+  const vTaxa = variacao(Math.round(report.clickRate * 100), Math.round(report.previous.clickRate * 100), base);
 
   return (
     <Tela>
       {/* De qual página são estes números está na barra do topo. */}
-      <CabecalhoDeTela titulo="Analytics" descricao={`Visitas e cliques ${descricaoDaJanela}`} />
+      <CabecalhoDeTela
+        titulo="Analytics"
+        descricao={`Visitas e cliques ${descricaoDaJanela}`}
+        acoes={<Recarregar carregando={loading} atualizadoEm={atualizadoEm} onRecarregar={recarregar} />}
+      />
 
       {/* Filtros: a janela e os recortes. Cada mudança vai para a URL. */}
       <div className="mb-8">
@@ -478,7 +432,7 @@ function Analytics() {
         {/* Indicadores: a leitura pronta, antes do detalhe. */}
         {hasTraffic && (
           <motion.div variants={ITEM_DA_LISTA}>
-            <Indicadores kpis={report.kpis} />
+            <Indicadores kpis={report.kpis} base={base} />
           </motion.div>
         )}
 
@@ -507,7 +461,9 @@ function Analytics() {
           </motion.div>
         )}
 
-        {/* Gráfico */}
+        {/* Gráfico por dia. No "hoje" não há série para desenhar: quem mostra o
+            dia é o gráfico de horários, mais abaixo. */}
+        {!hoje && (
         <motion.section variants={ITEM_DA_LISTA} data-tour="grafico" className="bg-bee-surface rounded-xl p-6 border border-white/5">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl text-white font-semibold">
@@ -566,6 +522,7 @@ function Analytics() {
             </div>
           </div>
         </motion.section>
+        )}
 
         {hasTraffic && (
           <motion.div variants={ITEM_DA_LISTA}>
@@ -761,264 +718,11 @@ function Analytics() {
             medido de cada visita e clique. */}
         {report.events.length > 0 && (
           <motion.div variants={ITEM_DA_LISTA}>
-            <PassoAPasso eventos={report.events} total={report.eventsTotal} titulo={(id) => linkTitles.get(id)} />
+            <PassoAPasso eventos={report.events} total={report.eventsTotal} recorte={searchParams.toString()} titulo={(id) => linkTitles.get(id)} />
           </motion.div>
         )}
       </motion.div>
     </Tela>
-  );
-}
-
-/**
- * O passo a passo, linha por linha.
- *
- * Passar o mouse numa linha acende todas as linhas da mesma pessoa: é o jeito
- * de ler o caminho dela no meio dos outros. Tocar no código do visitante fixa
- * o destaque (no celular não existe hover) e tocar de novo solta.
- *
- * As primeiras linhas chegam em cascata de 20 ms quando a tabela entra na
- * tela; o resto já nasce no lugar — animar a página inteira seria ruído, e a
- * escada passaria de meio segundo.
- *
- * ## Paginação
- *
- * 25 passos por página. A API manda de uma vez os passos mais recentes do
- * recorte (até 1000), e a troca de página acontece aqui, sem nova busca: é
- * instantânea e o destaque de um visitante continua valendo de uma página
- * para a outra. Trocar um filtro volta à primeira página. Quando o recorte
- * tem mais passos do que vieram, o cabeçalho diz quantos ficaram de fora.
- */
-const PASSOS_POR_PAGINA = 25;
-
-function PassoAPasso({ eventos, total, titulo }: { eventos: ReportEvent[]; total: number; titulo: (linkId: string) => string | undefined }) {
-  const [sobre, setSobre] = useState<string | null>(null);
-  const [fixado, setFixado] = useState<string | null>(null);
-  const emFoco = sobre ?? fixado;
-  const secao = useRef<HTMLElement>(null);
-
-  const paginas = Math.max(1, Math.ceil(eventos.length / PASSOS_POR_PAGINA));
-  const [pagina, setPagina] = useState(1);
-  // Recorte novo, lista nova: a página 7 de antes pode nem existir mais.
-  useEffect(() => setPagina(1), [eventos]);
-  const atual = Math.min(pagina, paginas);
-  const inicio = (atual - 1) * PASSOS_POR_PAGINA;
-  const daPagina = eventos.slice(inicio, inicio + PASSOS_POR_PAGINA);
-
-  const irPara = (n: number) => {
-    setPagina(Math.min(Math.max(n, 1), paginas));
-    // Quem trocou de página no rodapé volta ao topo da tabela.
-    const topo = secao.current?.getBoundingClientRect().top ?? 0;
-    if (topo < 0) secao.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  return (
-    <section ref={secao} data-tour="passo-a-passo" className="scroll-mt-24 bg-bee-surface rounded-xl p-6 border border-bee-line">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-        <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
-        <span className="text-xs text-bee-muted">
-          {total > eventos.length
-            ? `os ${formatNumber(eventos.length)} mais recentes de ${formatNumber(total)} passos`
-            : `${formatNumber(eventos.length)} ${eventos.length === 1 ? "passo" : "passos"} no recorte`}
-        </span>
-      </div>
-      <p className="text-xs text-bee-muted mb-5 max-w-2xl">
-        Cada linha é um passo. O código em Visitante repete nas linhas da mesma pessoa no mesmo dia,
-        e embaixo dele está até onde ela foi. Toque no código para destacar o caminho dela. Ele não
-        identifica ninguém: nome, perfil e telefone de quem visita nunca chegam à página.
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px]">
-          <thead>
-            <tr className="border-b border-white/5">
-              {["Quando", "Evento", "Origem", "Aparelho", "País", "Rede", "Visitante"].map((coluna) => (
-                <th key={coluna} className="text-left text-xs font-medium text-bee-muted pb-3 pr-4 first:pl-2">{coluna}</th>
-              ))}
-            </tr>
-          </thead>
-          {/* A chave troca com a página: as linhas novas entram em cascata. */}
-          <tbody key={atual} onMouseLeave={() => setSobre(null)}>
-            {daPagina.map((evento, index) => (
-              <LinhaDeEvento
-                key={`${evento.at}-${evento.type}-${inicio + index}`}
-                evento={evento}
-                titulo={evento.linkId ? titulo(evento.linkId) : undefined}
-                ateOnde={
-                  evento.reached === "click"
-                    ? ondeClicou(evento.reachedLinks, (id) => titulo(id) ?? "link removido")
-                    : ETAPA[evento.reached].parou
-                }
-                indice={index}
-                destaque={emFoco === null ? "nenhum" : emFoco === evento.visitor ? "esta" : "outra"}
-                fixada={fixado === evento.visitor}
-                onSobre={() => setSobre(evento.visitor)}
-                onFixar={() => setFixado((atual) => (atual === evento.visitor ? null : evento.visitor))}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {paginas > 1 && (
-        <nav aria-label="Páginas do passo a passo" className="mt-5 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-bee-muted tabular-nums" aria-live="polite">
-            {formatNumber(inicio + 1)}–{formatNumber(inicio + daPagina.length)} de {formatNumber(eventos.length)}
-          </p>
-          <div className="flex items-center gap-1">
-            <BotaoDePagina rotulo="Página anterior" desligado={atual === 1} onClick={() => irPara(atual - 1)}>
-              <ChevronLeft className="w-4 h-4" aria-hidden />
-            </BotaoDePagina>
-            {janelaDePaginas(atual, paginas).map((n, i) =>
-              n === null ? (
-                <span key={`salto-${i}`} className="w-6 text-center text-xs text-bee-muted" aria-hidden>…</span>
-              ) : (
-                <BotaoDePagina key={n} rotulo={`Página ${n}`} ativo={n === atual} onClick={() => irPara(n)}>
-                  {n}
-                </BotaoDePagina>
-              ),
-            )}
-            <BotaoDePagina rotulo="Próxima página" desligado={atual === paginas} onClick={() => irPara(atual + 1)}>
-              <ChevronRight className="w-4 h-4" aria-hidden />
-            </BotaoDePagina>
-          </div>
-        </nav>
-      )}
-    </section>
-  );
-}
-
-/** As páginas que o rodapé mostra: a primeira, a última e as vizinhas da
- *  atual; `null` é o salto ("…"). Até sete páginas, todas. */
-function janelaDePaginas(atual: number, paginas: number): Array<number | null> {
-  if (paginas <= 7) return Array.from({ length: paginas }, (_, i) => i + 1);
-  const meio = [atual - 1, atual, atual + 1].filter((n) => n > 1 && n < paginas);
-  return [1, ...(meio[0] > 2 ? [null] : []), ...meio, ...(meio[meio.length - 1] < paginas - 1 ? [null] : []), paginas];
-}
-
-function BotaoDePagina({
-  rotulo,
-  ativo,
-  desligado,
-  onClick,
-  children,
-}: {
-  rotulo: string;
-  ativo?: boolean;
-  desligado?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={desligado}
-      aria-label={rotulo}
-      aria-current={ativo ? "page" : undefined}
-      className={cn(
-        "min-w-9 h-9 px-2 rounded-lg text-sm tabular-nums flex items-center justify-center transition-colors active:scale-95",
-        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink disabled:opacity-30 disabled:pointer-events-none",
-        ativo ? "bg-bee-pink text-white font-semibold" : "text-bee-muted hover:text-white hover:bg-white/[0.06]",
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Quantas linhas entram em cascata; as demais já nascem no lugar. */
-const LINHAS_EM_CASCATA = 14;
-
-function LinhaDeEvento({
-  evento,
-  titulo,
-  ateOnde,
-  indice,
-  destaque,
-  fixada,
-  onSobre,
-  onFixar,
-}: {
-  evento: ReportEvent;
-  titulo?: string;
-  ateOnde: string;
-  indice: number;
-  destaque: "nenhum" | "esta" | "outra";
-  fixada: boolean;
-  onSobre: () => void;
-  onFixar: () => void;
-}) {
-  const destino = [nomeDaPlataforma(evento.channel), evento.destinationHost].filter(Boolean).join(" · ");
-  const clique = evento.type === "click";
-  const saida = evento.type === "leave";
-  const Icone = clique ? MousePointer2 : saida ? LogOut : evento.type === "view" ? Eye : evento.type === "arrival" ? DoorOpen : ArrowUpRight;
-  const aparelho = [NOME_DO_APARELHO[evento.device] ?? evento.device, evento.os, evento.browser].filter(Boolean).join(" · ");
-  const campanha = [evento.medium, evento.campaign].filter(Boolean).join(" · ");
-  const emCascata = indice < LINHAS_EM_CASCATA;
-  return (
-    <motion.tr
-      // A entrada (só nas primeiras linhas) é do `motion`; apagar e acender
-      // no destaque é CSS, para as duas coisas não disputarem a opacidade.
-      initial={emCascata ? { y: 8 } : false}
-      whileInView={{ y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.24, ease: SUAVE, delay: emCascata ? indice * 0.02 : 0 }}
-      onMouseEnter={onSobre}
-      className={cn(
-        "border-b border-white/5 align-top transition-[opacity,background-color] duration-150",
-        destaque === "outra" && "opacity-45",
-        destaque === "esta" ? "bg-bee-pink/[0.07]" : indice % 2 === 1 && "bg-white/[0.02]",
-      )}
-    >
-      <td className={cn("py-3 pr-4 pl-2 text-sm text-white/80 whitespace-nowrap tabular-nums border-l-2 transition-colors duration-150", destaque === "esta" ? "border-bee-pink" : "border-transparent")}>
-        {dataEHora(evento.at)}
-      </td>
-      <td className="py-3 pr-4">
-        <div className="flex items-center gap-2 text-sm text-white">
-          <Icone className={cn("w-3.5 h-3.5 flex-shrink-0", clique ? "text-bee-pink" : "text-white/40")} />
-          <span className="truncate max-w-[200px]">{clique ? (titulo ?? "Link removido") : saida ? "Saiu da página" : ETAPA[evento.type as Etapa].fez}</span>
-        </div>
-        {clique && destino && (
-          <div className="mt-0.5 pl-[22px] text-xs text-bee-muted truncate max-w-[220px]">{destino}</div>
-        )}
-      </td>
-      <td className="py-3 pr-4">
-        <div className="text-sm text-white truncate max-w-[160px]" title={evento.source}>{evento.source}</div>
-        {campanha && <div className="mt-0.5 text-xs text-bee-muted truncate max-w-[160px]" title={campanha}>{campanha}</div>}
-        {evento.clickIds.length > 0 && (
-          <div className="mt-0.5 text-xs text-bee-muted truncate max-w-[160px]" title="Identificador de anúncio presente no link">
-            {evento.clickIds.join(", ")}
-          </div>
-        )}
-      </td>
-      <td className="py-3 pr-4">
-        <div className="text-sm text-white/80 whitespace-nowrap">{aparelho}</div>
-        {evento.inApp && (
-          <div className="mt-0.5 text-xs text-bee-pink/90">dentro do {NOME_DO_APP[evento.inApp] ?? evento.inApp}</div>
-        )}
-      </td>
-      <td className="py-3 pr-4 text-sm text-white/80 whitespace-nowrap">{evento.country ? nomeDoPais(evento.country) : "—"}</td>
-      <td className="py-3 pr-4 text-xs text-bee-muted font-mono whitespace-nowrap">{evento.network ?? "—"}</td>
-      <td className="py-3 whitespace-nowrap">
-        <button
-          type="button"
-          onClick={onFixar}
-          aria-pressed={fixada}
-          title={fixada ? "Soltar o destaque" : "Destacar o caminho desta pessoa"}
-          className={cn(
-            "-mx-1.5 px-1.5 py-1 rounded text-xs font-mono transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink",
-            fixada ? "bg-bee-pink/20 text-white" : "text-bee-muted hover:text-white hover:bg-white/[0.06]",
-          )}
-        >
-          {evento.visitor}
-        </button>
-        <div
-          className={cn("mt-0.5 text-xs truncate max-w-[170px]", evento.reached === "click" ? "text-bee-pink/90" : "text-bee-muted")}
-          title={ateOnde}
-        >
-          {ateOnde}
-        </div>
-      </td>
-    </motion.tr>
   );
 }
 

@@ -188,6 +188,11 @@ fim, marca-se o que entrou.
       em páginas de 25, trocadas no navegador, sobre os 1000 passos mais
       recentes do recorte (antes, 200); `report.eventsTotal` diz quantos o
       recorte tem ao todo.
+- [x] **Hoje, atualizar e passo a passo agrupado** (sessão de 24/11, PR #65):
+      janela `hoje=1&fuso=` (meia-noite de quem olha, comparada com ontem até a
+      mesma hora); hook `useRelatorio` com `recarregar` e botão "Atualizar";
+      passo a passo com uma linha por visitante, que abre e recolhe, em
+      páginas de 20 visitantes (o destaque por código saiu).
 
 ### Planos
 
@@ -294,3 +299,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-22 | `feat/indicadores-e-movimento-no-analytics`, PR #62 | Indicadores (`kpis`) e gráfico de horários no Analytics; funil, cartões e passo a passo animados; destaque por visitante; tour do Analytics refeito com os trechos novos; 2 unitários novos (85; e2e segue em 66). |
 | 2026-11-23 | `feat/paginacao-do-passo-a-passo`, PR #63 | Passo a passo do Analytics em páginas de 25 sobre os 1000 passos mais recentes; `eventsTotal` no relatório; rodapé com páginas numeradas; 1 unitário novo (86; e2e segue em 66). |
 | 2026-11-23 | `chore/tres-dominios-no-pool`, PR #64 | `bemaqui.site`, `pegueaqui.store` e `vipaqui.site` no pool: vhost e certificado na VPS e linha ativa em `domains` (posições 7 a 9); o sorteio passa a ter 8 domínios ativos, com `vemaqui.site` e `beesocial.bio` pausados. |
+| 2026-11-24 | `feat/filtro-hoje-no-analytics`, PR #65 | Analytics: filtro "Hoje" no fuso de quem olha, botão "Atualizar" sobre o hook `useRelatorio`, passo a passo agrupado por visitante (abre e recolhe); `PassoAPasso` e rótulos fora de `page.tsx`; 2 unitários novos (88; e2e segue em 66). |

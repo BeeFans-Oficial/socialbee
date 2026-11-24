@@ -318,6 +318,9 @@ export interface ResolvedLink {
 export interface DateRange {
   from: Date;
   to: Date;
+  /** Com o que comparar, quando não é a janela de mesmo tamanho logo antes.
+   *  "Hoje" compara com ontem até a mesma hora. */
+  previous?: { from: Date; to: Date };
 }
 
 /** Persistência. Pequena de propósito: é a superfície que o Postgres cobre e

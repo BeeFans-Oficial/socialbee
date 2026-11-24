@@ -1,5 +1,6 @@
 import { resolver, TrackingService } from "../src/tracking/tracking.service";
 import { countryOfIp } from "../src/tracking/geo";
+import { janelaDeHoje } from "../src/tracking/me-tracking.controller";
 import type { TrackingEventRecord } from "../src/tracking/types";
 
 /**
@@ -350,5 +351,25 @@ describe("funil", () => {
     expect(r.events).toHaveLength(1000);
     // Do mais novo para o mais antigo: o primeiro é o último que aconteceu.
     expect(r.events[0].at).toBe(muitos[1099].occurredAt.toISOString());
+  });
+});
+
+describe("janela de hoje", () => {
+  it("vai da meia-noite de quem olha até agora e compara com ontem até a mesma hora", () => {
+    // 01h UTC do dia 24 ainda é 22h do dia 23 em Brasília (UTC-3).
+    const agora = new Date("2026-11-24T01:00:00Z");
+    const janela = janelaDeHoje("-180", agora);
+    expect(janela.from.toISOString()).toBe("2026-11-23T03:00:00.000Z");
+    expect(janela.to).toBe(agora);
+    expect(janela.previous?.from.toISOString()).toBe("2026-11-22T03:00:00.000Z");
+    expect(janela.previous?.to.toISOString()).toBe("2026-11-23T01:00:00.000Z");
+  });
+
+  it("sem fuso, ou com fuso absurdo, não estoura: cai no UTC ou no limite", () => {
+    const agora = new Date("2026-11-24T15:30:00Z");
+    expect(janelaDeHoje(undefined, agora).from.toISOString()).toBe("2026-11-24T00:00:00.000Z");
+    expect(janelaDeHoje("abc", agora).from.toISOString()).toBe("2026-11-24T00:00:00.000Z");
+    // 99999 min vira UTC+14: lá já é dia 25, 05h30.
+    expect(janelaDeHoje("99999", agora).from.toISOString()).toBe("2026-11-24T10:00:00.000Z");
   });
 });
