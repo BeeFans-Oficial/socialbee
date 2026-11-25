@@ -221,7 +221,7 @@ function CampoDeData({
  * escolhe, Escape fecha; clique fora fecha. Sem opções na janela, o chip
  * continua legível, só diz que não há o que escolher.
  */
-function MenuDeFiltro({ filtro, onEscolher }: { filtro: DefinicaoDeFiltro; onEscolher: (valor: string) => void }) {
+export function MenuDeFiltro({ filtro, onEscolher }: { filtro: DefinicaoDeFiltro; onEscolher: (valor: string) => void }) {
   const [aberto, setAberto] = useState(false);
   const [foco, setFoco] = useState(0);
   const raiz = useRef<HTMLDivElement>(null);

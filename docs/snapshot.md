@@ -198,6 +198,10 @@ fim, marca-se o que entrou.
       mesmo 307 sem gravar clique; a visita (`view`) só é registrada quando a
       tela de chegada sai da frente (evento `chegada:fechada`). O histórico
       anterior segue inflado: falta limpar os cliques da rede `172.16.x`.
+- [x] **Filtro por evento no passo a passo** (sessão de 25/11, PR #67):
+      "Até onde foi" recorta os visitantes pelo ponto em que pararam, inclusive
+      por link clicado; age no navegador, sobre os passos já carregados (até
+      1000). Não foi conferido na tela antes do merge.
 
 ### Planos
 
@@ -306,3 +310,4 @@ a nota "Melhorias recomendadas — 2026-11-03".
 | 2026-11-23 | `chore/tres-dominios-no-pool`, PR #64 | `bemaqui.site`, `pegueaqui.store` e `vipaqui.site` no pool: vhost e certificado na VPS e linha ativa em `domains` (posições 7 a 9); o sorteio passa a ter 8 domínios ativos, com `vemaqui.site` e `beesocial.bio` pausados. |
 | 2026-11-24 | `feat/filtro-hoje-no-analytics`, PR #65 | Analytics: filtro "Hoje" no fuso de quem olha, botão "Atualizar" sobre o hook `useRelatorio`, passo a passo agrupado por visitante (abre e recolhe); `PassoAPasso` e rótulos fora de `page.tsx`; 2 unitários novos (88; e2e segue em 66). |
 | 2026-11-25 | `fix/contagem-de-cliques-e-visitas`, PR #66 | Rastreamento: a revisão da Meta deixa de virar clique (marca `x-revisao`, 705 cliques sintéticos em 7 dias) e a visita só conta com os links à vista, sem dobrar dentro e fora do Instagram; 1 e2e novo (67; unitários seguem em 88). |
+| 2026-11-25 | `feat/filtro-por-evento-no-passo-a-passo`, PR #67 | Analytics: filtro "Até onde foi" no passo a passo (qualquer clique, clique por link, ou a etapa em que a pessoa parou), com contagem por opção; `MenuDeFiltro` exportado; sem teste novo. |
