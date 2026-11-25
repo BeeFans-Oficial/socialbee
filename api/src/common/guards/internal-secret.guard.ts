@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 
 import { CanActivate, ExecutionContext, Injectable, NotFoundException } from "@nestjs/common";
 import type { Request } from "express";
@@ -55,4 +55,34 @@ export function isInternalRequest(headers: Record<string, string | string[] | un
   const provided = headers[INTERNAL_SECRET_HEADER];
   if (typeof provided !== "string") return false;
   return safeEquals(provided, loadEnv().internalApiSecret);
+}
+
+export const REVISAO_HEADER = "x-revisao";
+
+/**
+ * A marca que a revisão da Meta (`revisao.service.ts`) manda ao seguir um
+ * `/r/<código>` nosso, para o acesso NÃO entrar no relatório.
+ *
+ * A revisão bate no redirecionador pelo endereço público, com user-agent de
+ * navegador de verdade — é o que ela existe para simular —, então o filtro de
+ * robô a deixa passar e cada rodada virava clique no painel da criadora
+ * (medido em 24/11/2026: 705 cliques em 7 dias, cerca de 5% do total).
+ *
+ * A marca só desliga a CONTAGEM. A resposta do redirecionador é o mesmo 307
+ * com ou sem ela: nada aqui pode virar ramo de resposta, que seria documento
+ * diferente por requisitante.
+ *
+ * É um HMAC do código com o segredo interno, e não o segredo em si: o
+ * cabeçalho viaja pela internet até o nosso próprio nginx, e o que vazar dali
+ * serve no máximo para alguém fazer os PRÓPRIOS cliques naquele link não
+ * contarem.
+ */
+export function marcaDaRevisao(code: string): string {
+  return createHmac("sha256", loadEnv().internalApiSecret).update(`revisao:${code}`).digest("hex");
+}
+
+export function ehDaRevisao(headers: Record<string, string | string[] | undefined>, code: string): boolean {
+  const provided = headers[REVISAO_HEADER];
+  if (typeof provided !== "string") return false;
+  return safeEquals(provided, marcaDaRevisao(code));
 }

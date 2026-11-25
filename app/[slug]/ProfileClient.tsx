@@ -10,6 +10,7 @@ import type { VisualResolvido } from "@/lib/templates";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api/client";
 import { handleLinkClick } from "@/lib/cloak";
+import { EVENTO_CHEGADA_FECHADA } from "./IabLanding";
 
 /**
  * A parte interativa do perfil público.
@@ -50,6 +51,9 @@ interface ProfileClientProps {
   initialLinks: LinkType[] | null;
   /** Prévia do editor: não conta visita e clicar nos links não navega. */
   previa?: boolean;
+  /** A página veio com a tela de chegada por cima. A visita só conta quando
+   *  ela sai da frente (ver o efeito da visualização). */
+  comChegada?: boolean;
 }
 
 export function ProfileClient({
@@ -59,6 +63,7 @@ export function ProfileClient({
   visual,
   initialLinks,
   previa = false,
+  comChegada = false,
 }: ProfileClientProps) {
   const [showFallbackButton, setShowFallbackButton] = useState(false);
   const [ageVerified, setAgeVerified] = useState(false);
@@ -66,6 +71,17 @@ export function ProfileClient({
   const [links, setLinks] = useState<LinkType[]>(initialLinks ?? []);
 
   const needsAgeGate = isAdult && !ageVerified;
+
+  // A tela de chegada cobre o perfil até a pessoa tocar no botão. Dentro de um
+  // aplicativo ela nunca sai: o botão leva ao navegador do celular, e é lá
+  // (já sem a chegada) que a visita acontece.
+  const [chegadaNaFrente, setChegadaNaFrente] = useState(comChegada);
+  useEffect(() => {
+    if (!comChegada) return;
+    const liberar = () => setChegadaNaFrente(false);
+    window.addEventListener(EVENTO_CHEGADA_FECHADA, liberar);
+    return () => window.removeEventListener(EVENTO_CHEGADA_FECHADA, liberar);
+  }, [comChegada]);
 
   // Referência estável: o `useEffect` do AgeGate depende de `onVerified`, e uma
   // arrow inline mudaria de identidade a cada render, reexecutando o efeito que
@@ -190,13 +206,18 @@ export function ProfileClient({
   //
   // Só conta DEPOIS da barreira: quem desiste no modal nunca viu os links, e
   // contá-lo diluiria a taxa de clique de todo perfil adulto.
+  //
+  // E só conta com a tela de chegada fora da frente, pelo mesmo motivo. Sem
+  // isso, a página sem barreira 18+ contava uma visita dentro do Instagram,
+  // com os links cobertos, e outra no navegador do celular: a mesma pessoa
+  // duas vezes (medido em 24/11/2026).
   useEffect(() => {
-    if (!slug || needsAgeGate) return;
+    if (!slug || needsAgeGate || chegadaNaFrente) return;
     // Manda o SLUG, nunca o id do perfil: quem traduz é o servidor. Aceitar o
     // id do cliente deixaria qualquer um postar views em qualquer perfil.
     if (previa) return;
     api.recordView(slug);
-  }, [slug, needsAgeGate, previa]);
+  }, [slug, needsAgeGate, chegadaNaFrente, previa]);
 
   const onLinkClick = (shortCode: string, cloakEnabled: boolean) => {
     if (previa) return;

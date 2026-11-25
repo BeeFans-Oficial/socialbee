@@ -4,7 +4,7 @@ import { IsIn, IsOptional, IsString, Matches, MaxLength } from "class-validator"
 import type { Request } from "express";
 
 import { Public } from "../common/decorators/public.decorator";
-import { InternalSecretGuard } from "../common/guards/internal-secret.guard";
+import { ehDaRevisao, InternalSecretGuard } from "../common/guards/internal-secret.guard";
 import { safeDestination } from "../common/url";
 import { LinksService } from "../links/links.service";
 import { ProfilesService } from "../profiles/profiles.service";
@@ -120,6 +120,12 @@ export class PublicTrackingController {
     if (!destination) return { destinationUrl: null, counted: false };
 
     const isBot = identifyVisitor({ headers: request.headers, method: dto.method ?? "GET" });
+
+    // A nossa própria revisão seguindo o link: recebe o destino como todo
+    // mundo, e não vira clique nem acesso de robô no relatório.
+    if (ehDaRevisao(request.headers, dto.code)) {
+      return { destinationUrl: destination.toString(), counted: false, reason: "revisao", isBot };
+    }
     let counted = false;
     let reason = "";
     try {
