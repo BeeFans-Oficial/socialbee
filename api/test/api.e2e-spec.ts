@@ -3,6 +3,7 @@ import type { DataSource } from "typeorm";
 import request from "supertest";
 
 import { EmailService } from "../src/common/email/email.service";
+import { ehDaRevisao, marcaDaRevisao } from "../src/common/guards/internal-secret.guard";
 import { resetEnvCache } from "../src/config/env";
 import { hostPadrao } from "../src/profiles/profiles.service";
 import { RevisaoService } from "../src/revisao/revisao.service";
@@ -598,6 +599,36 @@ describe("rastreamento", () => {
     // O destino vai do mesmo jeito: para o robô só muda o relatório.
     expect(body.destinationUrl).toBe(link.destinationUrl);
     expect(body).not.toHaveProperty("safePage");
+  });
+
+  it("não conta o acesso da nossa revisão da Meta, e devolve o mesmo destino", async () => {
+    const { body: lista } = await servidor
+      .get("/v1/me/links")
+      .set("authorization", `Bearer ${tokenBella}`);
+    const link = lista.links[0];
+    const humano = {
+      "x-internal-secret": segredo,
+      "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+      "accept-language": "pt-BR,pt;q=0.9",
+      accept: "text/html",
+    };
+
+    // A revisão usa user-agent de navegador de verdade: sem a marca, o filtro
+    // de robô a deixa passar e a rodada vira clique no painel da criadora.
+    const { body } = await servidor
+      .post("/v1/public/tracking/click")
+      .set(humano)
+      .set("x-revisao", marcaDaRevisao(link.shortCode))
+      .send({ code: link.shortCode })
+      .expect(200);
+    expect(body.counted).toBe(false);
+    expect(body.reason).toBe("revisao");
+    expect(body.destinationUrl).toBe(link.destinationUrl);
+
+    // A marca vale para UM código: a de outro link não desliga a contagem.
+    expect(ehDaRevisao({ "x-revisao": marcaDaRevisao("outrocodigo") }, link.shortCode)).toBe(false);
+    expect(ehDaRevisao({ "x-revisao": marcaDaRevisao(link.shortCode) }, link.shortCode)).toBe(true);
+    expect(ehDaRevisao({}, link.shortCode)).toBe(false);
   });
 
   it("registra view por slug e monta o relatório", async () => {

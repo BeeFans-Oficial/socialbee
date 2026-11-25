@@ -7,6 +7,7 @@ import { DataSource } from "typeorm";
 
 import { EmailService } from "../common/email/email.service";
 import { revisaoPiorou } from "../common/email/modelos/revisao-piorou";
+import { marcaDaRevisao, REVISAO_HEADER } from "../common/guards/internal-secret.guard";
 import { loadEnv } from "../config/env";
 import { classificarHost, NOME_DA_CLASSE, TERMOS_PROIBIDOS_NA_HOME, type ClasseDeHost } from "./hosts-conhecidos";
 
@@ -410,7 +411,7 @@ export class RevisaoService {
         const pagina_ = await this.pedir(urlDaPagina, identidade.userAgent, identidade.humano);
         const saltos = await Promise.all(
           pagina.links.map(async (link) => {
-            const r = await this.pedir(`${base}/r/${link.shortCode}`, identidade.userAgent, identidade.humano);
+            const r = await this.pedir(`${base}/r/${link.shortCode}`, identidade.userAgent, identidade.humano, link.shortCode);
             return { shortCode: link.shortCode, status: r.status, location: r.location };
           }),
         );
@@ -634,7 +635,9 @@ export class RevisaoService {
     for (let salto = 0; salto < SALTOS_MAXIMOS; salto += 1) {
       const hostAtual = new URL(url).host;
       const naPlataforma = salto === 0 || classificarHost(hostAtual, hostsDaPlataforma) === "plataforma";
-      const r = await this.pedir(url, IDENTIDADES[2].userAgent, true);
+      // A marca vai só no primeiro salto, que é o nosso `/r/`: os seguintes
+      // podem ser de terceiros e não têm por que recebê-la.
+      const r = await this.pedir(url, IDENTIDADES[2].userAgent, true, salto === 0 ? link.shortCode : undefined);
       if (r.status <= 0) {
         if (naPlataforma) erro = r.erro ?? "não respondeu";
         else observacao = `${hostAtual} não respondeu ao nosso servidor (${r.erro ?? "sem resposta"})`;
@@ -665,12 +668,21 @@ export class RevisaoService {
     return { titulo: link.title, shortCode: link.shortCode, hosts, hostFinal, classe, passaPelaPlataforma, erro, observacao };
   }
 
-  private async pedir(url: string, userAgent: string, humano: boolean): Promise<Resposta> {
+  /**
+   * `codigoDoLink` vem preenchido quando o pedido é a um `/r/<código>` nosso:
+   * a marca faz o redirecionador responder igual e NÃO contar o acesso como
+   * clique da criadora (ver `marcaDaRevisao`).
+   */
+  private async pedir(url: string, userAgent: string, humano: boolean, codigoDoLink?: string): Promise<Resposta> {
     try {
       const r = await this.buscar(url, {
         method: "GET",
         redirect: "manual",
-        headers: { "user-agent": userAgent, ...(humano ? CABECALHOS_HUMANOS : {}) },
+        headers: {
+          "user-agent": userAgent,
+          ...(humano ? CABECALHOS_HUMANOS : {}),
+          ...(codigoDoLink ? { [REVISAO_HEADER]: marcaDaRevisao(codigoDoLink) } : {}),
+        },
         signal: AbortSignal.timeout(TEMPO_LIMITE_MS),
       });
       const corpo = r.status >= 300 && r.status < 400 ? "" : await r.text();

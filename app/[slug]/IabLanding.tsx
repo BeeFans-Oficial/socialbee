@@ -70,6 +70,10 @@ import { cn } from "@/lib/utils";
  *  hidratação, para o perfil não aparecer antes desta tela. Removido quando a
  *  tela sai. */
 export const ESTILO_DE_ESPERA = "aguardando-chegada";
+/** Evento disparado na `window` quando esta tela sai da frente do perfil. O
+ *  `ProfileClient` espera por ele para contar a visita: com a chegada por
+ *  cima, os links ainda não foram vistos. */
+export const EVENTO_CHEGADA_FECHADA = "chegada:fechada";
 export const SCRIPT_DE_ESPERA = `(function(){var s=document.createElement("style");s.id="${ESTILO_DE_ESPERA}";s.textContent="[data-perfil]{visibility:hidden}";document.head.appendChild(s)})()`;
 
 /** Imagem de marca usada quando a criadora não escolheu uma imagem de chegada. */
@@ -140,7 +144,10 @@ export function IabLanding({
 
   // O perfil volta a aparecer só quando a chegada sai de cena.
   useEffect(() => {
-    if (fechada) document.getElementById(ESTILO_DE_ESPERA)?.remove();
+    if (fechada) {
+      document.getElementById(ESTILO_DE_ESPERA)?.remove();
+      window.dispatchEvent(new Event(EVENTO_CHEGADA_FECHADA));
+    }
     return () => document.getElementById(ESTILO_DE_ESPERA)?.remove();
   }, [fechada]);
 

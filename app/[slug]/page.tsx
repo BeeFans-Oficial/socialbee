@@ -362,6 +362,7 @@ export default async function ProfilePage({
           visual={visual}
           initialLinks={user.isAdult && !previaDaPagina ? null : links}
           previa={previaDaPagina}
+          comChegada={mostrarChegada}
         />
       </div>
 

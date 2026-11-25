@@ -113,6 +113,12 @@ export async function recordClick(
   // Handler o Next normaliza `request.url` para o endereço em que o servidor
   // escuta, então ele devolve o mesmo valor para todos os domínios do pool.
   // Medido: com `Host: teste.local`, a URL continuava dizendo `localhost:3000`.
+  // A marca da nossa revisão da Meta (`api/src/revisao`), quando vier. Quem a
+  // confere é a API; aqui ela só é repassada, e a resposta do redirecionador
+  // não muda por causa dela — só a contagem.
+  const revisao = request.headers.get("x-revisao");
+  if (revisao) forwarded["x-revisao"] = revisao;
+
   const hostDeChegada = request.headers.get("host") ?? new URL(request.url).host;
   if (hostDeChegada) forwarded["x-arrival-host"] = hostDeChegada.toLowerCase();
 
@@ -130,7 +136,7 @@ export async function recordClick(
 
   const result = (await response.json()) as ClickResult;
 
-  if (!result.counted && result.destinationUrl) {
+  if (!result.counted && result.destinationUrl && result.reason !== "revisao") {
     // Falha de contagem não impede o redirecionamento humano.
     console.warn(`[r] clique em ${code} não contado: ${result.reason ?? "sem motivo"}`);
   }
