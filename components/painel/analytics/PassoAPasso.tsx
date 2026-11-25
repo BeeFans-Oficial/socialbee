@@ -7,6 +7,7 @@ import { ArrowUpRight, ChevronLeft, ChevronRight, DoorOpen, Eye, LogOut, MousePo
 import type { Etapa, ReportEvent } from "@/lib/api/types";
 import { SUAVE } from "@/lib/movimento";
 import { cn, formatNumber } from "@/lib/utils";
+import { MenuDeFiltro, type OpcaoDeFiltro } from "./BarraDeFiltros";
 import { ETAPA, NOME_DO_APARELHO, NOME_DO_APP, dataEHora, duracao, nomeDaPlataforma, nomeDoPais, ondeClicou } from "./rotulos";
 
 /**
@@ -28,6 +29,13 @@ import { ETAPA, NOME_DO_APARELHO, NOME_DO_APP, dataEHora, duracao, nomeDaPlatafo
  * nova busca. Trocar um filtro volta à primeira página; atualizar os dados
  * não, e quem estava aberto continua aberto. Quando o recorte tem mais passos
  * do que vieram, o cabeçalho diz quantos ficaram de fora.
+ *
+ * ## Filtro por evento
+ *
+ * "Até onde foi" recorta a lista pelo ponto em que a pessoa parou: só abriu,
+ * viu e não clicou, clicou em qualquer link, ou clicou NAQUELE link (é o que
+ * diz quem saiu daqui para o Telegram). Também acontece aqui, sobre os passos
+ * que já vieram; por isso as opções são só as que existem no recorte.
  */
 const VISITANTES_POR_PAGINA = 20;
 
@@ -52,6 +60,43 @@ function porVisitante(eventos: ReportEvent[]): Visitante[] {
   return [...grupos.values()];
 }
 
+/** O valor do filtro para "clicou neste link". */
+const NO_LINK = "link:";
+
+/** Até onde a pessoa foi: é o que o passo mais recente dela registra. */
+function passaNoFiltro(visitante: Visitante, filtro: string): boolean {
+  if (!filtro) return true;
+  const { reached, reachedLinks } = visitante.passos[0];
+  if (filtro.startsWith(NO_LINK)) return reached === "click" && reachedLinks.includes(filtro.slice(NO_LINK.length));
+  return reached === filtro;
+}
+
+const ORDEM_DAS_ETAPAS: Etapa[] = ["view", "age", "continue", "arrival"];
+
+/** As opções que existem neste recorte, cada uma com quantas pessoas tem:
+ *  qualquer clique, um link por vez (do mais clicado ao menos), e as etapas
+ *  em que alguém parou sem clicar. */
+function opcoesDeEvento(visitantes: Visitante[], titulo: (linkId: string) => string | undefined): OpcaoDeFiltro[] {
+  const porEtapa = new Map<Etapa, number>();
+  const porLink = new Map<string, number>();
+  for (const { passos } of visitantes) {
+    const { reached, reachedLinks } = passos[0];
+    porEtapa.set(reached, (porEtapa.get(reached) ?? 0) + 1);
+    if (reached === "click") for (const id of reachedLinks) porLink.set(id, (porLink.get(id) ?? 0) + 1);
+  }
+  const opcoes: OpcaoDeFiltro[] = [];
+  const cliques = porEtapa.get("click");
+  if (cliques) opcoes.push({ valor: "click", nome: `Clicou em qualquer link (${formatNumber(cliques)})` });
+  for (const [id, n] of [...porLink].sort((a, b) => b[1] - a[1])) {
+    opcoes.push({ valor: `${NO_LINK}${id}`, nome: `Clicou em ${titulo(id) ?? "link removido"} (${formatNumber(n)})` });
+  }
+  for (const etapa of ORDEM_DAS_ETAPAS) {
+    const n = porEtapa.get(etapa);
+    if (n) opcoes.push({ valor: etapa, nome: `${ETAPA[etapa].parou} (${formatNumber(n)})` });
+  }
+  return opcoes;
+}
+
 export function PassoAPasso({
   eventos,
   total,
@@ -64,14 +109,17 @@ export function PassoAPasso({
   recorte: string;
   titulo: (linkId: string) => string | undefined;
 }) {
-  const visitantes = useMemo(() => porVisitante(eventos), [eventos]);
+  const todos = useMemo(() => porVisitante(eventos), [eventos]);
+  const [filtro, setFiltro] = useState("");
+  const opcoes = useMemo(() => opcoesDeEvento(todos, titulo), [todos, titulo]);
+  const visitantes = useMemo(() => todos.filter((v) => passaNoFiltro(v, filtro)), [todos, filtro]);
   const [abertos, setAbertos] = useState<Set<string>>(new Set());
   const secao = useRef<HTMLElement>(null);
 
   const paginas = Math.max(1, Math.ceil(visitantes.length / VISITANTES_POR_PAGINA));
   const [pagina, setPagina] = useState(1);
   // Recorte novo, lista nova: a página 7 de antes pode nem existir mais.
-  useEffect(() => setPagina(1), [recorte]);
+  useEffect(() => setPagina(1), [recorte, filtro]);
   const atual = Math.min(pagina, paginas);
   const inicio = (atual - 1) * VISITANTES_POR_PAGINA;
   const daPagina = visitantes.slice(inicio, inicio + VISITANTES_POR_PAGINA);
@@ -106,7 +154,10 @@ export function PassoAPasso({
       <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
         <h2 className="text-xl text-white font-semibold">Passo a passo de cada visitante</h2>
         <span className="text-xs text-bee-muted tabular-nums">
-          {formatNumber(visitantes.length)} {visitantes.length === 1 ? "visitante" : "visitantes"} ·{" "}
+          {filtro
+            ? `${formatNumber(visitantes.length)} de ${formatNumber(todos.length)} visitantes`
+            : `${formatNumber(visitantes.length)} ${visitantes.length === 1 ? "visitante" : "visitantes"}`}{" "}
+          ·{" "}
           {total > eventos.length
             ? `os ${formatNumber(eventos.length)} passos mais recentes de ${formatNumber(total)}`
             : `${formatNumber(eventos.length)} ${eventos.length === 1 ? "passo" : "passos"} no recorte`}
@@ -118,13 +169,19 @@ export function PassoAPasso({
           passo a passo. O código em Visitante repete para a mesma pessoa no mesmo dia e não
           identifica ninguém: nome, perfil e telefone de quem visita nunca chegam à página.
         </p>
-        <button
-          type="button"
-          onClick={alternarTodos}
-          className="h-8 px-3 rounded-lg border border-bee-line text-xs text-bee-muted transition-colors hover:text-white hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink"
-        >
-          {todosAbertos ? "Recolher todos" : "Abrir todos"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <MenuDeFiltro
+            filtro={{ chave: "evento", rotulo: "Até onde foi", valor: filtro, opcoes }}
+            onEscolher={setFiltro}
+          />
+          <button
+            type="button"
+            onClick={alternarTodos}
+            className="h-9 px-3 rounded-lg border border-bee-line text-xs text-bee-muted transition-colors hover:text-white hover:bg-white/[0.06] focus-visible:outline focus-visible:outline-2 focus-visible:outline-bee-pink"
+          >
+            {todosAbertos ? "Recolher todos" : "Abrir todos"}
+          </button>
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px]">
@@ -163,6 +220,14 @@ export function PassoAPasso({
             })}
           </tbody>
         </table>
+        {visitantes.length === 0 && filtro && (
+          <p className="py-8 text-center text-sm text-bee-muted">
+            Ninguém neste recorte parou aí.{" "}
+            <button type="button" onClick={() => setFiltro("")} className="text-bee-pink hover:underline">
+              Ver todos
+            </button>
+          </p>
+        )}
       </div>
 
       {paginas > 1 && (
